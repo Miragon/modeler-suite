@@ -15,7 +15,7 @@ what is in it. A `.board` file is plain text, one JSON line per element.
 | [`board-suite-editors`](apps/editors/)                  | the seven modelers of the suite as such editors, each with its notation's own rules for the text it writes                                                                                                                                                                                                 |
 | [`board-ide-editor`](apps/ide-editor/)                  | the board inside the suite's shell: the menu, the zoom panel and the status box around the board's own toolbar                                                                                                                                                                                             |
 | [`board-modeler`](apps/vscode/)                         | a VS Code extension, a preview: `.board` files in a custom editor, the models of the repository edited in place                                                                                                                                                                                            |
-| [`@miragon/board-webapp`](apps/webapp/)                 | the board on an example repository ([`example/`](example/)) that is held in memory                                                                                                                                                                                                                         |
+| [`@miragon/board-webapp`](apps/webapp/)                 | the board inside the suite's shell as a web page: a start screen, a board of your own, an example repository ([`example/`](example/)) that is held in memory, and the board as a download                                                                                                                  |
 | [`@miragon/board-e2e`](e2e/)                            | Playwright tests of the web app and of the extension's webview                                                                                                                                                                                                                                             |
 
 The board brings no editor of its own. The editors of the models, the images, what the models say
@@ -32,23 +32,30 @@ npm run build:shared      # once
 npm run board dev:webapp  # then http://localhost:5184
 ```
 
-It shows one board with seven models, one per notation of the suite (Wardley Map, Event Storming,
-Team Topology, Context Map, Value Chain, C4 model, Business Model Canvas), each drawn by its own
-modeler as a preview, beside two notes, a group, an arrow and a picture. Double-click a model to
-edit it in place with the modeler's own palette and context pad; Done, or a zoom of the board,
-ends it. An edit is written into that model's own file of the example and never into the board
-file. The Model picker adds another node for a file of the example, and Text, Image and Group
-add to the board. The board and the changed files are kept in this browser's local storage, and
-the link "Reset the example" under the board brings the example back. The storage has the room
-the browser gives one site: a picture it has no room for is drawn until the page is loaded
-again, and the line under the board then says that a picture is missing.
+It starts on a start screen: New diagram gives an empty board, "Open a file…" takes a `.board`
+file from your disk, and Show example opens one board with seven models, one per notation of the
+suite (Wardley Map, Event Storming, Team Topology, Context Map, Value Chain, C4 model, Business
+Model Canvas), each drawn by its own modeler as a preview, beside two notes, a group, an arrow and
+a picture. Double-click a model to edit it in place with the modeler's own palette and context
+pad; Done, or a zoom of the board, ends it. An edit is written into that model's own file of the
+example and never into the board file. The Model picker adds another node for a file of the
+example, and Text, Image and Group add to the board. The example and what you change of it are
+kept in this browser's local storage, and "Reset the example" in the menu brings it back, with an
+Undo. "Export as .board" in the menu, or Ctrl or Cmd + S, downloads the board file. The storage has
+the room the browser gives one site: a picture it has no room for is drawn until the page is
+loaded again, and the status box then says that a picture is missing.
 
-There is no disk behind it: it opens and saves no file or folder of your own. It mounts no shell,
-so there is no menu, no shortcuts dialog and no export, and a modeler in a node is its bare
-renderer: canvas, palette, context pad and popups, without what the modeler's own app adds
-around it. A model is edited at 100 %, so a window narrower than the model shows a part of its
-editor and the board is moved to reach the rest. It is light only. It was run in Chromium alone,
-with the seven models of the example.
+The page is the board inside the suite's shell: the menu at the top left, the zoom panel at the
+bottom right, the status box and the legal line are the shell's, the toolbar is the board's. A
+board that you make new or open from a file has no repository behind it: it takes notes, groups
+and arrows, and a model or a picture it names says in its node that its file is not there.
+
+There is no disk behind the page: it opens one board file and saves by download, and no folder of
+your own. A modeler in a node is its bare renderer: canvas, palette, context pad and popups,
+without what the modeler's own app adds around it. A model is edited at 100 %, so a window
+narrower than the model shows a part of its editor and the board is moved to reach the rest. The
+toolbar fits a window from 400 px; below that its model picker is cut. It is light only. It was run in Chromium alone, with the seven models of the example, and is deployed
+nowhere.
 
 ## The VS Code extension
 
@@ -110,9 +117,16 @@ Still to come before this is a modeler like the others:
 - what the contract's kit asks of a modeler and the board does not have: a viewer, themes, an
   image export and gestures a host can follow. The kit runs with seven of its cases skipped, each
   pinned by name and reason, where the suite's rule for a renderer is none;
-- the web app inside the shell, the Orca plugin, the docs and the third-party notices. The suite's
-  CI cannot pass with this folder in the tree yet: `test/modeler-collection.test.ts` asks for the
-  board in the extension pack and its walkthrough.
+- one chrome: under the shell the board keeps a toolbar of its own, its e2e projects run the
+  board's own specs and not the shell's conformance kit, and its smoke in VS Code runs without
+  three of the driver's steps. [`CLAUDE.md`](CLAUDE.md) records each as a deviation with its end;
+- daily use in VS Code (files that move, saving, the view kept), the Orca plugin, the docs, an icon
+  of its own and a public web app.
+
+The suite's root tests pass with this folder in the tree: until the extension is on a marketplace,
+`test/modeler-collection.test.ts` lists the board as pending its first publish, so the extension
+pack leaves it out. Nothing of the board is published, and no CI run has seen this branch yet: its
+jobs were run on one machine, in the form that machine allows.
 
 [`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it, what the host brings and
 what must not change in passing; the test READMEs of the [renderer](packages/renderer/test/README.md)
@@ -134,3 +148,11 @@ From the repository root: `npm run board lint`, `npm run board test`, `npm run b
 `npm run board format`, `npm run board dev:webapp`, `npm run board build:webapp` with
 `npm run check:build -w modelers/board/apps/webapp` after it, and `npm run board build:vscode`
 and `npm run board package:vscode` for the extension.
+
+Third-party notices are not committed and nothing is regenerated by hand: every build of the
+extension and of the web app writes them from what it bundled (`dist/THIRD_PARTY_NOTICES.md` in
+the extension, `THIRD_PARTY_NOTICES.txt` in the web app). A production build fails when a bundled
+package has no licence text or is under a licence that is not on the list in
+`apps/editors/build/notices.mjs`, or when a source of the suite carries a legal comment that the
+list of copied works there does not answer. `check:build` and `package:vscode` hold the built
+notices against what is in the build.

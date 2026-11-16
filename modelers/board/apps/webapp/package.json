@@ -16,6 +16,8 @@
     "@miragon/board-host": "0.0.0",
     "@miragon/board-renderer": "0.0.0",
     "@miragon/board-schema-model": "0.0.0",
+    "@miragon/modeler-shell": "0.14.2",
+    "board-ide-editor": "0.0.0",
     "board-suite-editors": "0.0.0"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 /**
  * The rows of the board's "Keyboard shortcuts…" dialog. The zoom and fit keys are the shell's
- * and the shell adds them itself; these are the board's own keys and gestures.
+ * and the shell adds them itself; these are the board's own keys and gestures, and in a web app
+ * the two file keys the app binds.
  */
 import {
   commandKeyLabel,
@@ -15,12 +16,31 @@ export interface ShortcutsChrome {
   readonly messages: Pick<ShellMessages, "keyNames" | "shortcutsEdit">;
 }
 
-export function boardShortcuts(chrome: ShortcutsChrome): ShortcutGroup[] {
+/** The label of the board file's download: its menu entry and its row in the dialog. */
+export const BOARD_EXPORT_LABEL = "Export as .board";
+
+export interface BoardShortcutsOptions {
+  /** A web app's own file keys, Cmd/Ctrl+O and Cmd/Ctrl+S, in a File group first. */
+  fileKeys?: boolean | undefined;
+}
+
+export function boardShortcuts(
+  chrome: ShortcutsChrome,
+  options: BoardShortcutsOptions = {},
+): ShortcutGroup[] {
   const { platform, messages } = chrome;
   const { keyNames } = messages;
   const mac = platform === "mac";
   const command = (key: string): string => commandKeyLabel(key, platform, keyNames);
+  const fileGroup: ShortcutGroup = {
+    title: "File",
+    rows: [
+      { action: "Open…", keys: [command("O")] },
+      { action: BOARD_EXPORT_LABEL, keys: [command("S")] },
+    ],
+  };
   return [
+    ...(options.fileKeys === true ? [fileGroup] : []),
     {
       title: messages.shortcutsEdit,
       rows: [

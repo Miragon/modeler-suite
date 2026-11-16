@@ -1,8 +1,9 @@
 /*
  * The board under the suite's shell. The board keeps its own toolbar (Done, the add actions, the
  * model picker, delete, the notices) and the shell brings the menu, the zoom panel and the
- * status box. Three rules make one picture of the two, and they are all this sheet may hold:
- * every other look of the board is the renderer's.
+ * status box. Three rules make one picture of the two in every host, and two more are for what
+ * the shell's web column has and an IDE has not: a legal line under the zoom panel and a start
+ * screen. They are all this sheet may hold: every other look of the board is the renderer's.
  */
 
 /* The toolbar starts where the shell's top row is free of the menu trigger. */
@@ -19,4 +20,21 @@
 .cd-shell .board-root .react-flow__attribution {
   right: var(--cd-shell-rand);
   bottom: calc(var(--cd-shell-rand) + var(--cd-shell-zeile) + var(--cd-shell-luecke));
+}
+
+/* A narrow web app: the zoom panel stands above the legal line, and the attribution above both. */
+.cd-shell[data-cd-shell-host="web"][data-zoom-row="raised"] .board-root .react-flow__attribution {
+  bottom: calc(
+    var(--cd-shell-rand) + var(--modeler-shell-legal-height, 20px) + var(--cd-shell-luecke) +
+      var(--cd-shell-zeile) + var(--cd-shell-luecke)
+  );
+}
+
+/* A web app's start screen shows its card and the legal line alone. The toolbar is work chrome
+   and goes as the shell's own does, its room kept, and with it the word a part of the board
+   shows in its place while it loads: the card is glass, and the word would stand in it. */
+.cd-shell[data-cd-shell-host="web"][data-empty-state="shown"]
+  .board-root
+  :is(.board-toolbar, .board-slot) {
+  visibility: hidden;
 }

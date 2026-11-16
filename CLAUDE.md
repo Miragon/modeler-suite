@@ -1,12 +1,14 @@
 # CLAUDE.md
 
 The Miragon modeler suite: the collaborative-modeler contract `@miragon/modeler-api`, the shared
-chrome `@miragon/modeler-shell`, and the seven modelers built on them (Wardley Maps, Event
-Storming, Team Topologies, Context Maps, Value Chain, C4 model, Business Model Canvas). Each
-modeler is one notation on
+chrome `@miragon/modeler-shell`, and the modelers built on them: seven notations (Wardley Maps,
+Event Storming, Team Topologies, Context Maps, Value Chain, C4 model, Business Model Canvas) and
+the board. Each of the seven is one notation on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): DOM-free model packages, a renderer, a
-web app and a VS Code extension. One npm workspace, one lockfile, one pre-commit hook; every package
-keeps its own version, npm name and extension id.
+web app and a VS Code extension. The board is a canvas of a repository's own files on
+[React Flow](https://github.com/xyflow/xyflow) (MIT) that shows the models of the seven in place;
+it is **in progress and unpublished**. One npm workspace, one lockfile, one pre-commit hook; every
+package keeps its own version, npm name and extension id.
 
 The rules below hold everywhere. **Before working in a modeler, read its `CLAUDE.md`** for what is
 special to its notation (packages, DSL or file format, renderer architecture, tests).
@@ -24,7 +26,8 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 | `modelers/value-chain`            | Value Chain, `.vc` / `.vc.json`                                                                                                                                                  | [CLAUDE.md](modelers/value-chain/CLAUDE.md)                                                                                                           |
 | `modelers/c4`                     | C4 model, `.c4` / `.dsl` (Structurizr DSL, read and written losslessly)                                                                                                          | [CLAUDE.md](modelers/c4/CLAUDE.md)                                                                                                                    |
 | `modelers/business-model-canvas`  | Business Model Canvas, `.bmc` (YAML: the nine blocks and their stickies)                                                                                                         | [CLAUDE.md](modelers/business-model-canvas/CLAUDE.md)                                                                                                 |
-| `extensions/modeler-collection`   | the VS Code extension pack of every Miragon modeler, `miragon-modeler-collection`                                                                                                | `test/modeler-collection.test.ts`                                                                                                                     |
+| `modelers/board`                  | The board, `.board` (one JSON line per element), on React Flow: a canvas of a repository's own files. **In progress, unpublished**                                               | [CLAUDE.md](modelers/board/CLAUDE.md)                                                                                                                 |
+| `extensions/modeler-collection`   | the VS Code extension pack of every published Miragon modeler, `miragon-modeler-collection`                                                                                      | `test/modeler-collection.test.ts`                                                                                                                     |
 | `plugins/modeler-kit`             | Claude plugin: the `new-modeler` skill and its template                                                                                                                          | [README](plugins/modeler-kit/README.md)                                                                                                               |
 | `.claude-plugin/marketplace.json` | the suite's one Claude plugin marketplace (`modeler-suite`)                                                                                                                      |                                                                                                                                                       |
 | `.miragon/brand.json`             | the suite's one brand-lint config (see [Design system](#design-system-mandatory))                                                                                                |                                                                                                                                                       |
@@ -36,7 +39,7 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 Each modeler folder holds `packages/` (its npm libraries), `apps/webapp`, `apps/vscode`, `e2e/`
 (Playwright), `example/`, `docs/`, its `README.md`, `CLAUDE.md`, `CONTRIBUTING.md` and
 `.claude/rules/`. Its `package.json` is the private workspace `@miragon/<modeler>-modeler-workspace`
-whose scripts run that modeler's checks.
+whose scripts run that modeler's checks. The board has no `docs/` yet.
 
 ## Commands
 
@@ -45,11 +48,11 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - Setup: `npm ci`, then `npm run build:shared`. The modelers link `@miragon/modeler-api` and
   `@miragon/modeler-shell` from this workspace and read their `dist`, so build them again after
   changing them. Wardley Maps, Event Storming, Value Chain and C4 also resolve their own packages
-  from `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies, Context Maps
-  and Business Model Canvas consume their packages from source.
+  from `dist` in their unit tests: `npm run <modeler> build` first. Team Topologies, Context Maps,
+  Business Model Canvas and the board consume their packages from source.
 - One modeler: `npm run <modeler> <script>` with the aliases `wardley-maps`, `event-storming`,
-  `team-topologies`, `context-maps`, `value-chain`, `c4`, `business-model-canvas` (e.g.
-  `npm run wardley-maps test`). All seven: `npm run modelers <script>`. One workspace:
+  `team-topologies`, `context-maps`, `value-chain`, `c4`, `business-model-canvas`, `board` (e.g.
+  `npm run wardley-maps test`). All eight: `npm run modelers <script>`. One workspace:
   `npm run <script> -w <name or path>`. A flag
   after an alias never reaches the script, since npm takes it for an option of its own: npm 10
   and 11 (Node 22, 24 and 26) drop it and run the whole script, npm 11 after a warning; npm 12
@@ -61,10 +64,10 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   fail the run).
 - Per modeler: `build`, `build:webapp`, `build:vscode`, `package:vscode`, `typecheck`, `lint`
   (ESLint + type check), `test` (Vitest unit), `test:browser` (Vitest in Chromium, the contract's
-  conformance kit), `test:e2e` (Playwright: the web app and the VS Code webview, the shell's kit),
-  `test:vscode` and `test:vscode:docker` (the packed extension in a real VS Code), `depcruise`,
-  `format`, `format:check`, `dev:webapp`, `dev:webapp:plain` (not in value-chain and
-  business-model-canvas, whose `dev:webapp` is plain Vite), `dev:vscode`.
+  conformance kit), `test:e2e` (Playwright: the web app and the VS Code webview, the shell's kit;
+  in the board its own specs instead), `test:vscode` and `test:vscode:docker` (the packed extension
+  in a real VS Code), `depcruise`, `format`, `format:check`, `dev:webapp`, `dev:webapp:plain` (not
+  in value-chain, business-model-canvas and board, whose `dev:webapp` is plain Vite), `dev:vscode`.
 - Root: `npm run build` (shared, modelers, apps), `npm test` (shared packages, plugin drift test,
   every modeler's unit tests), `npm run lint`, `npm run typecheck`, `npm run format` /
   `format:check`, `npm run depcruise`, `npm run publint`, `npm run test:plugin`,
@@ -96,33 +99,45 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   | Value Chain           | `schema-model`                      |
   | C4 model              | `schema-model`, `dsl`, `layout`     |
   | Business Model Canvas | `schema-model`, `dsl`               |
+  | Board                 | `schema-model`, `files`             |
 
   ESLint (`no-restricted-imports` / `no-restricted-globals`) and dependency-cruiser enforce it, so a
   violation fails `npm run <modeler> lint` and `npm run <modeler> depcruise`. Both configs come from
   the presets in `tooling/`; a modeler names its DOM-free packages once, in `modelerSuite` of its
   `package.json`, and adds only its own rules. `test/modeler-boundaries.test.ts`
   (`npm run test:plugin`) runs every modeler's configs against these rules. The renderer and the
-  apps are the DOM side. Keep each DSL round-trip lossless and each JSON serialization
-  deterministic.
+  apps are the DOM side, and so is the board's `host` package. Keep each DSL round-trip lossless and
+  each JSON serialization deterministic.
 
 - **Contract.** Every renderer implements `@miragon/modeler-api`
   (`createCollaborativeModeler` / `createCollaborativeViewer` in
   `packages/renderer/src/collaborative/`) and runs its conformance kit in `test:browser`; a skipped
-  case or an advisory fails the run. The DOM-free packages may import the contract's **types only**.
-  The contract has no runtime dependencies; its laws, versioning and the rule for a new kit case are
-  in [packages/api/README.md](packages/api/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
+  case or an advisory fails the run. The board deviates, with an end: it ships no viewer and binds
+  the kit with seven pinned skips ([its guide](modelers/board/CLAUDE.md#tests)). The DOM-free
+  packages may import the contract's **types only**. The contract has no runtime dependencies; its
+  laws, versioning and the rule for a new kit case are in
+  [packages/api/README.md](packages/api/README.md) and [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Shell.** Only the apps (`apps/webapp`, `apps/vscode`) and the `e2e/` suites import
   `@miragon/modeler-shell`; **no package under `modelers/*/packages/` does** (ESLint and
   dependency-cruiser). A renderer hands the chrome structurally typed parts (menu entries, dialogs,
   legend rows, a read-only lock) and never the shell's own types. Both apps of every modeler mount
   the shell and run its conformance kit in the e2e projects `webapp` (`chromium` in Context Maps)
-  and `vscode-webview`. The shell itself has zero runtime dependencies and a DOM-free `src/core`;
+  and `vscode-webview`. The board deviates, with an end: under the shell it keeps a toolbar of its
+  own, and its e2e projects run the board's own specs, not the kit
+  ([its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end)). The
+  shell itself has zero runtime dependencies and a DOM-free `src/core`;
   `packages/shell/test/package-boundaries.test.ts` enforces both.
 - **Shared code changes reach every modeler at once.** The modelers pin the workspace's current
   `@miragon/modeler-api` and `@miragon/modeler-shell` and npm links them, so a change in
-  `packages/` is live in all seven: rebuild (`npm run build:shared`) and run the affected modelers'
+  `packages/` is live in all eight: rebuild (`npm run build:shared`) and run the affected modelers'
   `test:browser` (contract) or `test:e2e` (shell) before pushing, and `npm run test:browser:shared`
   (the shell's `./export` and palette skin in Chromium and WebKit) after a change to the shell.
+- **A change to a modeler reaches the board.** `modelers/board/apps/editors` is the one workspace
+  that imports other modelers: it bundles the seven renderers from source, and the board's tests
+  read the other modelers' example files and the suffixes their VS Code extensions open. A change
+  under a modeler's `packages/` or `example/`, or to its `apps/vscode/package.json`, therefore runs
+  the board's jobs in CI as well (`.github/scripts/ci-paths.sh`): run the board's unit and browser
+  tests before pushing one ([its guide](modelers/board/CLAUDE.md#commands) says how).
 
 ## Dependencies
 
@@ -140,9 +155,9 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   (`webapp`, `vscode`) declare it as an exact `dependency`. Neither npm nor pin-check notices a peer
   range that rejects those exact versions; the peer-dependency tests of the Wardley Maps, Event
   Storming, Context Maps and C4 renderers do. Details per modeler in its
-  `.claude/rules/package-json-fixed-versions.md`. Business Model Canvas has no ranged peers: every
-  one of its workspaces is `private` and publishes nothing to npm, so no host dedupes its packages,
-  and the apps bundle them from source with exact `dependencies` only.
+  `.claude/rules/package-json-fixed-versions.md`. Business Model Canvas and the board have no ranged
+  peers: every one of their workspaces is `private` and publishes nothing to npm, so no host dedupes
+  their packages, and the apps bundle them from source with exact `dependencies` only.
 - The toolchain (TypeScript, Vitest, tsup, Vite, ESLint, Prettier, Playwright, …) is pinned once in
   the root `package.json`, with `overrides` for `vite` and `@types/node`; a workspace declares only
   what it alone needs. Keep `@playwright/test` in the `e2e` workspaces and `playwright-core` in
@@ -161,7 +176,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - **Conventional Commits**, checked on the PR title: `feat`, `fix`, `chore`, `docs`, `refactor`,
   `ci`, `build`, `test`, `revert`. The scope names the area: a modeler (`wardley-maps`,
   `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`,
-  `business-model-canvas`), `api`, `shell` or `plugin`, e.g.
+  `business-model-canvas`, `board`), `api`, `shell` or `plugin`, e.g.
   `feat(wardley-maps): add an inertia decorator`.
 - **Every commit is GPG-signed** (`git commit -S`); after rewriting history, sign again
   (`git rebase -S`).
@@ -191,11 +206,13 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
 
 - Each renderer vendors the skill's `cd-tokens.generated.css`, `cd-tokens.generated.json` and
   `cd-canvas.css` unchanged into `modelers/<modeler>/packages/renderer/src/theme/`, the shell into
-  `packages/shell/fixtures/tokens/`. Never edit, reformat (they are Prettier-ignored) or fork a hex
-  value: re-copy them with the `miragon-brand` plugin's `scripts/brand-assets.mjs`, which reads
+  `packages/shell/fixtures/tokens/`. The board's renderer vendors the two token files only, without
+  `cd-canvas.css`. Never edit, reformat (they are Prettier-ignored) or fork a hex value: re-copy
+  them with the `miragon-brand` plugin's `scripts/brand-assets.mjs`, which reads
   `.miragon/brand-assets.yaml`, and run the drift tests (`theme.sync`, `tokens.sync`).
-- The chrome of both apps is the shell's; a renderer's own CSS reads only the `--cd-ui-*` roles
-  and the mode-independent tokens (radii, shadows, motion). The one fixed value is guide §8's fill
+- The chrome of both apps is the shell's (the board keeps a toolbar of its own beside it, see
+  [Boundaries](#boundaries)); a renderer's own CSS reads only the `--cd-ui-*` roles and the
+  mode-independent tokens (radii, shadows, motion). The one fixed value is guide §8's fill
   of a primary and a destructive button: `--cd-blau` (hover `--cd-blau-link`) and `--cd-danger`,
   with `--cd-weiss` text in both modes, as the dialogs of Wardley Maps, Team Topologies, Context
   Maps and C4 use it. The canvas draws light, exports stay light.

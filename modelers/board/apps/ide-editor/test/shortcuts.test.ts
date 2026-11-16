@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { chromeShortcutRows, defaultMessages } from "@miragon/modeler-shell/core";
-import { boardShortcuts } from "../src/shortcuts.js";
+import { BOARD_EXPORT_LABEL, boardShortcuts } from "../src/shortcuts.js";
 
 const rowsFor = (platform: "mac" | "other"): Record<string, readonly string[]> => {
   const groups = boardShortcuts({ platform, messages: defaultMessages });
@@ -45,6 +45,36 @@ describe("the rows of the board's shortcuts dialog", () => {
     expect(group?.rows.find((row) => row.action === "Select with a box")?.keys).toEqual([
       "Umschalt+drag",
     ]);
+  });
+
+  it("have no File group where the host owns the file: an IDE binds those keys itself", () => {
+    for (const options of [undefined, {}, { fileKeys: false }, { fileKeys: undefined }]) {
+      const groups = boardShortcuts({ platform: "other", messages: defaultMessages }, options);
+      expect(groups.map((group) => group.title)).toEqual(["Edit"]);
+    }
+  });
+
+  it("list a web app's two file keys first, the download under its menu label", () => {
+    const chrome = { platform: "other" as const, messages: defaultMessages };
+    const groups = boardShortcuts(chrome, { fileKeys: true });
+
+    expect(groups.map((group) => group.title)).toEqual(["File", "Edit"]);
+    expect(groups[0]?.rows).toEqual([
+      { action: "Open…", keys: ["Ctrl+O"] },
+      { action: "Export as .board", keys: ["Ctrl+S"] },
+    ]);
+    expect(BOARD_EXPORT_LABEL).toBe("Export as .board");
+    // the board's own rows are the ones a host without file keys gets
+    expect(groups[1]).toEqual(boardShortcuts(chrome)[0]);
+  });
+
+  it("name the file keys as a Mac has them", () => {
+    const [file] = boardShortcuts(
+      { platform: "mac", messages: defaultMessages },
+      { fileKeys: true },
+    );
+
+    expect(file?.rows.map((row) => row.keys)).toEqual([["⌘O"], ["⌘S"]]);
   });
 
   it("leave the zoom and fit keys to the shell, which adds them itself", () => {

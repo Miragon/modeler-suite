@@ -1,8 +1,9 @@
 /**
- * What the web app keeps in this browser: the board's text and every file of the example a
- * person changed or added. There is no disk behind the app, so this is all that outlives a
- * reload. A blocked or full storage (private mode, a policy, a quota) never stops the app: a
- * save answers false and the changes stay in the page.
+ * What the web app keeps in this browser: of the example the board's text and every file a
+ * person changed or added, and which document was open, the example or a board of its own.
+ * There is no disk behind the app, so this is all that outlives a reload. A blocked or full
+ * storage (private mode, a policy, a quota) never stops the app: a save answers false and the
+ * changes stay in the page.
  */
 import { fromBase64, isNewAssetPath, toBase64, type MemoryFile } from "@miragon/board-files";
 import { isNodeAttrs, parseBoardText } from "@miragon/board-schema-model";
@@ -33,9 +34,37 @@ export interface AppStorage {
   forgetPictures(shown: ReadonlySet<string>): void;
   /** forgets everything kept: the next start shows the example */
   reset(): void;
+  /** everything kept of the example as it is now, for `restore`: the way back from a reset */
+  snapshot(): KeptExample;
+  /** puts a snapshot in the place of what is kept; answers whether the browser took all of it */
+  restore(snapshot: KeptExample): boolean;
+}
+
+/** What is kept of the example, by the storage's own keys. Opaque to whoever holds it. */
+export type KeptExample = Readonly<Record<string, string>>;
+
+/** What is open in the page: the example's repository, or a board with no repository behind it. */
+export type OpenDocument =
+  | { readonly kind: "example" }
+  | {
+      readonly kind: "board";
+      /** the name of the file it was opened from; undefined for a board that was made new */
+      readonly name?: string | undefined;
+      readonly text: string;
+    };
+
+export interface OpenStorage {
+  /** what was open when the page went: undefined for nothing, and for a value of another shape */
+  read(): OpenDocument | undefined;
+  /** answers whether the browser took it */
+  keep(document: OpenDocument): boolean;
+  /** nothing is open: the next start shows the start screen */
+  forget(): boolean;
 }
 
 const PREFIX = "miragon-board-example:";
+// Outside the example's prefix: the reset forgets the example's changes, not what is open.
+const OPEN_KEY = "miragon-board:open";
 const BOARD_KEY = `${PREFIX}board`;
 const TEXT_PREFIX = `${PREFIX}text:`;
 const BYTES_PREFIX = `${PREFIX}bytes:`;
@@ -155,5 +184,49 @@ export function createAppStorage(store: KeyValueStore, example: ExampleRepositor
         for (const key of keptKeys(store)) store.removeItem(key);
       }, undefined);
     },
+    snapshot: () =>
+      guarded(
+        () =>
+          Object.fromEntries(
+            keptKeys(store).flatMap((key) => {
+              const value = store.getItem(key);
+              return value === null ? [] : [[key, value]];
+            }),
+          ),
+        {},
+      ),
+    restore: (snapshot) =>
+      guarded(() => {
+        for (const key of keptKeys(store)) store.removeItem(key);
+        for (const [key, value] of Object.entries(snapshot)) store.setItem(key, value);
+        return true;
+      }, false),
+  };
+}
+
+function openDocumentOf(value: string | null): OpenDocument | undefined {
+  if (value === null) return undefined;
+  const parsed: unknown = JSON.parse(value);
+  if (typeof parsed !== "object" || parsed === null) return undefined;
+  const { kind, name, text } = parsed as Record<string, unknown>;
+  if (kind === "example") return { kind };
+  if (kind !== "board" || typeof text !== "string") return undefined;
+  return { kind, text, ...(typeof name === "string" ? { name } : {}) };
+}
+
+/** Which document is open, kept under one key of its own beside the example's. */
+export function createOpenStorage(store: KeyValueStore): OpenStorage {
+  return {
+    read: () => guarded(() => openDocumentOf(store.getItem(OPEN_KEY)), undefined),
+    keep: (document) =>
+      guarded(() => {
+        store.setItem(OPEN_KEY, JSON.stringify(document));
+        return true;
+      }, false),
+    forget: () =>
+      guarded(() => {
+        store.removeItem(OPEN_KEY);
+        return true;
+      }, false),
   };
 }

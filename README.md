@@ -38,8 +38,8 @@ in a text editor, or let your AI assistant write it.
 | [C4 model](modelers/c4/README.md)                                 | `.c4`, `.dsl` (Structurizr DSL)                       | [c4.modeler.miragon.io](https://c4.modeler.miragon.io)                                       | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.c4-modeler) · [Open VSX](https://open-vsx.org/extension/miragon-gmbh/c4-modeler)                           |
 | [Business Model Canvas](modelers/business-model-canvas/README.md) | `.bmc` (YAML: the nine blocks and their stickies)     | [business-model-canvas.modeler.miragon.io](https://business-model-canvas.modeler.miragon.io) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.business-model-canvas-modeler)                                                                             |
 
-Every modeler except C4 is also an [Orca](https://www.onorca.dev) plugin (Orca 1.4.252 or later):
-search for **Miragon** in Settings → Plugins, or see
+Every modeler above except C4 is also an [Orca](https://www.onorca.dev) plugin (Orca 1.4.252 or
+later): search for **Miragon** in Settings → Plugins, or see
 [Miragon/orca-plugins](https://github.com/Miragon/orca-plugins#install). Each modeler's README
 covers its features, its file format and its npm packages.
 
@@ -48,6 +48,13 @@ covers its features, its file format and its npm packages.
 > Open one of the web apps above and start from its built-in example. Or install the
 > [Miragon Modeler Collection](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection)
 > in VS Code and open any of the files above: the modeler opens as a custom editor.
+
+### In progress: the board
+
+[The board](modelers/board/README.md) is an eighth modeler: a canvas of a repository's own files
+(`.board`), on which the models above are shown and edited in place, each saved in its own file,
+next to notes, images, groups and arrows. It is not released yet: there is no public web app, its
+VS Code extension is on no marketplace and not in the extension pack, and it has no Orca plugin.
 
 ## With your AI assistant
 
@@ -103,7 +110,8 @@ implement them, not affiliated with or endorsed by their authors.
   the modeler carries that attribution. The hints are Miragon's own. This project is not affiliated
   with or endorsed by Strategyzer AG.
 
-The canvases are built on [diagram-js](https://github.com/bpmn-io/diagram-js) by bpmn.io (MIT).
+The canvases are built on [diagram-js](https://github.com/bpmn-io/diagram-js) by bpmn.io (MIT),
+the board's on [React Flow](https://github.com/xyflow/xyflow) by xyflow (MIT).
 
 ## License
 

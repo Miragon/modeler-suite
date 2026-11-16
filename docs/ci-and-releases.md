@@ -26,13 +26,14 @@ other run is ever cancelled or replaced.
 The first job, `changes` (`.github/scripts/ci-paths.sh affected`), compares the change with its base
 commit and decides which jobs it can break:
 
-| Changed path                                                                                                                                                                                      | Runs                                                  |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `modelers/<m>/**`                                                                                                                                                                                 | the jobs of modeler `<m>` and its smokes              |
-| `packages/**`, `.github/workflows/{ci,vscode-smoke,orca-smoke}.yml`, `.github/{actions,scripts}/**`, any other root file                                                                          | the shared jobs, the template job and every modeler   |
-| `plugins/modeler-kit/**`, `modelers/event-storming/packages/renderer/src/theme/**`                                                                                                                | the template job (and, for the theme, Event Storming) |
-| `docs/**`                                                                                                                                                                                         | the docs job                                          |
-| `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`, every other file under `.github/` | nothing but the always-on jobs                        |
+| Changed path                                                                                                                                                                                      | Runs                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modelers/<m>/**`                                                                                                                                                                                 | the jobs of modeler `<m>` and its smokes                                                                                                                |
+| `modelers/<m>/packages/**`, `modelers/<m>/example/**`, `modelers/<m>/apps/vscode/package.json`                                                                                                    | also the jobs of the board, which bundles the other modelers' packages from source and reads their example files and the suffixes their extensions open |
+| `packages/**`, `.github/workflows/{ci,vscode-smoke,orca-smoke}.yml`, `.github/{actions,scripts}/**`, any other root file                                                                          | the shared jobs, the template job and every modeler                                                                                                     |
+| `plugins/modeler-kit/**`, `modelers/event-storming/packages/renderer/src/theme/**`                                                                                                                | the template job (and, for the theme, Event Storming)                                                                                                   |
+| `docs/**`                                                                                                                                                                                         | the docs job                                                                                                                                            |
+| `modelers/<m>/docs/**`, Markdown at the root or at the top of a modeler, `LICENSE`, `plugins/**`, `test/**`, `extensions/**`, `.claude-plugin/**`, `.husky/**`, every other file under `.github/` | nothing but the always-on jobs                                                                                                                          |
 
 Markdown elsewhere is no documentation here: skills under `modelers/<m>/plugins/` feed drift tests,
 and a package or an extension ships its README. The always-on jobs read the rest: the
@@ -147,6 +148,14 @@ changelog and a tag on every release: `business-model-canvas-schema-model`, `-ds
 `-ide-editor`, `-vscode` (Marketplace and Open VSX), `-webapp` (nothing) and `-orca` (the catalog
 for Orca, its `extra-files` move `orca-plugin.json`). Each starts with `initial-version` 0.1.0;
 remove that key once the components have been released.
+
+The board (`modelers/board`), which is in progress and unpublished, **publishes nothing to npm**
+either: every one of its workspaces is `private`, and its web app and VS Code extension bundle its
+packages, and the other modelers' renderers, from source. Its eight components get a version, a
+changelog and a tag on every release: `board-schema-model`, `-renderer`, `-files`, `-host`,
+`-editors`, `-ide-editor`, `-vscode` (Marketplace and Open VSX) and `-webapp` (nothing: the board has
+no Netlify site). It has no Orca plugin. Each starts with `initial-version` 0.1.0; remove that key
+once the components have been released.
 
 - **The squash title decides.** A pull request lands as one commit whose message is its title and
   description; the title's type decides the bump (`feat` minor, `fix` patch, before 1.0 a breaking

@@ -9,16 +9,20 @@ lays out HTML nodes that hold whole editors.
 
 **Work in progress.** The board was built and measured in designIQ (`apps/web/src/notations/board`
 there, at commit `ce12684`), and its canvas was moved here as it was measured. The move is done and
-was reviewed. Of the apps around the board two increments are in the tree. The first is a web app
-that shows an example repository in memory, with the seven modelers of the suite as the editors of
-its model nodes. The second is a VS Code extension: a `.board` file opens in a custom editor inside
+was reviewed. Of the apps around the board three increments are in the tree. The first is a web
+app that shows an example repository in memory, with the seven modelers of the suite as the editors
+of its model nodes. The second is a VS Code extension: a `.board` file opens in a custom editor inside
 the suite's shell, and the models of the workspace are edited in place through VS Code's own text
 documents. It packs into a VSIX. The extension was built against stand-ins for VS Code and then
 run in a real one, in the suite's Docker runner: its smoke passes there on VS Code 1.146.0 and on
 1.96.0, and what the code takes for granted about VS Code was walked through item by item, with
-what was seen under [Taken for granted about VS Code](#taken-for-granted-about-vs-code).
-[State of the port](#state-of-the-port) says what is in the tree, what was run on it and what is
-still to come.
+what was seen under [Taken for granted about VS Code](#taken-for-granted-about-vs-code). The third
+increment brought what the suite's CI asks of a modeler and nothing of the product beyond it: the
+web app inside the suite's shell, the third-party notices of both builds, the extension's papers,
+eight release components, and the board's place in the root's tests, documents and path rule.
+Nothing of the board is published and no pull request is open.
+[State of the port](#state-of-the-port) says what is in the tree, what was run on it, what a merge
+would publish and what is still to come.
 
 This modeler is `modelers/board` in the Miragon modeler suite. The suite's
 [`CLAUDE.md`](../../CLAUDE.md) holds the rules for every modeler (setup, commands, commits and
@@ -39,9 +43,14 @@ modelers of the suite as the editors of model nodes), `apps/webapp` on the examp
 `example/`, and `e2e/` with the project `webapp`. With the second: `apps/ide-editor` (the board
 inside the suite's shell), `apps/vscode` (the extension, a host half in Node and a webview half),
 the webview test page `e2e/webview` with the project `vscode-webview`, and a files port that is fit
-for a disk (`PROTOCOL` 2). Neither increment changed a file of `packages/renderer/src` or
-`packages/schema-model/src`. 61 unit files with 1147 tests, 24 browser files with 825 tests, 19
-Playwright tests, and the smoke of the extension in a real VS Code.
+for a disk (`PROTOCOL` 2). With the third: the web app inside the shell's web column (a start
+screen, a board that is made new or opened from a file, the example, the board as a download), the
+third-party notices of both builds, written by the build from what it bundled
+(`apps/editors/build/notices*.mjs`), the extension's README, CHANGELOG and icon, and in the root
+the eight release components, the entry in `PENDING_FIRST_PUBLISH`, the path rule `reaches_board`
+and the board's rows and sentences in the suite's documents. No increment changed a file of
+`packages/renderer/src` or `packages/schema-model/src`. 69 unit files with 1321 tests, 24 browser
+files with 850 tests, 25 Playwright tests, and the smoke of the extension in a real VS Code.
 
 Read the browser count by what it stands on. 662 tests are the renderer's: 297 run the arm rules on
 a bench of fakes (73 scripts, each run once and read by four tests, plus five), 82 hold static
@@ -52,8 +61,9 @@ them can fail when a preview takes real input or when the pointer math of an arm
 That is held outside the renderer, with real mouse and keyboard input (`commands.realInput`): 66
 tests of `packages/host` (8 of the command itself, 58 on a stand-in modeler of the contract that
 draws boxes, alone and on the real board), 53 of `apps/editors` (49 with the seven real modelers on
-a board, 2 for the order of their sheets, 2 for the watch the battery ends every test on), 14 of
-`apps/webapp` and 30 of `apps/ide-editor` (the board under the shell's real `mountShell`).
+a board, 2 for the order of their sheets, 2 for the watch the battery ends every test on), 32 of
+`apps/webapp` and 37 of `apps/ide-editor` (the board under the shell's real `mountShell`, in the
+IDE column and in the web column).
 
 **After the move, a review.** Seven reviewers looked for what is wrong with the moved board. What
 they found is fixed and under a test, or stands under [Deferred](#deferred) as it was measured.
@@ -69,48 +79,65 @@ runs only under `BoardProvider`); `placeHost` takes the board's log and `createI
 `callEditor`, and `gestures/images.ts` exports `setBoardEnded`, which the factory's `destroy()`
 calls.
 
-**What was run, and what was not.** On the machine the second increment of the apps was integrated
-on (the Miragon agent VM), with the tree as it stands:
+**What was run, and what was not.** On the machine the third increment of the apps was integrated
+and closed on (the Miragon agent VM, Node 24.22.3, with CI's Node 22 line as 22.23.5), with the
+tree as it stands:
 
-- `npm run board lint`, `test` (61 files, 1147 tests), `depcruise` (no violation, with and without
-  a built web app in the tree, and with a built extension) and `format:check` pass; so do the root
-  tests `test/modeler-boundaries.test.ts` and `test/release-config.test.ts` (82 tests), and the
-  checksums of the theme files verify.
-- The whole browser project passes through the local sandbox config (24 files, 825 tests each; see
-  [Commands](#commands)).
-- Both e2e projects pass through the local Playwright sandbox config, on the dev servers they
-  start: `webapp` (2 tests) and `vscode-webview` (17 tests, two of them on the production bundle,
-  which the spec builds itself).
-- `npm run board build:webapp` and the web app's `check:build` pass. `npm run board build:vscode`
-  and `package:vscode` pass and write `apps/vscode/board-modeler.vsix`: 19 files, 1.01 MB (see
-  [The webview half](#the-webview-half-srcwebview)).
+- `npm run board lint`, `test` (69 files, 1321 tests), `depcruise` (no violation) and
+  `format:check` pass; so do the root's `npm run test:plugin` whole (14 files, 313 tests) and
+  `npm run format:check`, and the checksums of the theme files verify. The commands of CI's job
+  `modeler-check (board)` also pass on Node 22.23.5, in CI's order and from a tree without the
+  board's build output.
+- The whole browser project passes through the local sandbox config, five runs in a row (24 files,
+  850 tests each; see [Commands](#commands)), and once more on Node 22.
+- Both e2e projects pass through the local Playwright sandbox config, three runs each on the dev
+  servers they start: `webapp` (8 tests) and `vscode-webview` (17 tests, two of them on the
+  production bundle, which the spec builds itself). Each also passes with CI's settings (`CI=1`:
+  one worker, two retries, servers of its own), on Node 24 and on Node 22, with no test retried,
+  and `webapp` passes against the built app.
+- `npm run board build:webapp` and the web app's `check:build` pass, the notices among what it
+  holds. `npm run board build:vscode` and `package:vscode` pass and write
+  `apps/vscode/board-modeler.vsix`: 23 files, 1.03 MB, with the notices check on `dist` and on the
+  VSIX as its last step (see [The webview half](#the-webview-half-srcwebview)).
 - **The extension ran in a real VS Code**, inside the suite's Docker runner, which the owner
   allowed on that machine for exactly this. The smoke passes on VS Code 1.146.0, on 1.96.0 (the
   manifest's minimum) and with a VSIX packed beforehand
   ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)). What the code takes
-  for granted about VS Code was walked through there on both versions, with real input, a real
-  folder and a probe in the extension host: most of it holds, and where VS Code does something
-  else the code and the fake were changed (what a file watcher names for a folder, a paste, the
-  first fit of a board that is covered, the document of a deleted file). The list has each item
-  with its outcome, and what the runner could not reach
-  ([Taken for granted about VS Code](#taken-for-granted-about-vs-code)). After the closing
-  round's two changes of the host half the smoke passed there once more, on VS Code 1.146.0 and
-  on a snapshot of the tree as it stands. And the way to a VSIX from a checkout was run there
-  once: on a snapshot with no built file in it, `npm ci`, `npm run build:shared` and
-  `npm run board package:vscode` gave a VSIX, and the smoke passed with that file.
+  for granted about VS Code was walked through there on both versions with the second increment,
+  with real input, a real folder and a probe in the extension host: most of it holds, and where VS
+  Code does something else the code and the fake were changed (what a file watcher names for a
+  folder, a paste, the first fit of a board that is covered, the document of a deleted file). The
+  list has each item with its outcome, and what the runner could not reach
+  ([Taken for granted about VS Code](#taken-for-granted-about-vs-code)). With the third
+  increment's tree the smoke passed there again on VS Code 1.146.0 and on 1.96.0, each on a
+  snapshot with no built file in it: the runner's `npm ci`, then the smoke, which packs the VSIX
+  itself.
+- For the seven other modelers the commands of `modeler-check` pass on this branch's lockfile
+  (lint, the cruise, the build, the unit tests, the web app's build with its check, the VSIX), on
+  Node 22.23.5 and for Context Maps on 24.22.3. None of their sources differs from `main`.
+- The docs site builds with the board's row and paragraph in `docs/ci-and-releases.md`: the three
+  commands of CI's `docs` job (`npm ci` in `docs/`, the check of the vendored kit, the build with
+  `DOCS_BASE`) passed inside the Docker runner's container on a snapshot of the tree, run by the
+  review of the third increment and again when the increment was closed. On the machine itself
+  only the kit's check ran, since `docs/` is an npm project of its own that is not installed
+  there.
 - No Chromium command line outside a container carried `--no-sandbox` in any sample of the process
-  table taken during these runs, nor in any that the parts of the second increment took while they
-  were built; the processes of VS Code inside the runner's container carry the flag, and were
-  counted apart by their cgroup. While the work packages of the first increment ran side by side,
-  one system-wide sample showed 160 of 448 Chromium command lines with the flag. The run it came
-  from was not found; a sample attributed by parent chain to the board's own runs at that time had
-  none.
+  table taken during these runs, nor in any that the parts of the second and the third increment
+  took while they were built; the processes of VS Code inside the runner's container carry the
+  flag, and were counted apart by their cgroup. While the work packages of the first increment ran
+  side by side, one system-wide sample showed 160 of 448 Chromium command lines with the flag. The
+  run it came from was not found; a sample attributed by parent chain to the board's own runs at
+  that time had none.
 - Not run: `npm run board test:browser` and `test:e2e` with the committed configs (that machine
   must not start Chromium without its sandbox), `npm run board test:vscode` outside the Docker
-  runner, CI, brand-lint (the `miragon-brand` plugin was not on that machine), designIQ's
-  batteries, any browser but Chromium, and VS Code on macOS or Windows. The web app was opened by
-  tests and by the review below, which drove it with Playwright; the owner has opened neither the
-  web app nor the extension.
+  runner, CI, brand-lint (the `miragon-brand` plugin was not on that machine), the other
+  modelers' browser, e2e, VS Code and Orca jobs, designIQ's batteries, any browser but Chromium,
+  and VS Code on macOS or Windows. The web app was opened by tests, by the review of the first
+  increment, by the integration of the third and by its review, each of which drove it with
+  Playwright and read its screenshots (the start screen, the example, a Wardley map edited in
+  place, a new board, the reset in the address over a kept board with its offer, a board opened
+  from a single file, the shortcuts dialog, windows of 600, 400, 360 and 320 px); the owner has
+  opened neither the web app nor the extension.
 
 **A review of the first increment.** After the first increment was integrated, an independent
 reviewer ran its gate again, drove the web app with Playwright's mouse and keyboard (the dev server
@@ -131,9 +158,10 @@ its own file written and never the board's. What the review found:
 - **Under a test now**, where this guide had said without one: a zoom of the board as the end of an
   edit for all seven modelers, a second node on one file, and a change from outside while a real
   editor is armed ([Real editors, as measured](#real-editors-as-measured)).
-- **Named and not changed:** the notices the web app's build lacks, an armed editor in a window
-  narrower than its node, and the invalid line's advice in a host that has no editor for the file
-  (The web app; the line's text is the host's since the second increment). What a page may reach
+- **Named and not changed:** the notices the web app's build lacked (written by the build since
+  the third increment), an armed editor in a window narrower than its node, and the invalid line's
+  advice in a host that has no editor for the file (The web app; the line's text is the host's
+  since the second increment). What a page may reach
   inside the repository's root was named as the owner's to settle; the lead of the second increment
   decided it, and it is built (The files port).
 
@@ -166,46 +194,114 @@ found:
   status box stands under the shell, what the smoke's window is to VS Code, and, in the
   extension's README, which files a board lists and reaches.
 
-**CI and the root scripts with this branch.** The suite has no state for a modeler that is not
-complete: a pull request with this branch cannot pass `ci-ok`, and on `main` the branch would fail
-every later pull request. By a reading of the workflows (and, before the apps, a run of
-`ci-paths.sh`), not by a CI run:
+**A review of the third increment.** After the third increment was integrated, an independent
+reviewer played CI from the workflow files in a scratch clone of the tree: every job's commands
+that start no browser on Node 22.23.5, and the board's again after a real `npm ci` inside the
+Docker runner's container; the browser project and both e2e projects through copies of the
+sandbox configs, also on 2 and on 4 cores with a cold cache, in the committed config's
+two-project shape and with other fallback fonts; the smoke in the runner on VS Code 1.146.0 and
+1.96.0, also on a VSIX packed beforehand; and the docs site's build in the runner's container. It
+held the root's additions against 34 made-up diffs and against single edits, drove the built web
+app with Playwright's mouse and keyboard (all seven models edited in place, nine odd files from a
+disk, a board of 1500 notes, and a reset, an open and a reload in the middle of an edit),
+measured the notices again from the source maps and from esbuild's metafile, and held 27
+sentences of this guide against the tree. None of its scripts is in the tree. It found nothing
+that would fail a job of CI. What it found:
 
-- `shared-test` fails in `npm run test:plugin`. With `apps/vscode/package.json` in the tree
-  `test/modeler-collection.test.ts` is collected again, so its guard for the seven published
-  extensions is back, and two of its 18 tests fail: `packs miragon-gmbh.board-modeler` ("expected [
-  …(9) ] to include 'miragon-gmbh.board-modeler'") and `walks through miragon-gmbh.board-modeler`
-  ("expected [] to have a length of 1 but got +0"). The board is neither in the extension pack with
-  a walkthrough step nor in `PENDING_FIRST_PUBLISH`. Nothing else fails in that script (13 files
-  and 305 tests pass here). The job runs for every pull request, a docs-only one too. That file and
-  every other root file are the next increment's to change.
-- `modeler-check (board)` has every script it calls (`lint`, `depcruise`, `build`, `test`,
-  `build:webapp`, the web app's `check:build`, `package:vscode`), and each passes here.
-  `vscode-smoke (board)` calls `test:vscode` under `xvfb-run` on VS Code stable and on the
-  manifest's minimum: the smoke passes on both in the Docker runner, and the job itself has not
-  run. `modeler-test-browser (board)`
-  and `modeler-e2e (board)` run the committed browser and Playwright configs, which nobody has run:
-  the machine the apps were built on runs both only through local configs that keep Chromium's
-  sandbox. The committed Playwright config has two projects and two `webServer` entries, and the
-  spec of the shipped bundle reads `packages/shell/dist` and builds the extension itself.
-- After a merge a change of the lockfile reaches every modeler, so every Dependabot pull request
-  runs the board's failing job.
-- The board is in the root `modelers` alias: `npm test` stops in `test:shared` before any modeler's
-  unit tests run.
+- **Fixed, each under a test.** `?reset` in the address replaced a kept board of the person's own
+  with the example and offered nothing back: that board is offered back now, as any replaced
+  board is ([The web app](#the-web-app-and-the-example-appswebapp-example-e2e)). The notices
+  check asked no section of a copied work: it asks one of every copied work its evidence names
+  ([The suite's editors](#the-suites-editors-appseditors)). The extension's README said that the
+  extension is on no marketplace, in a file the VSIX carries onto a marketplace's listing: it
+  says nothing of where the extension is published now, and a test holds that
+  ([The webview half](#the-webview-half-srcwebview), the papers).
+- **Named and not changed.** Nothing in the tree holds a publish back once the branch is on
+  `main`; the change that would is written down below, under "Nothing keeps an unfinished modeler
+  from being published". Below 400 px the board's toolbar runs out of the window, the toast after
+  Show example lies over the lower row of models while it shows, and a model node whose file
+  could not be opened can still be armed (The web app, Known and not cured). The web app's
+  notices check holds no package that brings only a sheet or a font and no work that is copied
+  into a sheet (The suite's editors). No root test holds that a component at 0.0.0 names an
+  `initial-version` ([Deferred](#deferred)).
+- **Corrected here**, two sentences that said the docs site's build had run nowhere.
 
-Business Model Canvas and C4 each arrived complete in one pull request. Either this branch stays
-off `main` until the apps exist, or the suite gets one in-progress marker that `ci-paths.sh`, the
-root `modelers` alias and `test/modeler-collection.test.ts` all read: the owner's to settle.
+**CI with this branch.** With the third increment the tree has what the suite's CI asks of a
+modeler, by a reading of the workflows and by a run of each job's commands in the form that
+machine allows, not by a CI run: no pull request is open.
+
+- `board` is in `PENDING_FIRST_PUBLISH` of `test/modeler-collection.test.ts`: the extension is on
+  no marketplace, so the extension pack and its walkthrough leave it out, and the pull request
+  after the first publish adds the pack entry and the walkthrough step and takes the board off
+  that list. `npm run test:plugin` passes whole, so `shared-test` and the root's `npm test` no
+  longer stop at the board.
+- For this branch as a pull request `ci-paths.sh affected` reaches everything (`shared`,
+  `template` and `docs` true, all eight modelers, the six with an Orca plugin), because the branch
+  changes the lockfile, the root manifest, the release config and `ci-paths.sh` itself: every job
+  of `ci.yml` runs, 69 with the matrices, five of them the board's (`modeler-check`,
+  `modeler-test-browser`, `modeler-e2e`, and `vscode-smoke` on the newest stable VS Code and on
+  the manifest's minimum). No workflow lists modelers by hand: the matrices come from
+  `ci-paths.sh`, which reads `modelers/*/package.json` and, for Orca, each
+  `apps/orca/orca-plugin.json`. The board has none, so it is in no Orca matrix, and nothing asks
+  for a `netlify.toml`. Once on `main` the board's smoke also runs every Monday
+  (`smoke-weekly.yml`).
+- What a first CI run shows, because nothing on that machine can: the committed browser and
+  Playwright configs in the Playwright image (Chromium without its sandbox, as root, with that
+  image's browsers and fonts); the smoke on the runner image under
+  `xvfb-run`; Node 22.22.2 exactly; `pin-npm-dependencies` and the dependency review as actions;
+  CodeQL, to which every file of the board is new; and the seven other modelers' browser, e2e, VS
+  Code and Orca jobs, the shell's browser and e2e jobs and the three template jobs on this
+  branch's lockfile. Against `main` that lockfile adds entries and moves no version another
+  modeler installs. What stood in for the two actions, in the review of the third increment: the
+  pin action's rules, read at its pinned commit, held against all 87 manifests (exact versions
+  only), and npm's advisory endpoint asked about the 31 third-party packages the lockfile adds,
+  which named no advisory on 2026-11-15. The plan expects two to four rounds.
+
+**What a merge publishes.** Nothing at the merge itself: `release-please.yml` puts the board into
+the suite's one release pull request, `chore: release main`. A squash title of the type `feat` or
+`fix` counts for every component whose files the commit touches, so all eight are proposed at
+0.1.0, their `initial-version`. When a maintainer merges that release pull request, release-please
+tags the eight (`board-<component>-v0.1.0`) and creates a GitHub release for each, and
+`release-plan.mjs` lists what lies at or below a released path. Run for the board's eight paths it
+printed: npm none (every workspace is `private`), Orca none (there is no `orca-plugin.json`), and
+one extension, `board-modeler`. `build / vscode (board-modeler)` then builds and packs the VSIX
+and runs the smoke on it; after one approval of the environment `vscode-marketplace`, which is one
+for every extension of that release, the VSIX goes to the VS Code Marketplace as
+`miragon-gmbh.board-modeler` 0.1.0, and the Open VSX job fails until a namespace owner has
+published that VSIX once by hand and registered the trusted publisher
+(`docs/ci-and-releases.md`). The web app is deployed nowhere, and the extension pack is unchanged.
+By a reading of the workflow and the docs and a run of `release-plan.mjs`; no release was run.
+
+**Nothing keeps an unfinished modeler from being published.** `release-plan.mjs` has no opt-out:
+it publishes every workspace with `engines.vscode` at or below a released component, and
+`test/release-config.test.ts` asks a component of every such workspace. `private` in the
+extension's manifest does not stop `vsce`, `preview` is a label on the Marketplace page, and
+`PENDING_FIRST_PUBLISH` only keeps the extension out of the pack. A squash title that releases
+nothing (`chore`, `docs`, `refactor`) only delays it: the `node-workspace` plugin gives a component
+a patch release when a component it pins releases, and the board's components pin the contract,
+the shell and thirteen packages of the other seven modelers, so the next release of any of them
+would release the board's extension too (by a reading of the plugin, not run). Between a merge and
+the Marketplace stand the maintainer who merges the release pull request, the approval of the
+environment and the smoke on the VSIX. So the branch stays off `main` until the owner wants the
+extension published; the plan's recommendation is after the increment of daily use in VS Code.
+A hold in the tree is a root change of two files and the owner's to make. One was tried in a
+scratch copy of the root and is not in the tree: `release-plan.mjs` names the extensions that are
+held back (`board-modeler`) and leaves them out of the `vscode` matrix except in the dry run, with
+three cases in `test/release-workflow.test.ts` that run the script. Run that way for the board's
+eight paths the plan printed no extension. The components then still get their versions, tags and
+changelogs with every release, and no VSIX is built or published until the name is taken off the
+list. What the tree does hold: the README that the VSIX carries says nothing of where the
+extension is published, so it reads true on a listing as well.
 
 **Still to come:** the owner's own walk with the VSIX, and what the walk in the runner did not
-reach; the web app inside the shell through `apps/ide-editor`; the Orca plugin, `docs/`, a README per package, the third-party notices of the
-web app and of the extension, the extension's CHANGELOG and icon, and the root files a modeler
-arrives with: the board's rows in the suite's `CLAUDE.md` (paths, aliases, the DOM-free table, the
-commit scopes) and its sentences that are untrue with the board in the tree ("all seven", "one
-notation on diagram-js", "a skipped case or an advisory fails the run"), the root `CONTRIBUTING.md`
-and `README.md`, the issue templates, the release-please components of the workspaces but
-`apps/vscode`, `.miragon/product-shots.yaml`, the docs site, `netlify.toml` and the entry in the
-modeler collection.
+reach; daily use in VS Code (files that move, the saving rule, the view kept, a Problems entry,
+New Board commands, a notice in words for a dropped edit, the picker leaving links out, a budget
+for new files and reads); one chrome, the end of the
+[three deviations](#three-deviations-under-the-shell-each-with-an-end); the Orca plugin, `docs/`
+and the board's page on the docs site, a README per package, `.miragon/product-shots.yaml` with
+the store images, `netlify.toml` and a site, a folder of the person's own behind the web app, an
+icon of the board's own, and, after the first publish, the entry in the modeler collection with
+its walkthrough step.
 
 **Without a test**: the gestures and behaviours the test README lists under "Without a test",
 among them the group that takes a dragged node, the resize of a model and of an image node, and
@@ -233,7 +329,7 @@ imports one.
 | `board-suite-editors` (`apps/editors`)  | The seven modelers of the suite as the editors of a board's model nodes: the suffix table (`./suffixes`, plain data without an import, for a host in Node), the registry `SUITE_EDITORS` (`.`), the shared sheet base (`./base`), `./zod-jitless` for a page under a CSP without eval, and the build helpers (`./build/*`). The one workspace of the board that imports another modeler |
 | `board-ide-editor` (`apps/ide-editor`)  | The board inside the suite's shell for an IDE host: `mountBoardEditor(host, options)` (`.`) and the sheet that makes one picture of the shell's chrome and the board's toolbar (`./app.css`). It imports the shell and is handed its editors: no source of it imports `apps/editors`                                                                                                    |
 | `board-modeler` (`apps/vscode`)         | The VS Code extension `miragon-gmbh.board-modeler` (a preview, `engines.vscode` `^1.96.0`): the custom editor `board.boardEditor` for `*.board`. Its host half is every source outside `src/webview` and runs in Node; `src/webview` is the page, bundled into one script and one sheet                                                                                                 |
-| `@miragon/board-webapp` (`apps/webapp`) | The board on the example repository `example/`, held in memory: a Vite app on port 5184 (strict)                                                                                                                                                                                                                                                                                        |
+| `@miragon/board-webapp` (`apps/webapp`) | The board inside the shell's web column: a start screen, a board that is made new or opened from a file, the example repository `example/` held in memory, and the board as a download; a Vite app on port 5184 (strict)                                                                                                                                                                |
 | `@miragon/board-e2e` (`e2e`)            | Playwright, with the projects `webapp` and `vscode-webview`, and the webview test page (`e2e/webview`, a Vite page on port 5194, strict)                                                                                                                                                                                                                                                |
 
 - **Boundaries.** `schema-model` and `files` are the DOM-free packages
@@ -288,12 +384,15 @@ imports one.
   [The second increment of the apps against its plan](#the-second-increment-of-the-apps-against-its-plan)):
   yes, in `apps/editors` and nowhere else, kept so by `packages-no-other-modeler`. `apps/vscode`
   bundles the editors through `apps/editors` and names no other modeler itself. If the answer is
-  no, what goes is the 13 pins of `apps/editors/package.json` on the other modelers, 26 of the 28
-  `extra-files` entries the first increment added (all but the two for `packages/host`'s pin on the
-  contract), the rule's exception for `apps/editors`, and with them the notation modules, their
+  no, what goes is the 13 pins of `apps/editors/package.json` on the other modelers, the 15
+  `extra-files` entries under the other modelers' components that name `apps/editors` (the
+  lockfile's copy of each pin, and the manifest's as well for the two on Team Topologies), the
+  rule's exception for `apps/editors`, the path rule of CI, and with them the notation modules,
+  their
   battery and every model the web app and the extension draw: `apps/webapp` takes `SUITE_EDITORS`
-  and `board-suite-editors/base` in `src/app.ts`, the suffix table in `src/reach.ts` and
-  `test/example.test.ts` and the three build helpers in `vite.config.ts`; `apps/vscode` takes the
+  in `src/session.ts`, `board-suite-editors/base` in `src/app.ts`, the suffix table in
+  `src/reach.ts` and `test/example.test.ts` and the build helpers in `vite.config.ts` and
+  `scripts/check-build.mjs`; `apps/vscode` takes the
   suffix table in its host half, `SUITE_EDITORS`, the base and `zod-jitless` in its webview, and
   `webviewBundle` in its build; the test page `e2e/webview` takes the build helpers.
 - **Dependencies.** Exact pins and no ranged peers while nothing is published (the Business Model
@@ -303,28 +402,42 @@ imports one.
   thirteen packages of the other modelers (the seven renderers and the six packages its text rules
   call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
   `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`) beside
-  `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its two
-  `extra-files` entries in `release-please-config.json`: `test/release-config.test.ts` names each
-  missing one, and a further pin on a workspace package is a manifest line, an `npm install` and
-  the two entries that test then asks for. The tests of `apps/editors` import
+  `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its
+  `extra-files` entries in `release-please-config.json` (see the release components below).
+  The tests of `apps/editors` import
   `@miragon/board-files`, `@miragon/board-renderer` and `@miragon/board-schema-model` without a
   line in its manifest; they resolve through the workspace links, as the test-only imports of the
   other modelers' `e2e` workspaces do, and no check asks for more. So do the browser test of
   `apps/ide-editor` (`board-suite-editors`) and the test page and specs of `e2e`
   (`@miragon/board-files`, `board-ide-editor` and files of `apps/vscode` and `apps/webapp`).
-  `apps/ide-editor`, `apps/vscode` and `e2e` pin the shell (0.14.2), each with its `extra-files`
-  entries under `packages/shell` (two per pin for a workspace that is no release component, its
-  `package.json` and the lockfile; one, the lockfile's, for `apps/vscode`). `apps/editors` has
-  `esbuild` as a devDependency, for the test of its bundle options. `apps/vscode` is the board's
-  one release component so far (`board-vscode`, `initial-version` 0.1.0, at 0.0.0 in the manifest):
-  `test/release-config.test.ts` asks one of every workspace with `engines.vscode`, and the
-  components of the other workspaces are the owner's to confirm in the next increment. Its
-  devDependencies are what the smoke and the VSIX need: `@vscode/vsce`, `@vscode/test-electron`,
+  `apps/ide-editor`, `apps/vscode`, `apps/webapp` and `e2e` pin the shell (0.14.2), and
+  `apps/vscode` and `apps/webapp` pin `board-ide-editor`. `apps/editors` has `esbuild` as a
+  devDependency, for the test of its bundle options and for the notices tests. The devDependencies
+  of `apps/vscode` are what the smoke and the VSIX need: `@vscode/vsce`, `@vscode/test-electron`,
   `playwright-core` on the root's `playwright` version, and `@types/vscode` 1.96.0, equal to the
   `engines.vscode` floor, which vsce checks. There must be one copy each of `yjs`, `react`,
   `react-dom` and `@xyflow/react` under this modeler: the store tells its elements by
   `instanceof Y.Map`, and a second React breaks every hook. `test/single-copy.test.ts` reads the
   lockfile for it, the job ranged peers do in the published modelers.
+- **Release components.** Eight, in the Business Model Canvas pattern, one per workspace the
+  extension or the web app bundles: `board-schema-model`, `board-renderer`, `board-files`,
+  `board-host`, `board-editors` (`apps/editors`), `board-ide-editor`, `board-vscode` and
+  `board-webapp`, each with `initial-version` 0.1.0 and at 0.0.0 in
+  `.release-please-manifest.json` and in its `package.json`. `e2e` and the workspace root are no
+  components. The eight carry 28 `extra-files` entries: a component's version in the lockfile and
+  the lockfile's copy of every pin on it; the pins in the manifests are moved by release-please's
+  `node-workspace` plugin, since both ends are components. Under other components 22 entries name
+  a workspace of the board: the lockfile's copy of the two pins on the contract (the renderer's
+  and the host package's) and of the three pins of `apps/ide-editor`, `apps/vscode` and
+  `apps/webapp` on the shell; both entries, manifest and lockfile, for the shell pin of `e2e`,
+  which is no component; and for the thirteen pins of `apps/editors` on the other modelers the
+  lockfile's copy of each, with the manifest's as well for the two on Team Topologies, whose
+  packages are no components of their own. `test/release-config.test.ts` names every missing or
+  stale one: a further pin on a workspace package is a manifest line, an `npm install` and the
+  entry that test then asks for. No workspace but the extension has a `CHANGELOG.md`:
+  release-please writes each with the component's first release. Remove `initial-version` once
+  the components have been released. What a release of them publishes is under
+  [State of the port](#state-of-the-port).
 - **A bump is a change of what was measured.** A new version of `@xyflow/react`, `react`,
   `react-dom`, `yjs`, `markdown-it` or `dompurify` falls under
   [the rule of this port](#the-rule-of-this-port-moved-as-measured). The suite's Dependabot
@@ -1081,6 +1194,66 @@ all the same and gets no fit and no focus.
   the helper fail it. A build that imports the shell prints esbuild's `ignored-bare-import` warning
   for the shell's own chunks (four in a webview bundle, one in a host bundle), as every modeler's
   does: a warning is no failed build there.
+- **The notices (`build/notices.mjs`, `notices-build.mjs`, `notices-check.mjs`).** A build of the
+  board carries the seven renderers and whatever they bundle, so its third-party notices are no
+  list kept by hand and no committed file, where the seven other modelers commit
+  `apps/vscode/THIRD_PARTY_NOTICES.md` and regenerate it with `npm run notices`: the build writes
+  them from the files that went into it. `composeNotices({ product, files, outputs })` takes the
+  absolute paths a bundler names and gives the text, the licence files to write beside a bundle,
+  and what is wrong. A file belongs to the last `node_modules/<name>` on its path (so
+  `preact/hooks` is preact) or, outside `node_modules`, to the nearest workspace of the suite.
+  Every package of npm gets a section `## name version (licence)` with every licence, notice and
+  copying file of its folder; the workspaces of the suite stand in one last section under the
+  LICENSE they share, without versions, so a release changes nothing. Three things no bundler sees
+  are said in the module: `INLINED_BY_UPSTREAM` (dagre's published build has graphlib inside),
+  `COPIED_WORKS` (Lucide, Material Icons and Tailwind's preflight, each found by a mark in the
+  bundled sources of the suite, with the legal comments those sources carry) and `SHIPPED_LICENCES`
+  (0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, OFL-1.1: what the bundles hold today
+  plus 0BSD. Nothing in the suite names an allowed list and CI's dependency review runs with its
+  defaults, so this list is the board's own and the owner's to confirm). A package offered under
+  several licences is taken under the first one on the list, and its section says so (DOMPurify,
+  `MPL-2.0 OR Apache-2.0`: Apache-2.0). `writeBundleNotices` is esbuild's way (the metafile: every
+  input with a byte in an output, and every font), `noticesPlugin` Vite's (the modules of the
+  chunks, the sources of the emitted assets, and what the sheets import, which Vite inlines and
+  names nowhere). The two texts under `build/licences/` are the Apache License as Context Maps
+  keeps it and the LICENSE of tailwindcss 4.3.5, the version `board-base.css` names.
+- **What stops a production build** of the extension or of the web app, each with a line that
+  names it: a bundled package under a licence that is not on the list, or without a licence file; a
+  legal comment (`/*!`, `@license`, `@preserve`) in a bundled source of the suite that no entry of
+  `COPIED_WORKS` answers; a licence file that a bundle names and that lies beside no bundled file.
+  The C4 chunk keeps dagre's comment "For license information please see
+  dagre.esm.js.LEGAL.txt", so that file is written beside the script that names it. The third
+  reason reaches the other modelers: a renderer that adds such a comment for a new copied work
+  fails the board's builds until `COPIED_WORKS` has an entry for it (a mark, a sentence, and its
+  licence text: an installed package of the same work, or a file under `build/licences/`). With the
+  path rule of CI that shows in the pull request that adds it ([Commands](#commands)).
+- **The check (`build/notices-check.mjs`).**
+  `checkBuildNotices(directory, { fileName, bundled, works })` reads a build and fails for three
+  reasons: a script or sheet names a licence file the build does not hold beside it; a package
+  that is in the build, or a work that is copied into one of its sources, has no section; or a
+  section, a bundled package or a copied work stands under a licence that is not on the list or
+  not its own. Which packages and which copied works are in the build is evidence the caller
+  brings and never the notices themselves. The extension's check measures its two production
+  bundles again in memory, which names every input, a sheet and a font among them. The web app's
+  reads the build's source maps, and for the copied works the sources of the suite those maps
+  name, so a work that a source names in a plain comment, which no bundle keeps, is found. Maps
+  name scripts only: the web app's check holds no package that brings only a sheet or a font and
+  no work that is copied into a sheet (the two Geist packages and Tailwind's preflight). Those
+  are held when the build is made, not afterwards. A build without maps and without a measurement
+  does not pass. Both checks are in CI's chain: the web app's in its `check:build`, the
+  extension's behind `package:vscode`.
+- **Named for the owner, and not in the notices.** The Business Model Canvas layout is CC BY-SA
+  3.0 (Strategyzer AG): its renderer draws the attribution on every canvas and the extension's
+  README names it, and the notices have no section for it, as Business Model Canvas's own have
+  none. `path-intersection` (MIT) ships a NOTICE that its code is derived from Snap.svg (Adobe,
+  Apache-2.0), which the board's notices quote. Three renderers say in a plain comment, not a
+  legal one, that they carry copied icon geometry (Event Storming and Team Topologies for Lucide,
+  Wardley Maps for its Material Icons paths): the marks of `COPIED_WORKS` find them by the words of
+  those comments. Without a kept test: the direct run of the extension's `esbuild.config.mjs` and
+  of `scripts/check-notices.mjs` as wholes (their parts are tested, and both were run on real and
+  on tampered builds), a source map with a `sourceRoot`, an unquoted `@import url(...)`, and
+  Windows paths. 41 single edits of the generator, its two bundler ways, the check and the VSIX
+  reader were tried by the part that built them: each fails at least one test.
 - **Without a test:** a notation's first fit at any size but 800 x 508 and 420 x 508; the left
   inset of C4 and Business Model Canvas against a narrow node; a label editor, a popup or a held
   drag open at Done or at a zoom; an edit by the palette or the context pad; a change from outside
@@ -1101,55 +1274,134 @@ all the same and gets no fit and no focus.
 
 ## The web app and the example (`apps/webapp`, `example/`, `e2e/`)
 
-The web app shows `modelers/board/example` as a repository in memory. It mounts no shell and has
-no menu and no drop zone of its own: the board's toolbar is its only chrome. It keeps the board
-and the changed files in the browser's local storage; there is no disk behind it.
+The web app is the board inside the suite's shell, in the shell's web column, mounted through
+`mountBoardEditor` of `apps/ide-editor` as the VS Code webview mounts it. One document is open at a
+time: the example (`modelers/board/example` as a repository in memory), or a board that was made
+new or opened from a file, which has no repository behind it. There is no disk behind the page:
+what is open, and what a person changed of the example, is kept in the browser's local storage,
+and a board leaves as a download. The board keeps its toolbar beside the shell's menu and zoom
+panel, as in VS Code
+([Three deviations under the shell](#three-deviations-under-the-shell-each-with-an-end)). There is
+no drop zone: the board takes a dropped picture itself.
 
-- **`startApp(root, { storage, search })`** (`src/app.ts`; `src/main.ts` calls it with
-  `window.localStorage`, or a store in memory where the browser blocks its own, and
-  `location.search`). It gives `root` the class `board-page` and two children:
-  `div.board-page__board`, which the board is attached to, and `footer.board-page__note` with one
-  status line (`.board-page__kept`, `role="status"`; `data-warning` on the footer) and the link
-  "Reset the example" (`href="?reset"`, a plain navigation). It builds `createMemoryBackend` from
-  the example and what is kept, wraps it (`src/keeping.ts`) so that every write the backend took
-  and every new file is kept, then `connectBackend` with the page's rule `REACH` (`src/reach.ts`:
-  the suffixes of the suite's table as models, `PICTURE_SUFFIXES` as pictures; `example.test.ts`
-  holds that every file of the example is reached, a model as a text and a picture as bytes),
-  `createFilesHost({ files, editors: SUITE_EDITORS, invalidText })` and
-  `createCollaborativeModeler({ host })`, imports the kept board text or the example's, and keeps
-  the board text on every `onContentChanged`. It returns `{ modeler, ready, destroy() }`. No test
-  holds that `startApp` hands `REACH` and not another rule to `connectBackend`: with the example's
-  files the difference cannot be seen from the page.
+- **`startApp(root, { storage, search, komet })`** (`src/app.ts`; `src/main.ts` calls it with
+  `window.localStorage`, or a store in memory where the browser blocks its own, `location.search`
+  and the address of `public/miragon-komet-blau.svg`, and publishes the app as
+  `globalThis.__boardApp`, for the console and the e2e suite). It returns
+  `{ ready, editor(), shown(), settled(), destroy() }`. `editor()` is the `BoardEditor` of the open
+  document: another one after New, Open, Show example and a reset, and a throw in the moment
+  between two documents. `shown()` is `"example"` or `"board"`. `settled()` resolves once
+  everything asked of the page so far is done. Every document gets an editor of its own, because
+  the files a board reaches are fixed when the board is made: the page ends the open editor
+  (`editor.destroy()`, then `files.settled()`, then `files.dispose()`) and mounts the next into the
+  same element, one thing after another on a queue. `destroy()` returns a promise and ends the same
+  way, so an editor's last write is kept before its files go; it takes the page's file input and
+  listeners away and puts the page's title back.
+- **The parts.** `web-host.ts` (`webEditorHost(document, column)`: the three members
+  `mountBoardEditor` asks of a host. `canvasOwnsHistory` is true. `mountShell` mounts the shell
+  with `host: "web"`, the File group, the legal line, the start screen and the page's own Model and
+  Export entries. `connectDocument` hands over the page's one text at the mount and tells every
+  change of the board back as its text; a text the board refuses is replaced by `fallback` where
+  the page gives one, as the example does, and stays refused and locked where not). `column.ts`
+  (`webColumn`: what goes into the shell's web column). `session.ts` (`mountExample`, `mountBoard`:
+  one open document with its editor, its files and its line for the status box). `actions.ts` (the
+  start, New, Open, Show example, Reset the example, the download). `page.ts` (the hidden file
+  input `input[data-board-app="open"]`, the two file keys, the model picker). `board-file.ts` (the
+  download's name, a file as a board text, `holdsNothing`, `namesFiles`). `no-repository.ts` (the
+  files of a board without a repository). `storage.ts`, `keeping.ts`, `reach.ts` and `example.ts`
+  are as the first increment built them, with `createOpenStorage`, `snapshot()` and `restore()`
+  added to the storage.
+- **The start.** The document of the last visit is opened again without a word (key
+  `miragon-board:open`: `{ kind: "example" }` or `{ kind: "board", name?, text }`, outside the
+  example's prefix, so a reset of the example leaves it). Without one the page shows the shell's
+  start screen ("Board Modeler", "Start a new diagram, or explore the example.", the Miragon mark
+  from `public/`, New diagram, Show example and the link "Open a file…" with its key) over a new,
+  empty board that is mounted already: New diagram only leaves the card and hands the board the
+  keys. The sentence and the button are the shell's shared terms, so the card says "diagram" where
+  the thing is a board. A kept board text that is no board any more also ends on the start screen,
+  with the toast "Couldn't restore the board of your last visit. Start a new board or open a
+  file."; the text stays under its key until another board is kept. `?reset` in the address forgets
+  what is kept of the example and opens it, and `main.ts` then takes it out of the address. Where
+  the visit would have opened a board of the person's own, the request replaces that board like
+  Show example does, so the toast "Board replaced" offers it back with Undo; a kept text that is
+  no board is not offered, and the example takes its key.
+- **The shell's column.** File: New diagram, Open… (Ctrl or Cmd + O), Show example. Model, for the
+  example only: "Reset the example" (`reset-example`, enabled on a locked board too). Export:
+  "Export as .board" (`export-board`, Ctrl or Cmd + S). Help: "Keyboard shortcuts…", whose dialog
+  lists the two file keys in a group File. The legal line carries a GitHub link to
+  `modelers/board`. The page binds the two keys itself, on the window in the capture phase, since a
+  note that is being typed stops its keys on the way up. Ctrl or Cmd + S first leaves a text field,
+  so the note that is being typed is in the file, and does nothing on the start screen. The
+  download's name is the opened file's, `example.board` for the example and `untitled.board` for a
+  board that was made new; a toast says "Exported <name>." The page's title is
+  `<file name> · Board Modeler`, and `Board Modeler` for a board without a file.
+- **Replacing asks nothing and offers back.** New, Open and Show example replace the open document
+  at once. A board that holds an element is kept as text and offered back by a toast "Board
+  replaced" with Undo, until the first change of what replaced it. The example needs no offer: its
+  changes stay in the browser. "Reset the example" offers what was kept of the example back the
+  same way ("Example reset", Undo; `AppStorage.snapshot()` and `restore()`).
+- **A board without a repository** (made new, or opened from a file). Its files are
+  `connectBackend(noRepository(), REACH)`: the list is empty, a text is refused with the page's
+  sentence, bytes are not there, a new file is refused. A model node reads, through the host
+  package's state for a file that could not be opened, "This file could not be opened. This board
+  was opened as a single file. Its models are files of the repository it came from, and this page
+  has only the board." An image node shows the missing-file figure ("No such file in the
+  repository"). A picked, pasted or dropped picture gets the board's notice "<name> was not added:
+  this board has no repository to keep a picture in. Show the example to try pictures on a board."
+  The model picker offers nothing, and it is the renderer's, so the page says why in a toast when a
+  person goes to it, by a press or by the keyboard: "This board has no repository behind it, so
+  there is no model to add. Show the example to try models on a board." A file that names a model
+  or a picture is opened with the warning "“<name>” was opened as a single file: the models and
+  pictures of its repository are not shown." The empty-file hint reads "Add a note or a group from
+  the toolbar to start." A file that is no board leaves the open board as it is: "Couldn't read
+  “<name>”. <the reader's reason>. Check that it is a .board file." The board is kept with its
+  file's name on every change; a board without an element is not kept, so a reload shows the start
+  screen again.
+- **The example** (what Show example opens, and what the web app was before the third increment):
+  `createMemoryBackend` from the folder and what is kept, wrapped (`src/keeping.ts`) so that every
+  write the backend took and every new file is kept, `connectBackend` with the page's rule `REACH`
+  (`src/reach.ts`: the suffixes of the suite's table as models, `PICTURE_SUFFIXES` as pictures;
+  `example.test.ts` holds that every file of the example is reached, a model as a text and a
+  picture as bytes), and the seven editors of `SUITE_EDITORS`. After Show example a toast says "The
+  example repository is kept in this browser. “Reset the example” in the menu starts it over." Its
+  lasting lines stand in the shell's status box, with the severity warning: "This browser did not
+  keep all of your changes: its storage is blocked or full." (for the rest of the page's life, for
+  a board without a repository too), "A picture of this board is missing: this browser did not keep
+  it." (until that node is removed) and "The board kept in this browser could not be read. This is
+  the example." (until the first gesture replaces the kept text). No test holds that the page hands
+  `REACH` and not another rule to `connectBackend`: with the example's files the difference cannot
+  be seen from the page.
 - **The sheets** are imported by name in `src/app.ts`, in this order:
-  `@miragon/board-renderer/assets/board.css`, `board-suite-editors/base` (diagram-js's sheet and
-  the canvas mapping once, then the host package's `embed.css`), `./page.css`. Each renderer's
-  own sheet comes with the chunk of its notation. `page.css` makes `html`, `body` and
-  `.board-page` a column that fills the window, the board above the one line. Nothing above the
-  board carries a transform, a filter, a perspective, `contain` or `will-change`, and a test
-  walks the ancestors. `index.html` has `data-cd-theme="light"` on `<html>`.
-- **Storage (`src/storage.ts`).** Keys `miragon-board-example:board`,
-  `miragon-board-example:text:<path>` and `miragon-board-example:bytes:<path>` (JSON
-  `{ mime, base64 }`). The example's own text is kept by removing the key, so a change that was
-  undone leaves nothing behind. A kept entry that fits no file of the example is left out: a text
-  for a path the example does not have, bytes outside `assets/<name>` or over a file of the
-  example, a value of another shape. A kept board text the board refuses is answered with the
-  example and the line "The board kept in this browser could not be read. This is the example.";
-  the kept text stays until the first gesture replaces it. `?reset` in the address forgets every
-  key of the prefix before the app starts, and `main.ts` then takes it out of the address. Two tabs
-  on one storage are not told apart: the last write wins.
+  `@miragon/modeler-shell/shell.css`, `@miragon/board-renderer/assets/board.css`,
+  `board-suite-editors/base` (diagram-js's sheet and the canvas mapping once, then the host
+  package's `embed.css`), `board-ide-editor/app.css`. The fonts are imported in `main.ts`, and each
+  renderer's own sheet comes with the chunk of its notation. The app has no sheet of its own: the
+  shell's own-document rules size the page. `index.html` has `class="cd-shell-document"` and
+  `data-cd-theme="light"` on `<html>`, links `public/favicon.svg` (the official Miragon icon, the
+  bytes Business Model Canvas's web app links, until the board has a modeler icon of its own) and
+  carries the marker `<!-- miragon-mode -->`, which `vite.config.ts` replaces with the shell's
+  `webHeadMarkup`: one theme-color from the renderer's vendored tokens and the contrast line.
+  Nothing above the board carries a transform, a filter, a perspective, `contain` or `will-change`,
+  and a test walks the ancestors.
+- **Storage (`src/storage.ts`).** The open document is under `miragon-board:open`. The example is
+  under `miragon-board-example:board`, `miragon-board-example:text:<path>` and
+  `miragon-board-example:bytes:<path>` (JSON `{ mime, base64 }`). The example's own text is kept by
+  removing the key, so a change that was undone leaves nothing behind. A kept entry that fits no
+  file of the example is left out: a text for a path the example does not have, bytes outside
+  `assets/<name>` or over a file of the example, a value of another shape. A kept board text of
+  the example that the board refuses is answered with the example and the line above; the kept
+  text stays until the first gesture replaces it. Two tabs on one storage are not told apart: the
+  last write wins.
 - **Pictures and the room of the storage.** A picture is kept when it is stored, and its node may
   go a moment later. Within one life of the page an undo brings the node back, so the bytes stay;
-  at the next start the app forgets every kept picture that no image node of the kept board shows
-  (`picturesOf`, `forgetPictures`; a kept text that is no board forgets nothing). Before that the
-  storage only grew: a review picked a picture twice and removed its node twice, and both files
-  were still kept after a reload, for a board that showed neither, with the reset as the one way to
-  free them. A storage that throws never stops the app: the save answers false and the line reads
-  "This browser did not keep all of your changes: its storage is blocked or full." for the rest of
-  the page's life, whatever a later save does. A picture the browser had no room for is drawn until
-  the page goes; after a reload its node shows the missing-file figure and the line reads "A
-  picture of this board is missing: this browser did not keep it.", until that node is removed. The
-  room is the browser's and the app names no number: in Chromium a review saw a PNG of 4.3 MiB
-  drawn and not kept, about 3.7 MB of pictures for one site.
+  when the example is next mounted the app forgets every kept picture that no image node of the
+  kept board shows (`picturesOf`, `forgetPictures`; a kept text that is no board forgets nothing).
+  A storage that throws never stops the app: the save answers false and the status box says so for
+  the rest of the page's life, whatever a later save does. A picture the browser had no room for is
+  drawn until the page goes; after a reload its node shows the missing-file figure and the status
+  box names it, until that node is removed. The room is the browser's and the app names no number:
+  in Chromium a review of the first increment saw a PNG of 4.3 MiB drawn and not kept, about 3.7 MB
+  of pictures for one site.
 - **The example (`src/example.ts`)** is the folder through `import.meta.glob`: `example.board`
   and `models/**` as `?raw` text, `assets/**/*.svg` as `?raw` text encoded to bytes with the
   type `image/svg+xml`. Vite has no import of a file's bytes, and its `?inline` of an SVG is a
@@ -1161,69 +1413,114 @@ and the changed files in the browser's local storage; there is no disk behind it
   which would fail the board's tests when another modeler edits its example), and
   `assets/miragon-komet-blau.svg` is a copy from `docs/public/logo`. Whoever changes the example
   writes canonical bytes: `example.test.ts` compares the file with
-  `encodeBoard(parseBoardText(text))`.
+  `encodeBoard(parseBoardText(text))`. The same folder is the fixture of the webview test page and
+  of the smoke in VS Code, so its second note speaks of the web app's menu there as well.
 - **The build check.** `npm run check:build -w modelers/board/apps/webapp` after the build runs
-  `scripts/build-problems.mjs` on `dist`. The build writes one sheet that `index.html` links and
-  one sheet per notation. The check fails unless `<html>` has `data-cd-theme="light"`; the
-  linked sheet carries a `.board-root` rule and the preview rule on
-  `.board-engine[data-armed=false][data-embed=diagram-js]`; diagram-js's base rule
-  `.djs-context-pad.open{display:block}` is in the linked sheet exactly once and in no
-  notation's sheet; each of the seven renderer root classes is in some sheet and none comes
-  before the first `.djs-context-pad.open`; and the scripts keep the legal comment of
-  `lucide-react` and the icon-geometry comments of the Wardley Maps, Context Maps, Value Chain,
-  C4 and Business Model Canvas renderers (Event Storming and Team Topologies have none in their
-  sources).
+  `scripts/build-problems.mjs` on `dist`, then the notices check of `apps/editors`. It fails unless:
+  `<html>` has `data-cd-theme="light"` and `class="cd-shell-document"`; the mode marker is
+  replaced, with a theme-color and the contrast line; the sheet the page links carries a
+  `.board-root` rule (the board's sheet), a `.cd-shell-legal` rule (the shell's), the start margin
+  on `.cd-shell .board-root .board-toolbar` (the rules that make one picture of the two) and the
+  preview rule on `.board-engine[data-armed=false][data-embed=diagram-js]`; diagram-js's base rule
+  `.djs-context-pad.open{display:block}` is in that sheet exactly once and in no notation's sheet;
+  each of the seven renderer root classes is in some sheet and none comes before the first
+  `.djs-context-pad.open`; every file of `example/` is in a script (the check looks for the file's
+  longest run of plain characters, `exampleMarker`, and fails for a file without a run of 16); a
+  script carries React's production build ("Minified React error #") and none a development build
+  ("react-stack-top-frame"); the scripts keep the legal comment of `lucide-react`, of the shell and
+  of the Wardley Maps, Context Maps, Value Chain, C4 and Business Model Canvas renderers (seven);
+  and `dist` holds `miragon-komet-blau.svg` and the icon `index.html` links. Each of these 40
+  markers was taken out of a build once, and the check failed each time.
+- **The notices of the build.** `vite.config.ts` has `noticesPlugin` of `apps/editors`: a
+  production build writes `dist/THIRD_PARTY_NOTICES.txt` (47 packages of npm, three copied works,
+  29 workspaces of the suite) and `dist/assets/dagre.esm.js.LEGAL.txt`, the licence file the C4
+  chunk names, and fails when the notices are not whole
+  ([The suite's editors](#the-suites-editors-appseditors)). `check:build` then holds the build
+  against its own source maps (`checkBuildNotices`): 73 bundled packages and the two copied works
+  the maps name, Lucide and Material Icons, against the 51 sections of the file. Tried on the real
+  `dist`, each once: without the notices file, without the licence file, with the section of `yjs`
+  or of Lucide cut out and with `react-dom` relabelled GPL-3.0-only the check exits 1 and names
+  it. `test/build-config.test.ts` loads the Vite config and holds the three
+  things this rests on: the plugin, in a build only; the source maps, which are the check's
+  evidence; and the legal comments kept. Maps name scripts only, so the two Geist packages, which
+  bring a sheet and fonts, and Tailwind's preflight, which is copied into a sheet, are held when
+  the build is made and not by the check: with one of those three sections cut out of the built
+  file the check still passes. Nothing in the page links the file: it is at
+  `/THIRD_PARTY_NOTICES.txt` of the built app.
 - **The e2e project.** `e2e/playwright.config.ts` has two projects. `webapp`
   (`**/webapp/**/*.spec.ts`, base URL `http://localhost:5184`, `E2E_PORT` overrides) runs on
   `npm run dev -w apps/webapp -- --port 5184 --strictPort`; `vscode-webview` is under
   [The webview test page and the project `vscode-webview`](#the-webview-test-page-and-the-project-vscode-webview-e2e).
   Playwright starts every `webServer` entry, so either project starts both dev servers. Outside CI
-  it takes whatever answers on a port for the app.
-- **`destroy()` is synchronous** and ends the host and the files in the call that ends the board.
-  The board unmounts its editors a microtask later (see [The public API](#the-public-api)), so a
-  write an editor makes while it is released or destroyed, a label editor that commits on the blur
-  for instance, goes into a port that is already disposed and is dropped without a word. By
-  reading, not run. Nothing in the page calls `destroy()`; the tests do. The port has `settled()`
-  since the second increment and `destroy()` does not await it. The board inside the shell ends in
-  the other order (see [The board inside the shell](#the-board-inside-the-shell-appside-editor));
-  the web app's own end is still as it was.
-- **Without a test of the web app itself:** a pasted or a dropped picture (a picked one is held;
-  paste and drop are held on the renderer's test host), a group or an arrow made by hand, Done and
-  a zoom of the board as the end of an edit (both held for the seven modelers in `apps/editors` and
-  on the stand-in in `packages/host`), and a second node on the same file (held for Wardley Maps in
-  `apps/editors` and on the stand-in). A review did each of them once in the served page with
-  Playwright's mouse and keyboard, a dropped picture excepted, and each worked: a pasted picture
-  (`assets/image.png`, drawn and kept), an empty group, an arrow drawn from a handle (one new line
-  of the board), the toolbar's zoom-out and a Control + wheel on the pane as the end of an edit for
-  all seven, a second node on `models/tea.owm` that follows the first and is followed by it, and a
-  reload that keeps all of it.
+  it takes whatever answers on a port for the app, which is how the project was also run against
+  the built app (`vite preview` on 5184: 8 passed). `e2e/tests/webapp/board.spec.ts` has 8 tests:
+  a fresh page on the start screen with the legal line and nothing kept; the example with its seven
+  models ready; a change kept over a reload, the reset from the menu with its Undo, and `?reset` in
+  the address; New diagram, and a reload that keeps a board once it holds a note; Open with a file
+  the test hands to the browser's file dialog, from the start screen and from the menu, a file that
+  is no board, and a reload; the download's bytes equal to the board's text, from the menu and by
+  the key, also for the example; and a window of 600 px and of 400 px with no horizontal scroll and
+  the toolbar clear of the menu trigger, the zoom panel, the legal line and the attribution. The
+  project runs the board's own specs and not the shell's conformance kit (the deviation above).
+- **Without a test of the web app itself:** a pasted or a dropped picture on the example (a picked
+  one is held; paste and drop are held on the renderer's test host), a group or an arrow made by
+  hand, Done and a zoom of the board as the end of an edit (both held for the seven modelers in
+  `apps/editors` and on the stand-in in `packages/host`), and a second node on the same file (held
+  for Wardley Maps in `apps/editors` and on the stand-in). A review of the first increment did each
+  of them once in the served page with Playwright's mouse and keyboard, a dropped picture excepted,
+  and each worked. Nothing holds that a mount that fails ends its files port. 21 single edits of
+  `apps/webapp/src` and `apps/ide-editor/src`, applied one at a time, each fail a browser file.
 - **In a window narrower than a model node the armed editor is cut.** A model is edited at board
   zoom exactly 1 (the arm rules), where a node of 800 px does not fit. At 400 x 800 the review
   found the armed Wardley node at left -327 px, the left half of the editor and of its palette off
   the window; at 760 x 600 at left -64 px, with its header under the board's toolbar. A pan of the
   board reaches the rest, and a delete and Done work in both. Arming at the fitted zoom where a
   node does not fit is a change of the measured arm rules and the owner's.
-- **A file its modeler refuses** shows the web app's own line, "This file cannot be shown as it is.
-  “Reset the example” restores it, and undoes every other change.", since the page has no editor
-  for the file and the reset is the one way back (`app.browser.test.ts` holds the line on a kept
-  Value Chain text that is no JSON). The app itself writes no such text; the review got there by
-  writing the storage by hand, and found that Wardley Maps and Event Storming take the same garbage
-  for an empty canvas in the state `ready`.
-- **The notices the build lacks.** The built C4 chunk carries dagre's line "For license information
-  please see dagre.esm.js.LEGAL.txt", and the build holds no such file (it is in
-  `node_modules/@dagrejs/dagre/dist`, MIT). The built sheet drops Tailwind's notice (see
-  [Stylesheet and theme files](#stylesheet-and-theme-files)), and the font files of Geist come
-  without the OFL's text. `check:build` looks for none of the three and prints "6 licence comments
-  kept". They belong to the notices file that is still to come, and the check should then fail for
-  a script that names a licence file the build does not hold.
+- **A file its modeler refuses** shows, in the example, the web app's own line (`invalidText`):
+  "This file cannot be shown as it is. “Reset the example” restores it, and undoes every other
+  change.", since the page has no editor for the file and the reset is the one way back
+  (`app.browser.test.ts` holds the line on a kept Value Chain text that is no JSON). The app itself
+  writes no such text; the review got there by writing the storage by hand, and found that Wardley
+  Maps and Event Storming take the same garbage for an empty canvas in the state `ready`.
+- **Known and not cured.** In a window of 400 px the shell's status box (116 to 181 px from the
+  top) lies over the third row of the board's toolbar (to 135 px) while a lasting line shows; at
+  480 px and wider it is clear (measured by the part that built the page, in a scratch spec with a
+  storage that refuses). On a board without a repository the Image button stays and can only
+  refuse, and the model picker says nothing itself: both are the renderer's, which has no place for
+  a host's words there. The line of a model on such a board stands on the danger ground of a failed
+  file, though a board without a repository is no failure: the host package has no state of its own
+  for it. The renderer shows the name of a lazy part as text while it loads (`.board-slot`, the
+  word "Toolbar"); behind the start screen a rule of `app.css` hides it, elsewhere it shows for a
+  moment at the first load. The board's toolbar fits a window from 400 px: its box is 335 px wide
+  from x 64 at 400, 360 and 320 px alike, so at 360 px the model picker is cut by 39 px and at
+  320 px by 79 px, with no horizontal scroll (measured by the review of the third increment and
+  again when the increment was closed; the e2e spec holds 600 and 400 px). The cure is a wrap
+  inside the toolbar's group of add actions, the renderer's. The toast after Show example (480 x
+  61 px at the bottom centre of a window of 1280 px, for about six seconds) lies over the lower
+  row of models, and a double-click on a model under it arms nothing until the toast is gone; in
+  a window of 320 px it appears under the pointer that pressed Show example and stays while the
+  pointer rests on it (seen by the review; where a toast stands is the shell's). A model node
+  whose file could not be opened can still be armed: on a board opened from a single file a
+  double-click on such a node shows Done and the node at 100 %, with nothing to edit, and Done
+  ends it (the renderer's and the host package's). The page's icon is the Miragon icon and not a
+  modeler icon. No link in the address carries a board, there is no Share action, and no export
+  but the board file.
 - **Not known for it:** more than a handful of model nodes at once, any browser but Chromium, and
   touch.
 
 ## The board inside the shell (`apps/ide-editor`)
 
-`mountBoardEditor(host, { root?, files?, editors, containHistoryKeys })` (`src/board-editor.ts`) is
-for the board what the shell's `mountIdeEditor` is for a modeler on diagram-js, without its
-diagram-js lines. `host` is the shell's `IdeEditorHost` (`vsCodeEditorHost()` in the webview). It
+`mountBoardEditor(host, { root?, files?, editors, containHistoryKeys, invalidText?, fileKeys? })`
+(`src/board-editor.ts`) is for the board what the shell's `mountIdeEditor` is for a modeler on
+diagram-js, without its diagram-js lines. `host` is a `BoardEditorHost`,
+`Pick<IdeEditorHost, "canvasOwnsHistory" | "mountShell" | "connectDocument">`: the shell's
+`IdeEditorHost` fits (`vsCodeEditorHost()` in the webview), and a web app brings the three members
+itself, with a `mountShell` that adds the shell's web column
+([The web app](#the-web-app-and-the-example-appswebapp-example-e2e)). `invalidText` is the host's
+own line for a model its editor refuses (absent: the host package's, which sends a person to the
+file's editor). `fileKeys: true` lists a web app's two file keys in the shortcuts dialog, in a
+group File before the board's own (`boardShortcuts(chrome, { fileKeys })`; `BOARD_EXPORT_LABEL` is
+"Export as .board"). It
 mounts the shell through `host.mountShell` into `root` (default: the element with the id `app`)
 with the themes `["light"]`, a Help entry "Keyboard shortcuts…" (`shortcuts.ts`: the board's own
 keys and gestures; the shell adds its zoom and fit keys itself) and the empty-file hint "Add a
@@ -1283,9 +1580,12 @@ source of the workspace imports `apps/editors` or another modeler.
   The canvas keeps the last valid version; the shell's zoom panel and keys still move it, a pan
   does not (an inert slot takes no wheel). The next accepted text unlocks. A document the host
   opened read only (`IdeDocument.readOnly`) is locked the same way for its whole life, without a
-  status. A lock that keeps the board readable by pointer is a change of the renderer.
-- **The sheet `board-ide-editor/app.css`** has three rules under `.cd-shell .board-root`, and it
-  may hold no more: every other look of the board is the renderer's. `.board-toolbar` gets
+  status. The lock writes the slot's `inert` only when its own state changes: behind a web app's
+  start screen the slot is inert by the shell, and a text the board accepts there must not open
+  it. A lock that keeps the board readable by pointer is a change of the renderer.
+- **The sheet `board-ide-editor/app.css`** has three rules under `.cd-shell .board-root` for every
+  host and two more for the shell's web column, and it may hold no more: every other look of the
+  board is the renderer's. `.board-toolbar` gets
   `margin-left: var(--cd-shell-frei)`: the toolbar starts where the shell's top row is free of the
   menu trigger, at 64 px. `.board-toolbar__group[aria-label="Zoom"]` gets `display: none`: one zoom
   control, the shell's. `.react-flow__attribution` is put at `right: var(--cd-shell-rand)` and at a
@@ -1294,7 +1594,13 @@ source of the workspace imports `apps/editors` or another modeler.
   it would share. The rules read the shell's size tokens and win by weight, wherever a bundle puts
   the sheet; load it after the shell's sheet and the board's. The toolbar's top edge stays at React
   Flow's 15 px, 3 px below the shell's trigger at 12 px. The [DOM contract](#dom-contract) has what
-  a host may put on the toolbar.
+  a host may put on the toolbar. The two rules for the web column: under
+  `[data-cd-shell-host="web"][data-zoom-row="raised"]` React Flow's attribution stands above the
+  zoom panel that a narrow page raised over the legal line (the shell's margin, the legal line's
+  height, a gap, a row, a gap); under `[data-cd-shell-host="web"][data-empty-state="shown"]` the
+  board's toolbar and the word a part shows while it loads (`.board-slot`) are
+  `visibility: hidden`, their room kept, since the start screen shows its card and the legal line
+  alone and the card is glass.
 - **What is polled, and why (`view-events.ts`).** The board reports its content and never its view,
   and a wheel on the pane, a pan and the move to a model that is armed happen inside it, while the
   shell's readout has to follow. So the app reads `getViewState()` once per animation frame and
@@ -1316,8 +1622,8 @@ source of the workspace imports `apps/editors` or another modeler.
   order through a port that writes down its ends (`text.close`, `bytes.off`, `dispose`).
 - **Known and not cured.** A step of the shell's zoom that leaves a model armed (a fit that only
   pans) hands the focus to the pane, and the editor has the keys again after a click in it (by
-  reading). No view is kept across a reload, there is no export entry, and the problems pill gets
-  no count. What was found in the shell and in the renderer under it (the islands over an armed
+  reading). No view is kept across a reload, the editor itself has no export entry (the web app
+  adds its own), and the problems pill gets no count. What was found in the shell and in the renderer under it (the islands over an armed
   editor's popup, the focus fallback, the three pixels between trigger and toolbar) is under
   [Deferred](#deferred).
 - **The toolbar and the status box in a narrow window** (measured by a review on the webview test
@@ -1327,7 +1633,11 @@ source of the workspace imports `apps/editors` or another modeler.
   600 px and two rows below that, which end 95 px from the top. The shell's top inset of 88 px,
   which the first fit and the fit button use, is clear of one row only. The status box lies over
   neither row: it stands at 63 px in a window of 900 px and more, under the one row that ends at
-  55 px, and at 115 px in one of 760 px and less.
+  55 px, and at 115 px in one of 760 px and less. Below 480 px the toolbar has a third row, which
+  the status box lies over: measured in the web app at 400 px, the box at 116 to 181 px and the
+  row down to 135 px, while a lasting line shows; by reading, the same for an invalid board file
+  in an editor that narrow. The cure is the renderer's (how the toolbar wraps) or the shell's
+  (where the box stands).
 - **An armed model in a narrow editor.** A model is edited at 100 % and at its node's size: the
   arm rules move the board there. In an editor that is narrower than the node a part of the
   model's editor is outside the window, and a pan or a zoom of the board ends the editing, so
@@ -1348,6 +1658,42 @@ source of the workspace imports `apps/editors` or another modeler.
   focus when the lock ends (`document.hasFocus()`).
 - **Tried against the tests:** 34 single edits of the sources, applied in memory by a plugin in a
   scratch config, each fail the browser file; three controls pass.
+
+### Three deviations under the shell, each with an end
+
+The suite's rule (the root guide, Boundaries, and the root `CONTRIBUTING.md`): the chrome of both
+apps is the shell's, both e2e projects run the shell's conformance kit, and the smoke in a real VS
+Code runs every step of the shell's driver. The board deviates in three places.
+Each is a deviation with an end and not a new rule, as the contract kit's pinned skips are
+([Tests](#tests)): none may grow, and none is a pattern for another modeler. No job of CI holds any
+of the three rules, so nothing fails for them; the lead of the third increment decided them (M1
+under [The third increment of the apps against its plan](#the-third-increment-of-the-apps-against-its-plan)),
+and the owner may turn the decision round.
+
+- **The board keeps a toolbar of its own** (Done, Text, Image, Group, the model picker, delete, the
+  notices) beside the shell's menu, zoom panel, status box and, in the web app, legal line and
+  start screen. The toolbar is part of the moved canvas, inside React Flow's panel, and the
+  renderer has no surface through which a host's chrome could drive its actions, and no way to
+  switch the toolbar off ([Deferred](#deferred)). The five rules of `board-ide-editor/app.css` make
+  one picture of the two, and the board's own zoom buttons are hidden for the shell's.
+- **The e2e projects `webapp` and `vscode-webview` run the board's own specs** and not the shell's
+  conformance kit (`registerShellConformance`). The kit's cases and facts address a diagram-js
+  canvas (ten files of `packages/shell/src/testing` name its DOM), and on a board the first
+  diagram-js canvas of the page is the inert preview of a model. What the board's specs hold
+  instead is listed under [Tests](#tests).
+- **The smoke runs without the driver's steps `keys`, `history` and `workbench`**, each off with
+  its sentence in the test ([The smoke in a real VS Code](#the-smoke-in-a-real-vs-code-test-smoke)):
+  the three steps read the selection and the view of a diagram-js canvas. Its themes step runs: it
+  switches VS Code through the four default themes and expects the board's one light picture under
+  each (`themes: ["light"]`).
+
+**The end** is one change, the plan's increment 6, a pull request of its own because it changes
+`packages/shell` and moves arming traces. In the renderer: the toolbar's actions, state and notices
+as commands and events with a switch for the toolbar itself, view commands that ask the arm rules,
+a read-only lock, themes and the `appearance` surface. In the shell: a canvas abstraction in
+`src/testing` and in the driver's steps `keys`, `history` and `workbench`. Then both apps hand the
+chrome to the shell, both e2e projects register the kit with a throwing `onSkip`, the smoke runs
+with the three steps on, and this section and the rules of `app.css` go.
 
 ## The VS Code extension (`apps/vscode`)
 
@@ -1606,13 +1952,48 @@ Everything else of the page is `board-ide-editor`, the shell and `board-suite-ed
   from the extension's own esbuild config). The webview's HTML and its policy are the shell's
   (`default-src 'none'`, a nonce on the one script, no `connect-src`, `dist` as the only local
   resource root; `test/webviewHtml.test.ts`).
-- **The VSIX** (`npm run board package:vscode`, which runs the production build itself and packs
-  offline) is `apps/vscode/board-modeler.vsix`, 19 files and 1.01 MB: the manifest,
-  `extension/package.json`, `extension/readme.md`, `extension/LICENSE.txt`,
-  `extension/dist/extension.cjs`, the script, the sheet and the eleven fonts. `.vscodeignore`
-  leaves out `src`, `test`, `test-smoke`, `node_modules`, the esbuild config, the tsconfig and
-  source maps. A development build before it leaves its source maps in `dist`; the VSIX does not
-  take them. It has no CHANGELOG, no icon and no third-party notices yet.
+- **The VSIX** (`npm run board package:vscode`, which runs the production build itself, packs
+  offline and then runs the notices check) is `apps/vscode/board-modeler.vsix`, 23 files and
+  1.03 MB: the manifest, `extension/package.json`, `extension/readme.md`,
+  `extension/changelog.md`, `extension/LICENSE.txt`, `extension/icon.png`,
+  `extension/dist/extension.cjs`, the script, the sheet, the eleven fonts,
+  `extension/dist/THIRD_PARTY_NOTICES.md` (48 packages of npm, three copied works, 28 workspaces of
+  the suite; 109 kB) and `extension/dist/dagre.esm.js.LEGAL.txt`. `.vscodeignore` leaves out `src`,
+  `test`, `test-smoke`, `scripts`, `node_modules`, the esbuild config, the tsconfig and source
+  maps. A development build before it leaves its source maps in `dist`; the VSIX does not take
+  them. vsce prints no warning of its own.
+- **The notices of the build.** Every build writes them into `dist` from what the two bundles are
+  made of (`esbuild.config.mjs`, `writeBundleNotices` of
+  [`apps/editors`](#the-suites-editors-appseditors)): a production build whose notices are not
+  whole exits 1, a development build says what is missing and goes on, and a watch build writes
+  them once, at its start. They are not committed, and in the VSIX the file is
+  `extension/dist/THIRD_PARTY_NOTICES.md`, where the other modelers ship a committed
+  `extension/THIRD_PARTY_NOTICES.md`; no page on GitHub shows it, and the README says where it is.
+  `npm run check:notices -w modelers/board/apps/vscode` (`scripts/check-notices.mjs`, with the VSIX
+  reader `scripts/vsix.mjs`) holds `dist` and the packed VSIX against a fresh measurement of the
+  two production bundles (76 bundled packages and the three copied works against the 52
+  sections), and the VSIX against its papers and against what it must leave out;
+  `-- --vsix <file>` checks another VSIX. The part that built it tried each of its three reasons
+  on `dist` and on tampered copies of the VSIX; with the closing of the increment the section of
+  a font package and of each copied work was cut out of `dist` once, and the check failed each
+  time.
+- **The papers.** `README.md` is for a person who installs the extension: what a board is, how to
+  install a VSIX and start, which files a board reaches and which not, what it cannot do yet, that
+  it is a preview, and where the notices are. It links only to whole addresses and its own headings,
+  since vsce rewrites a relative link to `main`. Its list "What it cannot do yet" loses a line with
+  each item that is built. It says nothing of where the extension is published: the VSIX carries the
+  file onto a marketplace's listing, and nothing but the release pull request stands between a merge
+  and a publish, so a sentence that is true only before one would be untrue on the listing itself.
+  Its Install section names the VSIX alone, and the pull request that makes the extension public
+  adds where to find it. `CHANGELOG.md` is release-please's from the first release on; its one entry
+  of the board's own, `## 0.0.0`, is the heading release-please writes its notes above (tried with
+  release-please's updater: without a version heading it keeps the old text and doubles the title).
+  Business Model Canvas and C4 arrived without a CHANGELOG. `icon.png` is the Miragon comet on the
+  blue tile, byte for byte the file Business Model Canvas ships (256 x 256): the Miragon modeler
+  icon set has no board icon, and an icon is copied from that set and never drawn here. The manifest
+  names it and carries the banner every extension of the suite has (`#335DE5`, dark).
+  `test/papers.test.ts` holds all of it, the icon by its checksum and the README's silence on a
+  marketplace by its words. Nobody has looked at the icon or the README in a real Extensions view.
 - **Tried against the tests:** 21 single edits of `main.ts` and `channel.ts` (a sheet or the zod
   line taken out, the undo keys not contained, the files disposed before the board, no editors, no
   files, a second acquire, the channel posting or delivering nothing, an await before the mount),
@@ -1746,6 +2127,11 @@ does on the board.
   high-contrast themes the nodes have the stronger outlines. VS Code's own toast "It is not
   recommended to run Code as root user." lies over the zoom panel in some of them: the runner is
   root.
+- **Run again with the third increment**, on a snapshot of the tree without any build output,
+  after the runner's own `npm ci`: VS Code 1.146.0 passed (the smoke's total 10.6 s, the container
+  run 24 s), and so did 1.96.0 (10.9 s). The VSIX the smoke packs there carries the notices, so
+  the production build with its notices ran in the container as well. The screenshots show what
+  they showed before.
 - **It can fail.** Run once on a snapshot whose index watched files alone, as it did before the
   walk: "after that folder was removed the picker should offer … it offers
   made-later/one.owm, …", exit 1.
@@ -2085,7 +2471,9 @@ of increment 1, and why:
 - **The web app** attaches the board to a child of `#app`, with the line below it in the page's
   flow, so that nothing of the page lies over an armed editor; `startApp` takes `search` and
   does the reset itself; the reset link is a plain navigation; the picture is read as text and
-  encoded; the build check is two files with a unit test and reads eight sheets, not one.
+  encoded; the build check is two files with a unit test and reads eight sheets, not one. The third
+  increment replaced the page around the board: the footer, the link and the app's own sheet are
+  gone ([The third increment of the apps against its plan](#the-third-increment-of-the-apps-against-its-plan)).
 - **Made by the integration:** the exclusion of the apps' build output from the cruise;
   `src/keeping.ts`, cut out of `app.ts` so that the wrapper has a unit test, with the memory
   backend's log emptied after every write; `apps/editors/test/cruise-rules.test.ts`; the filter for
@@ -2205,6 +2593,84 @@ is the owner's yes.
   the limit of a written model's size ([The host half](#the-host-half)). Both were seen afterwards
   in the runner, on VS Code 1.146.0 and 1.96.0, by a scratch script that handed the extension
   the messages of a page and wrote a node onto the board.
+
+## The third increment of the apps against its plan
+
+The increment's aim: everything the suite's CI asks of a modeler, so that a pull request with this
+branch could pass `ci-ok`, and nothing of the product beyond that. No pull request was opened and
+nothing was published.
+
+**The lead's decisions for the increment.** The owner was told each and may turn each round; none
+is the owner's yes.
+
+- **M1, the deviation.** The board keeps a toolbar of its own beside the shell's chrome, its e2e
+  projects run the board's own specs and not the shell's conformance kit, and the smoke runs
+  without the steps keys, history and workbench: written down with its end under
+  [Three deviations under the shell](#three-deviations-under-the-shell-each-with-an-end).
+- **M2, the public names** stand as working names: extension `board-modeler`, publisher
+  `miragon-gmbh`, view type `board.boardEditor`, `engines.vscode` `^1.96.0`, `preview: true`. They
+  are fixed with the first publish.
+- **M3, release components** in the Business Model Canvas pattern: eight, one per workspace the
+  extension or the web app bundles ([Packages](#packages)).
+- **M4, the path rule.** A change under another modeler's `packages/` also runs the board's jobs.
+  Built wider than the decision's words: the rule also takes a modeler's `example/` and its
+  `apps/vscode/package.json`, the two other things the board's tests read of a modeler
+  ([Commands](#commands)). Cutting it back is one line of `.github/scripts/ci-paths.sh` and three
+  rows of `test/ci-paths.test.ts`.
+- **M5, the extension pack.** `board` is in `PENDING_FIRST_PUBLISH` of
+  `test/modeler-collection.test.ts`; the pack and its walkthrough are untouched.
+- **M6, the web app** inside the shell's web column through `apps/ide-editor`, with what it was
+  before as what "Show example" opens
+  ([The web app](#the-web-app-and-the-example-appswebapp-example-e2e)).
+- **M7, third-party notices** for what the web app's build and the VSIX carry, with a check that
+  fails when a build names a licence file it does not hold
+  ([The suite's editors](#the-suites-editors-appseditors)).
+- **M8, the root's documents.** The board's rows, and the sentences that were untrue with the
+  board in the tree, in the suite's `CLAUDE.md`, `CONTRIBUTING.md`, `README.md` and the three issue
+  templates; the board is marked as in progress and unpublished there.
+- **M9, an icon.** The extension has one, the Miragon comet, copied and not drawn
+  ([The webview half](#the-webview-half-srcwebview), the papers). The web app's `favicon.svg`
+  follows the same decision.
+
+**Where the tree differs from the plan, and why:**
+
+- **The notices are written by the build** and not committed, where the plan's module layout names
+  the other modelers' pattern, a committed file with `npm run notices`: a committed list of what
+  seven renderers bundle would go stale with a dependency bump in any modeler.
+- **No `CHANGELOG.md` per component** but the extension's, which the plan lists: release-please
+  writes each with the component's first release, as for Business Model Canvas and C4. No version
+  line changed: every workspace stays at 0.0.0.
+- **14 `extra-files` entries of the first two increments went**: the pins in the board's own
+  manifests under the contract, the shell and eleven components of the other modelers. With the
+  board's workspaces components themselves, release-please's `node-workspace` plugin moves those
+  pins, and the root test no longer asks for the entries.
+- **The web app** is split into more modules than the plan names (`actions`, `column`, `page`,
+  `session`, `web-host`, `no-repository`; the plan's `files.ts` is `board-file.ts`), for the lint
+  limit of a function and so that the pure parts have unit tests. Every document is an editor of
+  its own. The reset is an entry of the shell's menu with an Undo, the footer under the board and
+  `page.css` are gone, and the lasting lines stand in the shell's status box. `startApp` takes
+  `komet` and returns `{ ready, editor(), shown(), settled(), destroy() }`. The page starts on the
+  start screen, as every web app of the suite, and no longer on the example. The model picker of a
+  board without a repository cannot say why it is empty, so the page says it in a toast.
+- **`apps/ide-editor`** got a host type a web app fits (`BoardEditorHost`), the options
+  `invalidText` and `fileKeys`, a lock that writes `inert` only for its own change, and two rules
+  for the web column in `app.css`, where this guide had said three and no more.
+- **The smoke and its scripts** were built with the second increment and are unchanged.
+- **Made by the integration:** the two lines of the lockfile for the web app's new pins (written
+  by `npm install --package-lock-only`, which changed nothing else); the notices plugin in the web
+  app's Vite config, the notices check in its `check:build` and `test/build-config.test.ts`; the
+  notices check behind `package:vscode`; the example's sentence on the reset, which is a menu
+  entry now; the board's row and paragraph in `docs/ci-and-releases.md`; the sentence on the
+  smoke's themes in the root `CONTRIBUTING.md` and the root documents' links to the deviation; and
+  the paragraphs of this guide.
+- **Made after the review of the increment** ([State of the port](#state-of-the-port)): the offer
+  of a kept board at `?reset`, the copied works in the notices check, and the extension's README
+  without a word on where it is published, each with its tests.
+- **Named and not changed**, outside what the integration could edit: `.miragon/brand.json` and
+  `test/brand-lint-config.test.ts` do not name the two licence texts under
+  `apps/editors/build/licences/`, which are third-party text as Context Maps' `apache-2.0.txt` is.
+  The two files change together or not at all (the test passes as the tree is), and brand-lint was
+  not run on them.
 
 ## DOM contract
 
@@ -2343,7 +2809,9 @@ a person leaves an armed model.
   renderer's: the package marks only its CSS as having side effects, and Rollup then leaves out
   the import inside a barrel. Its third-party notices then need Tailwind's (MIT), for the base.
   The web app's built sheet does not keep that notice (`grep -c tailwindcss dist/assets/index-*.css`
-  prints 0: Vite's CSS minifier drops the comment), and the web app has no notices file yet.
+  prints 0: Vite's CSS minifier drops the comment), so the build's notices file carries it: the
+  generator finds the base by its first comment in the bundled source and quotes Tailwind's
+  licence (`COPIED_WORKS`, [The suite's editors](#the-suites-editors-appseditors)).
 - **A `*.css` declaration per workspace.** The renderer's entry imports its sheet, so every
   workspace whose type check reaches `@miragon/board-renderer` declares `*.css` among its own
   modules (a `css.d.ts`), and `*.css?base` as well where it imports `board-suite-editors/base`,
@@ -2372,7 +2840,7 @@ browser test of the board has to know (synthetic input, the lazy parts, the modu
 the window). Read it before you write a test. Here are the two projects and the rules.
 
 - `npm run board test` (project `unit`, Node) runs `packages/*/test/**/*.test.ts` and
-  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 61 files, 1147 tests. The module
+  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 69 files, 1321 tests. The module
   `vscode`, which exists only inside the editor, resolves there to
   `apps/vscode/test/__mocks__/vscode.ts`: the module a test imports by its path for the control
   surface `vscodeMock`, so a registration of the host and a test's question share one state. The
@@ -2396,26 +2864,36 @@ the window). Read it before you write a test. Here are the two projects and the 
     registry's load, the model list and `describe`, the images, the host's parts, and the files
     server's limit for a new file and the picture suffixes of a host's rule against the board's
     own. [`packages/host/test/README.md`](packages/host/test/README.md) says what each file holds.
-  - `apps/editors/test` (8 files, 88 tests): `suffixes.sync` (the table against the manifests, the
-    registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
+  - `apps/editors/test` (9 files, 144 tests): `suffixes.sync` (the table against the manifests,
+    the registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
     `text-rules`, `zod-jitless`, `build-helpers` (two of its tests are Vite builds in memory),
-    `webview-bundle` (one esbuild build in memory) and `cruise-rules`.
-  - `apps/webapp/test` (4 files, 60 tests): `storage` (what is kept, what is left out, a storage
-    that refuses, the reset, the pictures a board shows and the kept ones it does not), `keeping`
-    (the repository in memory with its writes kept), `example` (the board is canonical, one model
-    per notation, every named file is in the folder, the app reads the folder's bytes, the page's
-    rule reaches every file of it) and `check-build` (a whole build and one build per missing
-    part).
-  - `apps/ide-editor/test` (5 files, 41 tests): `zoom-target` (the shell's raster with 100 % to
+    `webview-bundle` (one esbuild build in memory), `cruise-rules` and `notices` (56 tests: the
+    generator on trees the test writes, on a real page of the board with the seven notations built
+    in memory with esbuild, on a build on disk and in two Vite builds; the check's three reasons,
+    a copied work among them, also one that a source names only in a plain comment).
+    The notices tests write their trees into the OS temp folder and remove them.
+  - `apps/webapp/test` (9 files, 133 tests): `storage` (what is kept, what is left out, a storage
+    that refuses, the reset and the way back from it, the open document, the pictures a board shows
+    and the kept ones it does not), `keeping` (the repository in memory with its writes kept),
+    `example` (the board is canonical, one model per notation, every named file is in the folder,
+    the app reads the folder's bytes, the page's rule reaches every file of it), `check-build` (a
+    whole build and one build per missing marker), `board-file` (the download's name, a file as a
+    board text, a board that holds nothing, a board that names files), `column` (the shell's web
+    column for the example and for a board), `no-repository` (the backend alone and behind the
+    port, with the page's sentences), `web-host` (the document a web app hands the editor: once,
+    every change, a refused text with and without a fallback) and `build-config` (the Vite config:
+    the notices plugin in a build only, the source maps, the legal comments).
+  - `apps/ide-editor/test` (5 files, 45 tests): `zoom-target` (the shell's raster with 100 % to
     135 % as one step, the fit against the shell's own `fitViewbox`, the smallest zoom, the members
     of the target on a fake board), `first-fit` (once, in the frame after the first text, on a
     page whose frames the test draws; a page that is not painted and has VS Code's stand-in size
     until it is; a slot that gets its size later; an empty board; a wait that is stopped, for the
     frame and for the size), `view-events` (one look per frame on a
     page whose frames the test draws, no frame without a listener or while hidden, a board that
-    offers the event), `invalid` (the lock's calls on a shell double, the status sentence) and
-    `shortcuts`.
-  - `apps/vscode/test` (17 files, 255 tests). The host half: the fake VS Code held to what it
+    offers the event), `invalid` (the lock's calls on a shell double, the status sentence, an
+    inert slot that is not the lock's own left alone) and `shortcuts` (the board's rows, and a web
+    app's File group).
+  - `apps/vscode/test` (19 files, 296 tests). The host half: the fake VS Code held to what it
     claims (`memory-vscode`), the root rule and the look at every folder on the way to a file
     (`root`), the index of a root on fake timers
     (`file-index`, among its cases the folders another program makes, fills, moves and removes
@@ -2432,10 +2910,13 @@ the window). Read it before you write a test. Here are the two projects and the 
     alone, then a page's files client over it against the editor's options on the shell's host
     stub, a reloaded webview among its cases), `webview-rules` (the entry's order, the one API, no
     await before the mount, and the two suffix lists held equal) and `webview-bundle` (the
-    production webview bundle built in memory).
+    production webview bundle built in memory). The papers: `notices` (the notices of the two
+    production bundles built in memory, held by the check, which fails without the section of a
+    font package or of a copied work; the VSIX reader) and `papers` (the icon by its size and
+    checksum, the ignore file, the CHANGELOG, the README, which names no marketplace).
 - `npm run board test:browser` (project `browser`, Chromium, a window of 1280 x 800) runs
   `packages/renderer/test/browser`, `packages/host/test/browser` and `apps/*/test/browser`, each
-  `**/*.test.{ts,tsx}`: 24 files, 825 tests. React Flow measures its nodes, so nothing of the
+  `**/*.test.{ts,tsx}`: 24 files, 850 tests. React Flow measures its nodes, so nothing of the
   canvas runs in jsdom or Node, and no diagram-js renderer mounts there either (Business Model
   Canvas's import throws `activeLayer.getBBox is not a function` under jsdom).
   - The renderer's fifteen files (662 tests): the arm rules on a bench of fakes (`arming`), the
@@ -2454,7 +2935,7 @@ the window). Read it before you write a test. Here are the two projects and the 
     `page-errors` (the watch itself). Its `support/` folder has `mountBoard` (a board on a
     memory backend with the registry), `mountAlone`, `shownChrome`, `shownView` and
     `watchPageErrors`, which a later browser test may import by relative path.
-  - `apps/ide-editor/test/browser/board-editor.browser.test.ts` (30 tests): `mountBoardEditor` on
+  - `apps/ide-editor/test/browser/board-editor.browser.test.ts` (37 tests): `mountBoardEditor` on
     the shell's real `mountShell` in the IDE column through a host of the test's own
     (`support/ide-host.ts`, whose document keeps the rules of the shell's sync and is driven by the
     test), with real input. The two chromes (no overlap of trigger and toolbar, the Done control at
@@ -2467,24 +2948,38 @@ the window). Read it before you write a test. Here are the two projects and the 
     text; a read-only document); a model of the repository with the suite's Wardley editor from the
     registry (armed by a double-click, a click selects, the undo key contained or not, Done, a zoom
     step that ends the editing, the teardown's order); the mount's refusals and the teardown (no
-    class on html, no child in the root, no frame requested afterwards). The files of every test
-    come from `support/files.ts` alone.
-  - `apps/webapp/test/browser/app.browser.test.ts` (14 tests): `startApp` on a store of the test's
-    own; the example shown, a model added from the picker, a Wardley component deleted by a real
-    double-click, click and key, a note by the Text button, a picked picture, a second start on the
-    same store, `?reset`, a storage that refuses, a picture the browser did not keep, a kept
-    picture no node shows, an unreadable kept board, a kept model its editor refuses, `destroy()`.
-    The five tests under "what a person changes" are one story on one store, each going on where
-    the one before it ended, and keep their order in a shuffled run (`{ shuffle: false }`):
-    shuffled, the file failed 7 of its tests.
+    class on html, no child in the root, no frame requested afterwards). With the third increment:
+    the editor under a web app's host of the test's own (`testWebHost` in `support/ide-host.ts`:
+    the web column's start screen and legal line, the two rules of the sheet for it), the file
+    keys in the shortcuts dialog and a host's own line for a refused model. The files of every
+    test come from `support/files.ts` alone.
+  - `apps/webapp/test/browser/app.browser.test.ts` (32 tests): `startApp` on a store of the test's
+    own. The start screen; a board without a repository (a file handed to the page's input, the keys
+    without a click, the picker, a refused picture, a file that is no board, the offer and its end,
+    and the reset in the address over a kept board, which offers that board back and has nothing to
+    offer for a kept text that is no board); the board as a download (the anchor the page clicks is
+    held with its blob, since the browser's own download is the e2e's); the example (shown, a model
+    added from the picker, `destroy()`, a page that gives the board no ancestor a fixed popup would
+    be placed against); "what a person changes", six tests of one story on one store, each going on
+    where the one before it ended, which keep their order in a shuffled run (`{ shuffle: false }`:
+    an edit in a model, a note, a picked picture, a second start, the reset from the menu with its
+    offer, the reset in the address); a kept model its editor refuses; and a browser that does not
+    keep (a storage that refuses, one with no room, a picture it did not keep, a kept picture no
+    node shows, an unreadable kept board). A browser test that reaches for the toolbar or counts
+    drawn nodes right after a mount waits first: both are lazy parts, and a shuffled order found the
+    tests of this file that did not (12 shuffled orders of the two app files pass since).
 - Both projects take the other modelers from their sources through
   `apps/editors/build/aliases.mjs`, so no other modeler is built first, and the browser project
   pre-bundles what `apps/editors/build/prebundle.mjs` reads from those sources.
   `vitest.config.ts` exports the browser project as `browserProject`.
-- `npm run board test:e2e` (Playwright) runs 19 tests in two projects.
-  `e2e/tests/webapp/board.spec.ts` (2 tests): the page opens with seven engines ready, the seven
-  kinds in the node headers, the picture drawn and no page error; a note is there after a reload,
-  and the reset link brings the example back. `e2e/tests/vscode` (17 tests: `document-sync` 4,
+- `npm run board test:e2e` (Playwright) runs 25 tests in two projects, the board's own specs in
+  the place of the shell's conformance kit
+  ([Three deviations under the shell](#three-deviations-under-the-shell-each-with-an-end)).
+  `e2e/tests/webapp/board.spec.ts` (8 tests) is under
+  [The web app](#the-web-app-and-the-example-appswebapp-example-e2e): the start screen, the
+  example with seven engines ready and no page error, what is kept over a reload and the reset, a
+  new board, a file opened through the browser's dialog, the download's bytes, and two narrow
+  windows. `e2e/tests/vscode` (17 tests: `document-sync` 4,
   `files` 11, `shipped-bundle` 2) is under
   [The webview test page and the project `vscode-webview`](#the-webview-test-page-and-the-project-vscode-webview-e2e).
 - `npm run board test:vscode` runs the smoke: one test, the packed extension in a real VS Code
@@ -2578,12 +3073,20 @@ this cause (the README has what was measured), never to be answered with a longe
   webview test page and that page's Vite config).
 - `npm run board dev:webapp`, then http://localhost:5184 (the port is strict). The dev server
   writes `apps/webapp/node_modules/.vite`.
-- `npm run board build:webapp`, then `npm run check:build -w modelers/board/apps/webapp`.
+- `npm run board build:webapp`, then `npm run check:build -w modelers/board/apps/webapp`. The
+  build writes its third-party notices and fails when they are not whole; the check holds them
+  against the build's source maps.
 - `npm run board build:vscode` builds the extension's two bundles into `apps/vscode/dist`
   (unminified, with source maps), `npm run board dev:vscode` watches them, and
   `npm run board package:vscode` writes `apps/vscode/board-modeler.vsix` (vsce runs the production
-  build itself and packs offline). esbuild prints an `ignored-bare-import` warning for the shell's
-  chunks in each: no failure.
+  build itself and packs offline) and then runs the notices check. Each build writes the notices
+  into `dist`. esbuild prints an `ignored-bare-import` warning for the shell's chunks in each: no
+  failure.
+- `npm run check:notices -w modelers/board/apps/vscode`: the notices of `dist` and of the packed
+  VSIX against a fresh measurement of the bundles, and the VSIX's papers; `package:vscode` runs it
+  as its last step. `-- --vsix <file>` checks another VSIX. After a change of a dependency in any
+  modeler, `npm run board build:webapp` with its check and `npm run board package:vscode` say
+  whether the notices still hold.
 - `npm run dev:webview -w modelers/board/e2e`, then http://127.0.0.1:5194/webview-test.html?host:
   the extension's webview as a page, with the extension's plumbing in the page (the port is
   strict). It writes `e2e/node_modules/.vite`.
@@ -2602,6 +3105,21 @@ this cause (the README has what was measured), never to be answered with a longe
   `npm run test:vscode:docker -w @miragon/board-modeler-workspace -- --env VSCODE_VERSION=1.96.0`.
   The runner hands the container only what `--env` names.
 - `sha256sum -c .miragon/brand-assets.sha256` from the root: the vendored theme files.
+
+**A change to another modeler runs the board's jobs.** `reaches_board` in
+`.github/scripts/ci-paths.sh` adds the board to the modelers a change reaches when a path lies
+under another modeler's `packages/` or `example/` or is its `apps/vscode/package.json`. These are
+the three things the board reads of a modeler: `apps/editors` bundles the packages from source,
+`text-rules.test.ts` and the browser battery read the example files, and `suffixes.sync.test.ts`
+reads the `customEditors` of each extension's manifest. `test/ci-paths.test.ts` holds each of the
+three and their limits: a source file of another extension, another app's manifest and a
+modeler's `docs/example/` do not reach the board. Whoever makes the board read something else of a
+modeler adds it to that rule and to its test. Before pushing such a change, run
+`npm run board lint`, `npm run board test` and `npm run board test:browser` (the battery with the
+seven real editors is `apps/editors/test/browser`), and `npm run board build:webapp` and
+`package:vscode` when a dependency or a legal comment changed: the notices stop a production build
+for a package or a copied work they do not know
+([The suite's editors](#the-suites-editors-appseditors)).
 
 **Where Chromium must not run without its sandbox** (the Miragon agent VM is such a machine):
 Playwright's default launch passes `--no-sandbox` there, so `npm run board test:browser`,
@@ -2772,18 +3290,22 @@ changing one in passing is a regression nobody would see.
 - Gestures under the contract: a gesture tracker, a selection of the board's own that empties at a
   drag's start, a cancel that makes a drop write nothing, an armed tool, a create by a held
   gesture. The board adds by click; the one drag that creates is an arrow drawn from a handle.
-- For a host of files: an acknowledgement of a write the place took, a text merge for an edit that
-  crosses a change from outside (the edit is dropped whole), an end of the web app that waits for
-  the board's editors, and the notices files of the web app and of the extension. Built with the
-  second increment: a retry for a model whose file comes later, the version of a text, `settled()`
-  on the port, the rule of what a page reaches, and a host's own line for an invalid file.
+- For a host of files: an acknowledgement of a write the place took, and a text merge for an edit
+  that crosses a change from outside (the edit is dropped whole). Built with the second increment:
+  a retry for a model whose file comes later, the version of a text, `settled()` on the port, the
+  rule of what a page reaches, and a host's own line for an invalid file. Built with the third: an
+  end of the web app that waits for the board's editors, and the notices of both builds.
 - In the VS Code extension: the owner's own walk with the VSIX; following a file that is
   renamed or moved (`onMoved` never fires: the node says its file is gone); saving the models
   together with the board; the view kept across a reload; an entry in the Problems view; New Board
   commands and a walkthrough; an export; a file no notation of the suite covers; a theme but light;
-  a CHANGELOG, an icon and the third-party notices.
-- The apps of the later increments: the web app inside the shell (through `apps/ide-editor`), a
-  folder of the person's own behind the web app, the Orca plugin, arrows derived from model
+  an icon of the board's own (the extension shows the Miragon comet until the Miragon modeler icon
+  set has a board icon, which is a pull request in Miragon/corporate-identity; then the file is
+  copied from the set and the checksum in `apps/vscode/test/papers.test.ts` replaced).
+- In the web app: a link in the address that carries a board, a Share action, an export but the
+  board file, a link to the third-party notices of the build, a Netlify site (`netlify.toml`), and
+  a folder of the person's own behind the page.
+- The apps of the later increments: the Orca plugin, arrows derived from model
   references (`host.references`), and what a bare renderer in a node does not offer: by the plan's
   reading of the modelers' apps, not tried here, a Business Model Canvas title or notes, C4's
   inspector and views dialog, and any menu or export of a hosted modeler.
@@ -2794,9 +3316,13 @@ changing one in passing is a regression nobody would see.
   dark, `z-index: 2000` on the edge labels, the tap highlight and the text size adjustment on
   `.board-root`, a colour of its own for `.board-node__header`, and the comments that cite
   designIQ's documents or a file their statements left with a split.
-- Publishing: ranged peers for `yjs`, `react`, `react-dom` and `@xyflow/react` with exact
-  mirrors, a build, a release-please component, a notice for `dompurify` and one for Tailwind's
-  preflight (MIT), of which `assets/board-base.css` is a scoped copy.
+- Publishing to npm: ranged peers for `yjs`, `react`, `react-dom` and `@xyflow/react` with exact
+  mirrors, and a build.
+- What a modeler has beside its code: `docs/` and a page on the docs site, the store images
+  (`.miragon/product-shots.yaml`), and, after the first publish, the entry in the modeler
+  collection with its walkthrough step.
+- A list of allowed licences that the suite owns: the board's is in
+  `apps/editors/build/notices.mjs`.
 
 **Found while the first increment of the apps was built, and not changed.** In the renderer, in
 the suite's tooling and in other modelers; each is its owner's to decide.
@@ -2889,6 +3415,48 @@ and the extension stands in their own sections.
 - **A build that leaves its maps behind.** `build:vscode` followed by `package:vscode` leaves the
   development build's source maps in `apps/vscode/dist` beside the production bundle, since esbuild
   does not clean. The VSIX leaves them out.
+
+**Found while the third increment was built, and not changed.** In the renderer, the host
+package, the shell and other modelers; each is its owner's to decide.
+
+- **A board without a repository has no words of its own in the renderer and the host package.**
+  The host package's `openEditor` shows a host's reason for a file it cannot open behind its fixed
+  "This file could not be opened.", on the danger ground of a failed file; a state and a line of
+  the host's own, as `invalidText` is for a refused file, would say it without the look of a
+  failure. The renderer's toolbar has no place for a host's words when the model list is empty,
+  and `gestures/images.ts` words the notice for a picture a host does not store itself. Until
+  then the web app says both in its own toast and notice text.
+- **The word of a lazy part.** `.board-slot` shows the name of the part as text while it loads
+  ("Toolbar" in the middle of the board, for a moment at the first load). Behind the web app's
+  start screen a rule of `app.css` hides it.
+- **The status box over the toolbar's third row** below 480 px
+  ([The board inside the shell](#the-board-inside-the-shell-appside-editor)).
+- **The shell's focus fallback in the web host** (as above, `svg[tabindex]`): after the start
+  screen's New diagram the shell hands the focus to the menu trigger and not to the board. The web
+  app focuses the board's pane itself, there and after every document it mounts.
+- **C4's own builds**, by reading and not built here: its VSIX and its web app keep dagre's legal
+  comment, and neither ships `dagre.esm.js.LEGAL.txt`. Its VSIX has dagre's licence text in its
+  notices; its web app has no notices file.
+- **Nothing in the suite keeps a modeler on `main` from being published**
+  ([State of the port](#state-of-the-port)): an opt-out would be a change of
+  `.github/scripts/release-plan.mjs` with a root test, tried in a scratch copy and written down
+  there.
+- **The toolbar below 400 px, the toast over the lower row of models, and a failed node that
+  arms** ([The web app](#the-web-app-and-the-example-appswebapp-example-e2e), Known and not
+  cured). The first and the third are the renderer's, the second the shell's.
+- **No root test holds `initial-version`.** With that line taken out of a component at 0.0.0,
+  `test/release-config.test.ts` still passes, and release-please would then propose 1.0.0 for it
+  (tried by the review of the third increment for `board-webapp`; the same holds for Business
+  Model Canvas on `main`). A case in that test is a root change.
+- **`npm ci --dry-run` is no check of the lockfile**: it printed "up to date" while the lockfile
+  lacked two dependencies a manifest of the board named, both workspaces that were linked already.
+  `test/release-config.test.ts` failed for it, since two `extra-files` entries pointed at the
+  missing lines.
+
+- **The root tests leave files in the temp folder.** `ci-paths.sh affected` makes a file with
+  `mktemp` and does not remove it (on `main` too), and `test/ci-paths.test.ts` calls it for every
+  case: one `npm run test:plugin` leaves 58 small files `tmp.*` in the OS temp folder. Where that
+  folder must stay clean, run it with `TMPDIR` set to a folder of one's own.
 
 **Found in a real VS Code, and not changed.** Each was seen in the walk
 ([Taken for granted about VS Code](#taken-for-granted-about-vs-code)); what the walk found and

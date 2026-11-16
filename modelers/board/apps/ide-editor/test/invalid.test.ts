@@ -46,6 +46,27 @@ describe("the lock of a board whose text was refused", () => {
     expect(calls).toEqual(["readOnly false at once", "status none at once"]);
   });
 
+  it("leaves an inert slot that is not its own: the shell's, behind a web app's start screen", () => {
+    const { shell, canvas } = fakeShell();
+    const lock = createBoardLock(shell);
+    canvas.inert = true;
+
+    // the first text of a board that was never locked
+    lock.accepted();
+    expect(canvas.inert).toBe(true);
+    expect(lock.locked()).toBe(false);
+
+    // its own lock it takes back, and only that
+    canvas.inert = false;
+    lock.refused("line 3 is no JSON");
+    expect(canvas.inert).toBe(true);
+    lock.accepted();
+    expect(canvas.inert).toBe(false);
+    canvas.inert = true;
+    lock.accepted();
+    expect(canvas.inert).toBe(true);
+  });
+
   it("names the reason of the last refused text", () => {
     const { shell, calls } = fakeShell();
     const lock = createBoardLock(shell);

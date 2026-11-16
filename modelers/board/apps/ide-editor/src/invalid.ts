@@ -41,11 +41,17 @@ export function invalidStatus(shell: Pick<LockedShell, "messages">, reason: stri
 export function createBoardLock(shell: LockedShell): BoardLock {
   let invalid = false;
   let readOnly = false;
+  let inert = false;
   // Inert and not a rule of the sheet: the whole slot, the board's toolbar and an armed editor
   // with it, takes neither pointer nor key, and loses the focus it had.
   const apply = (delayMs?: number): void => {
     const locked = invalid || readOnly;
-    shell.canvas.inert = locked;
+    // Only a change of the lock is written. The slot's inert is the shell's as well: behind a
+    // web app's start screen it stays, whatever text the board accepts meanwhile.
+    if (locked !== inert) {
+      inert = locked;
+      shell.canvas.inert = locked;
+    }
     shell.setReadOnly(locked, delayMs === undefined ? undefined : { delayMs });
   };
   return {

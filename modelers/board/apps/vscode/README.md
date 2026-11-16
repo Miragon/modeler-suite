@@ -7,8 +7,18 @@ your repository next to the files it shows.
 
 Free and open source (MIT). No account, no telemetry, and it works offline.
 
-**Preview.** This extension is built from a branch and is not published. Its name, its editor and
-the `.board` format may still change.
+**Preview.** The board is work in progress. Its name, its editor and the `.board` format may
+still change, and [what it cannot do yet](#what-it-cannot-do-yet) is a list you should read
+first.
+
+## Install
+
+From a VSIX: run **Extensions: Install from VSIX...** from the Command Palette
+(`Ctrl/Cmd+Shift+P`) and pick `board-modeler.vsix`, or run
+`code --install-extension board-modeler.vsix`. A checkout of the
+[modeler suite](https://github.com/Miragon/modeler-suite) builds the file with `npm ci`,
+`npm run build:shared` and `npm run board package:vscode`, which writes
+`modelers/board/apps/vscode/board-modeler.vsix`.
 
 ## Get started
 
@@ -41,12 +51,13 @@ the smallest edit, the file shows as unsaved, and you save it like any other fil
 or the model's own editor beside the board works on the same text: type there and the node
 follows.
 
+You do not need the modelers' own extensions for this: the board brings their editors along.
+
 ## Notes, pictures, groups and arrows
 
 Write a note with **Text** and add a picture with **Image**, or paste one from the clipboard: a
 picture is stored as a new file under `assets/` in your repository and never replaces a file that
-is there. Group nodes and
-connect them with arrows.
+is there. Group nodes and connect them with arrows.
 
 ## The board is a text file
 
@@ -66,6 +77,10 @@ lies behind a linked folder, wherever the link leads, a model above 2 MiB or a p
 MiB. The list may still offer a link or a file behind a linked folder: picked, its node says that
 a board opens no link. Files in `node_modules` are not listed.
 
+The extension changes three things and no other: the text of the board, the text of a model you
+edit on it, both of which you save yourself, and a new picture, which it stores under `assets/`.
+It sends nothing anywhere.
+
 ## What it cannot do yet
 
 - Follow a file that is renamed or moved: the node then shows that its file is gone.
@@ -73,10 +88,32 @@ a board opens no link. Files in `node_modules` are not listed.
 - Keep the view across a reload of the window.
 - Show an entry in the Problems view.
 - Show a file that no notation above covers.
+- Create a board from a command: make an empty `.board` file yourself.
+- Export a board as a picture.
 - Fit a model into a narrow editor: a model is edited at 100 %, so in an editor that is narrower
   than the model's node a part of it is out of reach. Make the editor wider or the node smaller.
+
+## Good to know
+
+- Needs VS Code 1.96 or later on the desktop. VS Code for the Web is not supported.
+- There is no live co-editing. Share boards through Git.
+- The board and the models on it stay light in dark themes.
+- A Business Model Canvas on a board carries its attribution: the canvas is by Strategyzer AG,
+  [strategyzer.com](https://www.strategyzer.com), licensed under
+  [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). This extension is not
+  affiliated with or endorsed by Strategyzer AG.
+
+## Third-party software
+
+The extension bundles the editors of the seven Miragon modelers and the open-source software
+they and the board stand on, among them React, React Flow, Yjs, diagram-js, zod and the Geist
+fonts. Every bundled package is listed with its licence in `dist/THIRD_PARTY_NOTICES.md` in the
+folder of the installed extension. The build writes that file from what it bundled.
 
 ## Feedback
 
 Report a problem or an idea in the
-[issues of the modeler suite](https://github.com/Miragon/modeler-suite/issues).
+[issues of the modeler suite](https://github.com/Miragon/modeler-suite/issues). The source is in
+the [modeler suite](https://github.com/Miragon/modeler-suite), under `modelers/board`.
+
+Made by [Miragon](https://www.miragon.io). MIT licence.

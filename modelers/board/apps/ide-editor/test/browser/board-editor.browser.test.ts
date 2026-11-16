@@ -10,7 +10,7 @@ import "@miragon/modeler-shell/shell.css";
 import "@miragon/board-renderer/assets/board.css";
 import "board-suite-editors/base";
 import "../../src/app.css";
-import type { EditorEntry, EmbeddableModeler } from "@miragon/board-host";
+import { INVALID_TEXT, type EditorEntry, type EmbeddableModeler } from "@miragon/board-host";
 import { addNode, createCollaborativeModeler } from "@miragon/board-renderer";
 import { encodeBoard } from "@miragon/board-schema-model";
 import { SUITE_EDITORS } from "board-suite-editors";
@@ -18,7 +18,7 @@ import { watchPageErrors } from "../../../editors/test/browser/support/page-erro
 import { mountBoardEditor, type BoardEditor } from "../../src/board-editor.js";
 import { BOARD_MIN_ZOOM, fittedView, viewOf, type BoardView } from "../../src/zoom-target.js";
 import { testFiles, type TestFiles } from "./support/files.js";
-import { testHost, type TestHost, type TestHostOptions } from "./support/ide-host.js";
+import { testHost, testWebHost, type TestHost, type TestHostOptions } from "./support/ide-host.js";
 
 const WAIT = { timeout: 10_000, interval: 25 };
 /** The first load of a renderer of the suite from its sources, on a busy machine. */
@@ -110,6 +110,8 @@ interface MountOptions extends TestHostOptions {
   hidden?: boolean | undefined;
   /** default true, as in VS Code: an armed editor's undo keys never reach the host */
   containHistoryKeys?: boolean | undefined;
+  /** the host binds the file keys itself, as a web app does */
+  fileKeys?: boolean | undefined;
 }
 
 let mounted: Mounted | undefined;
@@ -172,6 +174,7 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
     files: files?.files,
     editors,
     containHistoryKeys: options.containHistoryKeys !== false,
+    fileKeys: options.fileKeys,
   });
   mounted = { editor, host, root, files, modelers };
   if (options.text !== undefined) {
@@ -408,8 +411,151 @@ describe("the two chromes as one picture", () => {
     expect(rows).toContain("Fit to viewShift+1");
     expect(rows).toContain("Delete the selectionDelBackspace");
     expect(rows).toContain("Edit a note or a modelDouble-click");
+    // an IDE binds the file keys itself: the dialog of its board lists none
+    expect(rows.filter((row) => row?.includes("Ctrl+O") || row?.includes("Ctrl+S"))).toEqual([]);
     await press("Escape");
     await expect.poll(() => root.querySelector("dialog[open]"), WAIT).toBeNull();
+  });
+
+  it("lists the file keys in a group of their own where the host binds them, as a web app does", async () => {
+    const { root } = await mount({ text: NOTES, fileKeys: true });
+    await realClick(centreOf(one(root, '[data-chrome="menu"]')));
+    await vi.waitFor(() => one(root, '[data-menu-id="keyboard-shortcuts"]'), WAIT);
+    await realClick(centreOf(one(root, '[data-menu-id="keyboard-shortcuts"]')));
+    const dialog = await vi.waitFor(() => one(root, "dialog[open]"), WAIT);
+    const groups = [...dialog.querySelectorAll(".cd-shell-shortcuts-group")].map((group) => ({
+      title: one(group, "h3").textContent,
+      rows: [...group.querySelectorAll("tr")].map((row) => row.textContent),
+    }));
+
+    // the shell's own View group leads every dialog; the file keys stand before the board's
+    expect(groups.map((group) => group.title)).toEqual(["View", "File", "Edit"]);
+    expect(groups[1]?.rows).toEqual(["Open…Ctrl+O", "Export as .boardCtrl+S"]);
+    expect(groups[2]?.rows).toContain("Delete the selectionDelBackspace");
+    await press("Escape");
+    await expect.poll(() => root.querySelector("dialog[open]"), WAIT).toBeNull();
+  });
+});
+
+describe("under a web app's host", () => {
+  /** The editor on the three members a web app brings, in a root of the size the test gives it. */
+  async function mountWeb(
+    options: { startScreen?: boolean | undefined; box?: string | undefined } = {},
+  ): Promise<{ editor: BoardEditor; root: HTMLElement; open(text: string): Promise<void> }> {
+    const root = document.createElement("div");
+    root.id = "app";
+    if (options.box !== undefined) root.style.cssText = options.box;
+    document.body.append(root);
+    const web = testWebHost({ startScreen: options.startScreen });
+    const editor = await mountBoardEditor(web.host, {
+      root,
+      editors: [],
+      containHistoryKeys: false,
+    });
+    // unmount() ends it with every other test's editor
+    mounted = { editor, host: testHost(), root, files: undefined, modelers: [] };
+    return {
+      editor,
+      root,
+      async open(text) {
+        await web.document.open(text);
+        await editor.ready;
+        await drawn(editor, root);
+      },
+    };
+  }
+
+  it("mounts the board in the shell's web column, the toolbar clear of the menu as in an IDE", async () => {
+    const { root, editor, open } = await mountWeb();
+    await open(NOTES);
+
+    expect(root.dataset.cdShellHost).toBe("web");
+    expect(one(root, '[data-chrome="legal"]').checkVisibility()).toBe(true);
+    const [trigger, toolbar] = [one(root, '[data-chrome="menu"]'), one(root, ".board-toolbar")];
+    expect(overlap(trigger, toolbar)).toBe(0);
+    expect(toolbar.getBoundingClientRect().left).toBe(64);
+    expect(getComputedStyle(toolbar).visibility).toBe("visible");
+    // the canvas keeps its own history, since a page has no other
+    await realClick(centreOf(toolbarButton(root, "Group")));
+    await expect.poll(() => nodeIds(editor).length, WAIT).toBe(3);
+    await realClick(panePoint(root));
+    await press("Control+z");
+    await expect.poll(() => nodeIds(editor).length, WAIT).toBe(2);
+  });
+
+  it("hides the toolbar behind the start screen, its room kept, and keeps the slot inert there", async () => {
+    const { root, editor, open } = await mountWeb({ startScreen: true });
+    const slot = editor.shell.canvas;
+    expect(slot.inert).toBe(true);
+
+    // the first text is accepted behind the card: the slot stays the shell's to open
+    await open(NOTES);
+    expect(editor.shell.isEmptyStateShown()).toBe(true);
+    expect(slot.inert).toBe(true);
+    const toolbar = one(root, ".board-toolbar");
+    const shown = toolbar.getBoundingClientRect();
+    expect(getComputedStyle(toolbar).visibility).toBe("hidden");
+    expect(getComputedStyle(one(root, '[data-chrome="menu"]')).visibility).toBe("hidden");
+    // React Flow's attribution is no work chrome: it stays
+    expect(getComputedStyle(one(root, ".react-flow__attribution")).visibility).toBe("visible");
+    // The word a part of the board shows while it loads would stand in the glass card. A part
+    // loads for a moment only, so the board's own element for it is put there by hand.
+    const loading = document.createElement("div");
+    loading.className = "board-slot";
+    loading.textContent = "Toolbar";
+    one(root, ".board-root").append(loading);
+    expect(getComputedStyle(loading).visibility).toBe("hidden");
+
+    editor.shell.setEmptyState(false);
+
+    expect(slot.inert).toBe(false);
+    expect(getComputedStyle(toolbar).visibility).toBe("visible");
+    expect(getComputedStyle(loading).visibility).toBe("visible");
+    loading.remove();
+    const after = toolbar.getBoundingClientRect();
+    expect([after.left, after.top, after.width, after.height]).toEqual([
+      shown.left,
+      shown.top,
+      shown.width,
+      shown.height,
+    ]);
+  });
+
+  it("keeps the attribution above the zoom panel where a narrow page raises it over the legal line", async () => {
+    const { root, open } = await mountWeb({
+      box: "position:fixed;left:0;top:0;width:480px;height:640px",
+    });
+    await open(NOTES);
+    await expect.poll(() => root.dataset.zoomRow, WAIT).toBe("raised");
+    const attribution = one(root, ".react-flow__attribution");
+    const panel = one(root, '[data-chrome="zoom"]');
+    const legal = one(root, '[data-chrome="legal"]');
+
+    expect(overlap(attribution, panel)).toBe(0);
+    expect(overlap(attribution, legal)).toBe(0);
+    expect(overlap(panel, legal)).toBe(0);
+    const [box, zoom, page] = [
+      attribution.getBoundingClientRect(),
+      panel.getBoundingClientRect(),
+      root.getBoundingClientRect(),
+    ];
+    // above the raised panel by the shell's gap, at the shell's margin from the edge
+    expect(zoom.top - box.bottom).toBe(8);
+    expect(page.right - box.right).toBe(12);
+    const at = centreOf(attribution);
+    expect(attribution.contains(document.elementFromPoint(at.x, at.y))).toBe(true);
+  });
+
+  it("stands the attribution above a zoom panel that is not raised, as in an IDE", async () => {
+    const { root, open } = await mountWeb();
+    await open(NOTES);
+    expect(root.dataset.zoomRow).toBeUndefined();
+    const [box, zoom] = [
+      one(root, ".react-flow__attribution").getBoundingClientRect(),
+      one(root, '[data-chrome="zoom"]').getBoundingClientRect(),
+    ];
+
+    expect(zoom.top - box.bottom).toBe(8);
   });
 });
 
@@ -893,6 +1039,68 @@ describe("a model of the repository under the shell", () => {
       expect(document.querySelector(".board-engine")).toBeNull();
     },
     FLOW_MS,
+  );
+});
+
+describe("a model its editor refuses", () => {
+  const VALUE_CHAIN = editorOf("value-chain");
+  const CHAIN_PATH = "models/porter.vc.json";
+  const WITH_CHAIN = encodeBoard({
+    meta: { title: "A refused model", version: 1 },
+    elements: {
+      n_chain: {
+        kind: "node",
+        type: "model",
+        file: CHAIN_PATH,
+        x: 0,
+        y: 0,
+        width: 800,
+        height: 540,
+        z: "a",
+      },
+    },
+  });
+
+  /** The line in the node of a value chain that is no JSON, under a host that says `invalidText`. */
+  async function refusedLine(invalidText: string | undefined): Promise<string | null> {
+    const root = document.createElement("div");
+    root.id = "app";
+    document.body.append(root);
+    const host = testHost();
+    const files = testFiles({ [CHAIN_PATH]: "{ this is no value chain" }, [VALUE_CHAIN]);
+    const editor = await mountBoardEditor(host.host, {
+      root,
+      files: files.files,
+      editors: [VALUE_CHAIN],
+      containHistoryKeys: true,
+      invalidText,
+    });
+    mounted = { editor, host, root, files, modelers: [] };
+    await host.document.open(WITH_CHAIN);
+    const line = await vi.waitFor(
+      () => one(root, '.board-engine[data-embed-state="invalid"] > .board-host-state'),
+      { timeout: LOAD_MS, interval: 50 },
+    );
+    return line.textContent;
+  }
+
+  it(
+    "says the host package's line where the host gives none: the file has an editor of its own",
+    async () => {
+      expect(await refusedLine(undefined)).toBe(INVALID_TEXT);
+      expect(INVALID_TEXT).toContain("Open it in its own editor");
+    },
+    LOAD_MS + FLOW_MS,
+  );
+
+  it(
+    "says the host's own line where it gives one: a page without an editor for the file",
+    async () => {
+      const line = "This file cannot be shown as it is. Reset the page.";
+
+      expect(await refusedLine(line)).toBe(line);
+    },
+    LOAD_MS + FLOW_MS,
   );
 });
 

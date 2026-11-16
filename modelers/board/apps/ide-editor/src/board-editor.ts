@@ -1,9 +1,10 @@
 /**
- * The board inside the suite's shell, for an IDE host: what the shell's `mountIdeEditor` is for
- * a modeler on diagram-js, without its diagram-js lines. The shell brings the menu, the zoom
- * panel, the status box and the empty-file hint; the board keeps its toolbar. The board file is
- * the host's document; the files its nodes show come through the files port, and the editors of
- * its model nodes are handed in, so this workspace names no other modeler.
+ * The board inside the suite's shell: what the shell's `mountIdeEditor` is for a modeler on
+ * diagram-js, without its diagram-js lines. The shell brings the menu, the zoom panel, the
+ * status box and the empty-file hint; the board keeps its toolbar. The board file is the host's
+ * document; the files its nodes show come through the files port, and the editors of its model
+ * nodes are handed in, so this workspace names no other modeler. The host is an IDE's (the VS
+ * Code webview) or a web app's, which mounts the shell's web column around the same board.
  */
 import type { BoardFiles } from "@miragon/board-files";
 import { createFilesHost, type EditorEntry } from "@miragon/board-host";
@@ -18,6 +19,16 @@ import { boardShortcuts } from "./shortcuts.js";
 import { viewChanges } from "./view-events.js";
 import { boardZoomTarget } from "./zoom-target.js";
 
+/**
+ * The place the editor is mounted in, as far as the editor asks it. The shell's `IdeEditorHost`
+ * fits, as the VS Code webview hands it in. A web app is no IDE and brings the three members
+ * itself: its `mountShell` adds the shell's web column, and its document is the page's own.
+ */
+export type BoardEditorHost = Pick<
+  IdeEditorHost,
+  "canvasOwnsHistory" | "mountShell" | "connectDocument"
+>;
+
 export interface BoardEditorOptions {
   /** Where the shell is mounted. Default: the element with the id `app`. */
   root?: HTMLElement | null | undefined;
@@ -30,6 +41,13 @@ export interface BoardEditorOptions {
    * is armed stay with that editor and never reach the host.
    */
   containHistoryKeys: boolean;
+  /**
+   * The line of a model its editor refuses: what a person can do about it in this host. Absent:
+   * the host package's own, which sends them to the file's editor (true in an IDE).
+   */
+  invalidText?: string | undefined;
+  /** True where the host binds the file keys itself (a web app): the shortcuts dialog lists them. */
+  fileKeys?: boolean | undefined;
 }
 
 export interface BoardEditor {
@@ -65,7 +83,7 @@ const messageOf = (error: unknown): string =>
  * still shows an empty board.
  */
 export async function mountBoardEditor(
-  host: IdeEditorHost,
+  host: BoardEditorHost,
   options: BoardEditorOptions,
 ): Promise<BoardEditor> {
   const root = options.root === undefined ? document.getElementById("app") : options.root;
@@ -83,7 +101,10 @@ export async function mountBoardEditor(
           id: "keyboard-shortcuts",
           label: "Keyboard shortcuts…",
           icon: "keyboard",
-          onSelect: () => void shell.showShortcutsDialog(boardShortcuts(shell)),
+          onSelect: () =>
+            void shell.showShortcutsDialog(
+              boardShortcuts(shell, { fileKeys: options.fileKeys === true }),
+            ),
         },
       ],
     },
@@ -96,6 +117,7 @@ export async function mountBoardEditor(
         files: options.files,
         editors: options.editors,
         containHistoryKeys: options.containHistoryKeys,
+        invalidText: options.invalidText,
       })
     : undefined;
   const modeler = createCollaborativeModeler({

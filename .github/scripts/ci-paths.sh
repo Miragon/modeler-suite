@@ -108,6 +108,18 @@ reaches_template() {
   esac
 }
 
+# The board shows the other modelers' files in place: its apps bundle every other modeler's packages
+# from source, and its tests read their example files and the suffixes their VS Code extensions
+# open. A change to one of those runs the board's jobs too, or it could break them on main unseen.
+# The modeler's folder is cut off first: a `*` in a case pattern crosses a slash, so
+# `modelers/*/example/*` would take a modeler's docs/example/ as well.
+reaches_board() {
+  case "${1#modelers/*/}" in
+    packages/* | example/* | apps/vscode/package.json) ;;
+    *) return 1 ;;
+  esac
+}
+
 affected() {
   local changed reach path all
   local everything=false template=false docs=false modelers=""
@@ -120,6 +132,7 @@ affected() {
       reach=$(classify "$path")
       echo "$path: $reach"
       if reaches_template "$path"; then template=true; fi
+      if reaches_board "$path"; then modelers+="board"$'\n'; fi
       if [[ "$path" == docs/* ]]; then docs=true; fi
       case "$reach" in
         all) everything=true ;;

@@ -6,11 +6,12 @@ hook, tests in general, commits and pull requests are in the suite's
 [docs/ci-and-releases.md](../../docs/ci-and-releases.md). This file adds what is special to this
 modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
 
-**Work in progress.** Four packages, the web app on an example repository, `example/`, the board
-inside the suite's shell, a VS Code extension that packs into a VSIX, and two `e2e` projects are
-here, and the extension's smoke runs in a real VS Code; the Orca plugin and `docs/` are still to
-come.
-[`CLAUDE.md`](CLAUDE.md) says what is in the tree and what was run on it.
+**Work in progress, unpublished.** Four packages, the board inside the suite's shell, the web app
+(a start screen, a board of your own, and an example repository, `example/`), a VS Code extension
+that packs into a VSIX, and two `e2e` projects are here, and the extension's smoke runs in a real
+VS Code; the Orca plugin and `docs/` are still to come.
+[`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it and where the board deviates
+from the suite's rules.
 
 ## Packages
 
@@ -40,7 +41,8 @@ npm run board depcruise
 `npm run board dev:webapp` serves the web app on http://localhost:5184.
 `npm run dev:webview -w modelers/board/e2e` serves the extension's webview as a page on
 http://127.0.0.1:5194/webview-test.html?host, inside the shell's stand-in for VS Code.
-`npm run board build:vscode` builds the extension and `npm run board package:vscode` packs it.
+`npm run board build:vscode` builds the extension and `npm run board package:vscode` packs it and
+checks the packed notices.
 
 `schema-model` and `files` are DOM-free (P1, enforced by ESLint and dependency-cruiser). No package
 and no app but `apps/editors` imports another modeler, neither a package of one by its name nor a
@@ -95,6 +97,19 @@ extension, in the Docker runner where no VS Code window may open. [`CLAUDE.md`](
 what the code takes for granted about VS Code and what a real one showed of it: a change that
 rests on one of those items wants a look there first.
 
+## Third-party notices and the icon
+
+The notices are not committed, and there is no `npm run notices` here: every build of the
+extension and of the web app writes them from what it bundled, and a production build fails when
+they are not whole (`apps/editors/build/notices.mjs` has the list of licences a build may carry
+and the list of works copied into sources of the suite). After a change of a dependency, or of a
+legal comment in any modeler's renderer, run `npm run board build:webapp` with its `check:build`
+and `npm run board package:vscode`.
+
+The extension's icon is the Miragon comet on blue until the Miragon modeler icon set has a board
+icon. Never draw, recolour or scale an icon here: copy it from the set in
+Miragon/corporate-identity and replace the checksum in `apps/vscode/test/papers.test.ts`.
+
 ## Design tokens
 
 To update the vendored files in `packages/renderer/src/theme/`, re-copy them with
@@ -104,8 +119,16 @@ The board vendors the two token files and no `cd-canvas.css`, and
 (`packages/renderer/src/assets/board.css`) takes every colour from one alias block; a new colour
 is an alias there and a row in that test.
 
-## Pull requests
+## Pull requests, CI and releases
 
 Gates: `lint`, `test`, `test:browser`, `test:e2e`, `depcruise`, `build:webapp` with the web
 app's `check:build`, and `package:vscode`. Scope `board`, e.g.
 `feat(board): add an image export`.
+
+A change under another modeler's `packages/` or `example/`, or to its `apps/vscode/package.json`,
+runs the board's CI jobs as well, because the board bundles those packages and reads those files.
+The board has eight release components (`board-schema-model`, `-renderer`, `-files`, `-host`,
+`-editors`, `-ide-editor`, `-vscode`, `-webapp`); nothing goes to npm, and the extension is the one
+thing a release publishes. Never bump a version or write a `CHANGELOG.md` by hand: the extension's
+has one entry from before its first release, and release-please writes above it.
+[`CLAUDE.md`](CLAUDE.md) says what a merge to `main` would publish.

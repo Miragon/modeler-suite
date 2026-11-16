@@ -6,6 +6,7 @@
  */
 import { mountShell, type ShellHandle } from "@miragon/modeler-shell";
 import type { IdeDocumentOptions, IdeEditorHost } from "@miragon/modeler-shell/ide";
+import type { BoardEditorHost } from "../../../src/board-editor.js";
 
 export interface TestDocument {
   /** The first text. Resolves once the editor imported or refused it. */
@@ -107,6 +108,50 @@ export function testHost(options: TestHostOptions = {}): TestHost {
       edits,
       commands: () => connected?.commands ?? {},
       disconnected: () => disconnected,
+    },
+  };
+}
+
+export interface TestWebHost {
+  /** The three members a web app brings: it is no IDE, and has no kind and no kept state. */
+  readonly host: BoardEditorHost;
+  readonly document: TestDocument;
+}
+
+/** The Miragon mark of the start screen: a picture a test page can load without a server. */
+const MARK = `data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"/>',
+)}`;
+
+/**
+ * A web app's host around the same document: the shell's real `mountShell` in the web column,
+ * with a legal line and a start screen, which is shown from the mount on where `startScreen` is
+ * true. The canvas keeps its own history, as in a page that has no other.
+ */
+export function testWebHost(options: { startScreen?: boolean | undefined } = {}): TestWebHost {
+  const ide = testHost({ canvasOwnsHistory: true });
+  return {
+    document: ide.document,
+    host: {
+      canvasOwnsHistory: true,
+      connectDocument: ide.host.connectDocument,
+      mountShell(root, shellOptions): ShellHandle {
+        const shell = mountShell(root, {
+          ...shellOptions,
+          host: "web",
+          lang: "en",
+          platform: "other",
+          legal: { links: [{ label: "GitHub", href: "https://github.com/Miragon/modeler-suite" }] },
+          emptyState: {
+            title: "Board Modeler",
+            text: "Start a new board, or explore the example.",
+            komet: MARK,
+            onNewDiagram: () => undefined,
+          },
+        });
+        if (options.startScreen === true) shell.setEmptyState(true);
+        return shell;
+      },
     },
   };
 }

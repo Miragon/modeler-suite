@@ -6,7 +6,8 @@ special to it ([Wardley Maps](modelers/wardley-maps/CONTRIBUTING.md),
 [Team Topologies](modelers/team-topologies/CONTRIBUTING.md),
 [Context Maps](modelers/context-maps/CONTRIBUTING.md),
 [Value Chain](modelers/value-chain/CONTRIBUTING.md), [C4 model](modelers/c4/CONTRIBUTING.md),
-[Business Model Canvas](modelers/business-model-canvas/CONTRIBUTING.md)).
+[Business Model Canvas](modelers/business-model-canvas/CONTRIBUTING.md),
+[the board](modelers/board/CONTRIBUTING.md), which is in progress and unpublished).
 CI, releases and publishing are in [docs/ci-and-releases.md](docs/ci-and-releases.md), the rules
 for agents in [CLAUDE.md](CLAUDE.md).
 
@@ -27,14 +28,15 @@ packages/
   api/                   @miragon/modeler-api: the collaborative-modeler contract and its conformance kit
   shell/                 @miragon/modeler-shell: the shared chrome, its conformance kit, the VS Code smoke driver
 modelers/<modeler>/      wardley-maps, event-storming, team-topologies, context-maps, value-chain, c4,
-                         business-model-canvas
-  packages/              the npm libraries: schema-model, dsl / cml / layout / transforms, renderer
+                         business-model-canvas, board (in progress, unpublished)
+  packages/              the npm libraries: schema-model, dsl / cml / layout / transforms, renderer;
+                         in the board also files and host
   apps/webapp            the web app
   apps/vscode            the VS Code extension
   e2e/                   Playwright suites for both apps
   example/, docs/        example files and the modeler's docs
 extensions/
-  modeler-collection/    the VS Code extension pack of every modeler
+  modeler-collection/    the VS Code extension pack of every published modeler
 plugins/modeler-kit/     the Claude Code plugin with the new-modeler skill and its template
 .claude-plugin/          the suite's Claude Code marketplace
 tooling/                 the ESLint and dependency-cruiser presets every modeler uses
@@ -43,7 +45,10 @@ docs/                    the documentation site, https://miragon.github.io/model
 ```
 
 The `schema-model`, `dsl`, `cml`, `layout` and `transforms` packages are DOM-free; the renderer
-implements `@miragon/modeler-api` on diagram-js, and both apps mount `@miragon/modeler-shell`.
+implements `@miragon/modeler-api` on diagram-js, and both apps mount `@miragon/modeler-shell`. The
+board differs: its canvas is React Flow, its DOM-free packages are `schema-model` and `files`, it
+has no `docs/` yet, and its `apps/editors` bundles the seven other renderers, whose models a board
+shows in place.
 
 ## Setup
 
@@ -58,13 +63,13 @@ npx playwright install chromium webkit   # once, for the browser and e2e tests
 The modelers read the shared packages from `dist`, so run `npm run build:shared` again after
 changing them. Wardley Maps, Event Storming, Value Chain and C4 also resolve their own packages from
 `dist` in their unit tests: run `npm run <modeler> build` before `npm run <modeler> test`. Team
-Topologies, Context Maps and Business Model Canvas read their packages from source.
+Topologies, Context Maps, Business Model Canvas and the board read their packages from source.
 
 ## Scripts
 
 Everything runs from the root. `npm run <modeler> <script>` runs a script of one modeler
 (`wardley-maps`, `event-storming`, `team-topologies`, `context-maps`, `value-chain`, `c4`,
-`business-model-canvas`), `npm run modelers <script>` runs it in all seven.
+`business-model-canvas`, `board`), `npm run modelers <script>` runs it in all eight.
 
 | Root script                                 | Does                                                                          |
 | ------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -78,17 +83,17 @@ Everything runs from the root. `npm run <modeler> <script>` runs a script of one
 | `npm run test:browser` / `npm run test:e2e` | every browser test / e2e suite                                                |
 | `npm run package:vscode`                    | every VS Code extension as a VSIX                                             |
 
-| Modeler script                                   | Does                                                                      |
-| ------------------------------------------------ | ------------------------------------------------------------------------- |
-| `build`                                          | its publishable packages                                                  |
-| `build:webapp`, `build:vscode`, `package:vscode` | the web app, the extension's bundles, the VSIX                            |
-| `typecheck`, `lint`                              | type check; ESLint and type check                                         |
-| `test`                                           | Vitest unit tests                                                         |
-| `test:browser`                                   | Vitest in Chromium, with the `@miragon/modeler-api` conformance kit       |
-| `test:e2e`                                       | Playwright: web app and VS Code webview, with the shell's conformance kit |
-| `test:vscode:docker`                             | the packed extension in a real VS Code, in Docker                         |
-| `depcruise`                                      | the module-graph rules, the DOM boundary among them                       |
-| `dev:webapp`, `dev:webapp:plain`, `dev:vscode`   | the web app's dev server, the extension's watch build                     |
+| Modeler script                                   | Does                                                                                                 |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `build`                                          | its publishable packages                                                                             |
+| `build:webapp`, `build:vscode`, `package:vscode` | the web app, the extension's bundles, the VSIX                                                       |
+| `typecheck`, `lint`                              | type check; ESLint and type check                                                                    |
+| `test`                                           | Vitest unit tests                                                                                    |
+| `test:browser`                                   | Vitest in Chromium, with the `@miragon/modeler-api` conformance kit                                  |
+| `test:e2e`                                       | Playwright: web app and VS Code webview, with the shell's conformance kit (the board: its own specs) |
+| `test:vscode:docker`                             | the packed extension in a real VS Code, in Docker                                                    |
+| `depcruise`                                      | the module-graph rules, the DOM boundary among them                                                  |
+| `dev:webapp`, `dev:webapp:plain`, `dev:vscode`   | the web app's dev server, the extension's watch build                                                |
 
 A flag after an alias never reaches the script (npm takes it for its own option). Give it to the
 workspace instead, after `--`:
@@ -114,6 +119,7 @@ the port).
 | Value Chain           | plain Vite: `http://localhost:5181`                   | (no Portless)           |
 | C4 model              | `https://<branch>.c4.localhost`                       | `http://127.0.0.1:5182` |
 | Business Model Canvas | plain Vite: `http://localhost:5183`                   | (no Portless)           |
+| Board                 | plain Vite: `http://localhost:5184`                   | (no Portless)           |
 
 The HTTPS URLs need Portless's proxy, installed once per machine (asks for `sudo`):
 `npx portless trust` and `npx portless service install`. `npm run <modeler> dev:vscode`
@@ -124,19 +130,26 @@ watch-builds the extension; debug it with the launch configuration in the modele
 
 - **Unit:** `npm test`, or `npm run <modeler> test`.
 - **Browser:** `npm run <modeler> test:browser` runs the renderer's integration tests and the
-  contract's conformance kit in Chromium; a skipped case or an advisory fails the run.
+  contract's conformance kit in Chromium; a skipped case or an advisory fails the run. The board
+  binds the kit with seven pinned skips, a deviation with an end that
+  [its guide](modelers/board/CLAUDE.md#tests) records.
   `npm run test:browser:shared` runs the shell's browser tests in Chromium and WebKit.
 - **e2e:** `npm run <modeler> test:e2e` runs Playwright against the web app and the VS Code
-  webview, both held to the shell's conformance kit; some modelers add WebKit projects. A running
-  server is reused, so pick free ports beside another checkout:
+  webview, both held to the shell's conformance kit; some modelers add WebKit projects. The board
+  runs its own specs in the kit's place, a deviation with an end that
+  [its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end) records.
+  A running server is reused, so pick free ports beside another checkout:
   `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
 
 ### VS Code smoke test
 
 `test:vscode` packs the extension as the release does and runs it in a real VS Code: open a
 fixture, check the chrome, edit, save, undo, switch the four default themes, with screenshots in
-the modeler's `test-results/vscode-smoke/`. On macOS it opens a window that takes the focus, so
-**run it in Docker locally**:
+the modeler's `test-results/vscode-smoke/`. The board's smoke expects its one light picture under
+each of the four themes and runs without the steps keys, history and workbench, a deviation with
+an end that
+[its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end) records.
+On macOS it opens a window that takes the focus, so **run it in Docker locally**:
 
 ```sh
 npm run wardley-maps test:vscode:docker
@@ -151,11 +164,11 @@ The driver and the container are documented in the shell's README,
 
 ### Orca plugins
 
-Every modeler but C4 is also an [Orca](https://www.onorca.dev) custom editor in `apps/orca`: the
-editor the VS Code webview mounts too (`apps/ide-editor`), on the shell's `orcaEditorHost` with
-the notation's merge (`mergeOwmText`, `mergeStormText`, …), which Orca calls for an agent's write
-under unsaved edits. Orca keeps the file, its dirty state, saving and read-only tabs; the editor
-owns undo. Build one and load it into your Orca:
+Every modeler but C4 and the board is also an [Orca](https://www.onorca.dev) custom editor in
+`apps/orca`: the editor the VS Code webview mounts too (`apps/ide-editor`), on the shell's
+`orcaEditorHost` with the notation's merge (`mergeOwmText`, `mergeStormText`, …), which Orca calls
+for an agent's write under unsaved edits. Orca keeps the file, its dirty state, saving and
+read-only tabs; the editor owns undo. Build one and load it into your Orca:
 
 ```sh
 npm run wardley-maps build:orca          # writes apps/orca/plugin/
@@ -203,8 +216,9 @@ from the `product-shots` skill of the `miragon-brand` plugin
 target, title, claim, icon and the recipe's options are in
 [`.miragon/product-shots.yaml`](.miragon/product-shots.yaml); `skillVersion` is the skill release
 the images were made with. Each modeler's VS Code images show its demo workspace in
-`modelers/<modeler>/docs/demo/`. Build the VSIX (`npm run <modeler> package:vscode`) and the Orca
-plugins (`npm run <modeler> build:orca`) first, then, from the repository root:
+`modelers/<modeler>/docs/demo/`; the board, which is unpublished, has no store images yet. Build
+the VSIX (`npm run <modeler> package:vscode`) and the Orca plugins
+(`npm run <modeler> build:orca`) first, then, from the repository root:
 
 ```sh
 node <miragon-brand plugin>/skills/product-shots/scripts/listing.mjs --product wardley-maps-vscode
@@ -270,8 +284,9 @@ modelers' tests; maintaining the modeler-kit and its template is described in
 
 All UI follows the Miragon design system (skill `miragon-brand:modeler-tool-design`). Every
 renderer vendors its `cd-tokens.generated.css`, `cd-tokens.generated.json` and `cd-canvas.css`
-unchanged into `packages/renderer/src/theme/`: to update, re-copy them with
-`node <miragon-brand plugin>/scripts/brand-assets.mjs .` (the copies are listed in
+unchanged into `packages/renderer/src/theme/` (the board's renderer the two token files only): to
+update, re-copy them with `node <miragon-brand plugin>/scripts/brand-assets.mjs .` (the copies are
+listed in
 [`.miragon/brand-assets.yaml`](.miragon/brand-assets.yaml), their checksums in
 `.miragon/brand-assets.sha256`, which CI checks) and follow the modeler's `CONTRIBUTING.md`. Never
 edit them by hand.

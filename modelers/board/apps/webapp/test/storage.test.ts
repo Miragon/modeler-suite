@@ -2,6 +2,7 @@ import { encodeBoard } from "@miragon/board-schema-model";
 import { describe, expect, test } from "vitest";
 import {
   createAppStorage,
+  createOpenStorage,
   memoryStore,
   picturesOf,
   resetRequested,
@@ -260,6 +261,146 @@ describe("a storage the browser blocks or has no room in", () => {
     expect(kept.board()).toBe(EXAMPLE.board);
     expect(kept.files()).toEqual(EXAMPLE.files);
     expect(() => kept.reset()).not.toThrow();
+  });
+});
+
+describe("the way back from a reset", () => {
+  test("a snapshot put back is what was kept, byte for byte, and nothing else of the store", () => {
+    const store = memoryStore();
+    store.setItem("somebody-else", "theirs");
+    const kept = createAppStorage(store, EXAMPLE);
+    kept.keepBoard("another board\n");
+    kept.keepText("models/tea.owm", "title Coffee\n");
+    kept.keepBytes("assets/new.png", PICTURE.bytes, PICTURE.mime);
+    const before = keysOf(store).map((key) => [key, store.getItem(key)]);
+
+    const snapshot = kept.snapshot();
+    kept.reset();
+    expect(keysOf(store)).toEqual(["somebody-else"]);
+
+    expect(kept.restore(snapshot)).toBe(true);
+    expect(keysOf(store).map((key) => [key, store.getItem(key)])).toEqual(before);
+    expect(kept.board()).toBe("another board\n");
+    expect(kept.files()).toEqual({
+      ...EXAMPLE.files,
+      "models/tea.owm": "title Coffee\n",
+      "assets/new.png": PICTURE,
+    });
+  });
+
+  test("a snapshot takes the place of what was kept since: nothing of both is mixed", () => {
+    const store = memoryStore();
+    const kept = createAppStorage(store, EXAMPLE);
+    kept.keepText("models/tea.owm", "title Coffee\n");
+    const snapshot = kept.snapshot();
+    kept.reset();
+    kept.keepBoard("a board made after the reset\n");
+    kept.keepText("models/sample.tt", '{"after":true}\n');
+
+    expect(kept.restore(snapshot)).toBe(true);
+
+    expect(kept.board()).toBe(EXAMPLE.board);
+    expect(kept.files()).toEqual({ ...EXAMPLE.files, "models/tea.owm": "title Coffee\n" });
+  });
+
+  test("the snapshot of a pristine example is empty, and holds no key of somebody else", () => {
+    const store = memoryStore();
+    store.setItem("somebody-else", "theirs");
+    store.setItem("miragon-board:open", '{"kind":"example"}');
+
+    expect(createAppStorage(store, EXAMPLE).snapshot()).toEqual({});
+  });
+
+  test("a storage that refuses answers false, and one that cannot be read gives nothing", () => {
+    const kept = createAppStorage(memoryStore(), EXAMPLE);
+    kept.keepBoard("another board\n");
+    const snapshot = kept.snapshot();
+
+    expect(createAppStorage(failing(["setItem"]), EXAMPLE).restore(snapshot)).toBe(false);
+    expect(createAppStorage(failing(["length"]), EXAMPLE).snapshot()).toEqual({});
+  });
+});
+
+describe("the document that is open", () => {
+  test("nothing is open in a store that holds nothing", () => {
+    expect(createOpenStorage(memoryStore()).read()).toBeUndefined();
+  });
+
+  test("the example is open for the next storage on the same store", () => {
+    const store = memoryStore();
+
+    expect(createOpenStorage(store).keep({ kind: "example" })).toBe(true);
+
+    expect(createOpenStorage(store).read()).toEqual({ kind: "example" });
+  });
+
+  test("a board comes back with its text and the name of its file", () => {
+    const store = memoryStore();
+    const text = encodeBoard({ meta: { title: "Mine" }, elements: {} });
+
+    createOpenStorage(store).keep({ kind: "board", name: "mine.board", text });
+    expect(createOpenStorage(store).read()).toEqual({ kind: "board", name: "mine.board", text });
+
+    // a board that was made new has no file
+    createOpenStorage(store).keep({ kind: "board", text });
+    const unnamed = createOpenStorage(store).read();
+    expect(unnamed).toEqual({ kind: "board", text });
+    expect(unnamed !== undefined && "name" in unnamed).toBe(false);
+  });
+
+  test("forgetting leaves nothing open", () => {
+    const store = memoryStore();
+    const open = createOpenStorage(store);
+    open.keep({ kind: "example" });
+
+    expect(open.forget()).toBe(true);
+
+    expect(open.read()).toBeUndefined();
+    expect(keysOf(store)).toEqual([]);
+  });
+
+  test.each([
+    ["no JSON", "not JSON at all"],
+    ["no object", '"example"'],
+    ["null", "null"],
+    ["another kind", '{"kind":"folder"}'],
+    ["a board without a text", '{"kind":"board","name":"a.board"}'],
+    ["a board whose text is no string", '{"kind":"board","text":7}'],
+  ])("a value of another shape opens nothing: %s", (_what, value) => {
+    const store = memoryStore();
+    store.setItem("miragon-board:open", value);
+
+    expect(createOpenStorage(store).read()).toBeUndefined();
+  });
+
+  test("a name that is no string is left out, and the board is still open", () => {
+    const store = memoryStore();
+    store.setItem("miragon-board:open", '{"kind":"board","name":7,"text":""}');
+
+    expect(createOpenStorage(store).read()).toEqual({ kind: "board", text: "" });
+  });
+
+  test("is kept beside the example: the reset of the example leaves it, and it leaves the example", () => {
+    const store = memoryStore();
+    const kept = createAppStorage(store, EXAMPLE);
+    const open = createOpenStorage(store);
+    kept.keepBoard("another board\n");
+    open.keep({ kind: "example" });
+
+    kept.reset();
+    expect(open.read()).toEqual({ kind: "example" });
+
+    kept.keepBoard("another board\n");
+    open.forget();
+    expect(kept.board()).toBe("another board\n");
+  });
+
+  test("a storage that refuses answers false and throws nothing", () => {
+    const open = createOpenStorage(failing(["getItem", "setItem", "removeItem"]));
+
+    expect(open.keep({ kind: "example" })).toBe(false);
+    expect(open.forget()).toBe(false);
+    expect(open.read()).toBeUndefined();
   });
 });
 
