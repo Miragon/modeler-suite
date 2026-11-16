@@ -23,6 +23,14 @@ interface Manifest {
   engines: { vscode: string };
   activationEvents: string[];
   contributes: {
+    languages: Array<{
+      id: string;
+      aliases: string[];
+      extensions: string[];
+      configuration: string;
+      icon: { light: string; dark: string };
+    }>;
+    grammars: Array<{ language: string; scopeName: string; path: string }>;
     customEditors: Array<{
       viewType: string;
       displayName: string;
@@ -247,6 +255,64 @@ describe("the extension's walkthrough", () => {
     for (const command of manifest.contributes.commands) {
       expect(open, command.title).toContain(command.title);
     }
+  });
+});
+
+describe("the file icon", () => {
+  const { languages, grammars } = manifest.contributes;
+  // The shapes of an icon without its tile, which is the one rect that starts with its size.
+  const shapes = (svg: string): string[] =>
+    svg
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => /^<(rect|path) /.test(line) && !line.startsWith("<rect width="));
+  const drawing = shapes(read("icon.svg"));
+
+  // VS Code gives a file its icon through the language it belongs to, so *.board gets a language
+  // of its own: the icon on `json` would mark every JSON file of a workspace.
+  test("hangs on a language of the board's own for *.board, with a glyph for light and for dark themes", () => {
+    expect(languages).toEqual([
+      {
+        id: "board",
+        aliases: ["Board", "board"],
+        extensions: [".board"],
+        configuration: "./language-configuration.json",
+        icon: {
+          light: "./media/icons/board-light.svg",
+          dark: "./media/icons/board-dark.svg",
+        },
+      },
+    ]);
+    for (const path of [languages[0]?.configuration, ...Object.values(languages[0]?.icon ?? {})]) {
+      expect(existsSync(join(APP, path ?? "")), path).toBe(true);
+    }
+  });
+
+  test("keeps the JSON highlighting for the text, one JSON line per element", () => {
+    expect(grammars).toEqual([
+      { language: "board", scopeName: "source.board", path: "./syntaxes/board.tmLanguage.json" },
+    ]);
+    expect(JSON.parse(read("syntaxes/board.tmLanguage.json"))).toMatchObject({
+      scopeName: "source.board",
+      patterns: [{ include: "source.json" }],
+    });
+  });
+
+  // The glyphs are icon.svg's drawing without its tile, coloured as the Miragon modeler icon set
+  // colours a file icon: in light themes the outline dark and the accent blue, since green on
+  // white reaches 1.67:1; in dark themes as on the tile.
+  test("draws the board of icon.svg, dark with a blue card in light themes and as on the tile in dark ones", () => {
+    expect(drawing).toHaveLength(4);
+    const light = drawing.map((shape) =>
+      shape.replaceAll('"#FFFFFF"', '"#1D1D1D"').replaceAll('"#00E676"', '"#335DE5"'),
+    );
+    expect(shapes(read("media/icons/board-light.svg"))).toEqual(light);
+    expect(shapes(read("media/icons/board-dark.svg"))).toEqual(drawing);
+  });
+
+  test("is the same drawing as the web app's favicon", () => {
+    const favicon = readFileSync(join(APP, "../webapp/public/favicon.svg"), "utf8");
+    expect(shapes(favicon)).toEqual(drawing);
   });
 });
 
