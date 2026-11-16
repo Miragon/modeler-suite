@@ -1,0 +1,11 @@
+{
+  "//": "jsx: the host types come from the renderer's entry, whose sources are TSX.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "../../test-support/**/*.ts"]
+}

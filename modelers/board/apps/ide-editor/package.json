@@ -1,0 +1,26 @@
+{
+  "name": "board-ide-editor",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The board inside the suite's shell: the editor the VS Code extension mounts in its webview.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./app.css": "./src/app.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@miragon/board-files": "0.0.0",
+    "@miragon/board-host": "0.0.0",
+    "@miragon/board-renderer": "0.0.0",
+    "@miragon/board-schema-model": "0.0.0",
+    "@miragon/modeler-shell": "0.14.2"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  }
+}

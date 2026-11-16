@@ -1,0 +1,13 @@
+{
+  "//": "jsx: the webview test page reads the extension's webview, and through it the board's renderer, from their sources. allowJs: its Vite config takes the build helpers of apps/editors, .mjs files typed by their JSDoc, and the bench takes the extension's bundle options the same way.",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx"
+  },
+  "include": ["tests/**/*.ts", "webview/**/*.ts", "bench/**/*.ts", "playwright.config.ts"]
+}

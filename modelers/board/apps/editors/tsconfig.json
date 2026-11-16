@@ -1,0 +1,99 @@
+{
+  "//": "The flags of the weakest renderer this workspace reads from source (Team Topologies, Context Maps), and one path per entry of build/aliases.mjs: no other modeler is built first. test/aliases.sync.test.ts keeps the two lists the same. allowJs: the build helpers are .mjs files, typed by their JSDoc.",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "verbatimModuleSyntax": false,
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false,
+    "noImplicitReturns": false,
+    "useDefineForClassFields": true,
+    "paths": {
+      "@miragon/board-files": ["../../packages/files/src/index.ts"],
+      "@miragon/board-host/assets/embed.css": ["../../packages/host/src/assets/embed.css"],
+      "@miragon/board-host": ["../../packages/host/src/index.ts"],
+      "@miragon/board-renderer/assets/board.css": ["../../packages/renderer/src/assets/board.css"],
+      "@miragon/board-renderer": ["../../packages/renderer/src/index.ts"],
+      "@miragon/board-schema-model": ["../../packages/schema-model/src/index.ts"],
+      "@miragon/business-model-canvas-dsl": [
+        "../../../business-model-canvas/packages/dsl/src/index.ts"
+      ],
+      "@miragon/business-model-canvas-renderer/assets/business-model-canvas.css": [
+        "../../../business-model-canvas/packages/renderer/src/assets/business-model-canvas.css"
+      ],
+      "@miragon/business-model-canvas-renderer": [
+        "../../../business-model-canvas/packages/renderer/src/index.ts"
+      ],
+      "@miragon/business-model-canvas-schema-model": [
+        "../../../business-model-canvas/packages/schema-model/src/index.ts"
+      ],
+      "@miragon/c4-dsl": ["../../../c4/packages/dsl/src/index.ts"],
+      "@miragon/c4-layout": ["../../../c4/packages/layout/src/index.ts"],
+      "@miragon/c4-renderer/themes": ["../../../c4/packages/renderer/src/themes.ts"],
+      "@miragon/c4-renderer/assets/c4.css": ["../../../c4/packages/renderer/src/assets/c4.css"],
+      "@miragon/c4-renderer": ["../../../c4/packages/renderer/src/index.ts"],
+      "@miragon/c4-schema-model": ["../../../c4/packages/schema-model/src/index.ts"],
+      "@miragon/context-maps-cml": ["../../../context-maps/packages/cml/src/index.ts"],
+      "@miragon/context-maps-renderer/assets/context-maps.css": [
+        "../../../context-maps/packages/renderer/src/assets/context-maps.css"
+      ],
+      "@miragon/context-maps-renderer": ["../../../context-maps/packages/renderer/src/index.ts"],
+      "@miragon/context-maps-schema-model": [
+        "../../../context-maps/packages/schema-model/src/index.ts"
+      ],
+      "@miragon/event-storming-dsl": ["../../../event-storming/packages/dsl/src/index.ts"],
+      "@miragon/event-storming-renderer/assets/event-storming.css": [
+        "../../../event-storming/packages/renderer/src/assets/event-storming.css"
+      ],
+      "@miragon/event-storming-renderer": [
+        "../../../event-storming/packages/renderer/src/index.ts"
+      ],
+      "@miragon/event-storming-schema-model": [
+        "../../../event-storming/packages/schema-model/src/index.ts"
+      ],
+      "@miragon/event-storming-transforms": [
+        "../../../event-storming/packages/transforms/src/index.ts"
+      ],
+      "@miragon/team-topologies-renderer/assets/team-topologies.css": [
+        "../../../team-topologies/packages/renderer/src/assets/team-topologies.css"
+      ],
+      "@miragon/team-topologies-renderer": [
+        "../../../team-topologies/packages/renderer/src/index.ts"
+      ],
+      "@miragon/team-topologies-schema-model": [
+        "../../../team-topologies/packages/schema-model/src/index.ts"
+      ],
+      "@miragon/team-topologies-ui/ui.css": [
+        "../../../team-topologies/packages/ui/src/styles/ui.css"
+      ],
+      "@miragon/team-topologies-ui": ["../../../team-topologies/packages/ui/src/index.ts"],
+      "@miragon/value-chain-renderer/assets/value-chain.css": [
+        "../../../value-chain/packages/renderer/src/assets/value-chain.css"
+      ],
+      "@miragon/value-chain-renderer": ["../../../value-chain/packages/renderer/src/index.ts"],
+      "@miragon/value-chain-schema-model": [
+        "../../../value-chain/packages/schema-model/src/index.ts"
+      ],
+      "@miragon/wardley-dsl": ["../../../wardley-maps/packages/dsl/src/index.ts"],
+      "@miragon/wardley-renderer/themes": [
+        "../../../wardley-maps/packages/renderer/src/appearance/index.ts"
+      ],
+      "@miragon/wardley-renderer/assets/wardley.css": [
+        "../../../wardley-maps/packages/renderer/src/assets/wardley.css"
+      ],
+      "@miragon/wardley-renderer": ["../../../wardley-maps/packages/renderer/src/index.ts"],
+      "@miragon/wardley-schema-model": ["../../../wardley-maps/packages/schema-model/src/index.ts"],
+      "@miragon/wardley-transforms": ["../../../wardley-maps/packages/transforms/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "index.d.ts", "../../test-support/**/*.ts"]
+}

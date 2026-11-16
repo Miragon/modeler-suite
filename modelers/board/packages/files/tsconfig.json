@@ -1,0 +1,9 @@
+{
+  "//": "DOM-free: no DOM lib, so the package cannot touch the browser. What a page and an extension host share (Blob, btoa, MessageChannel) comes from the Node types.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"]
+}

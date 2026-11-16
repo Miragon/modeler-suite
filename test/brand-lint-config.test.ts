@@ -20,7 +20,11 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const TEMPLATE_CONFIG =
   "plugins/modeler-kit/skills/new-modeler/assets/template/.miragon/brand.json";
 /** Third-party text copied unchanged into a folder the patterns do not cover. */
-const THIRD_PARTY_TEXTS = ["modelers/context-maps/apps/vscode/scripts/apache-2.0.txt"];
+const THIRD_PARTY_TEXTS = [
+  "modelers/context-maps/apps/vscode/scripts/apache-2.0.txt",
+  "modelers/board/apps/editors/build/licences/apache-2.0.txt",
+  "modelers/board/apps/editors/build/licences/tailwindcss.txt",
+];
 /** The Miragon docs kit, vendored unchanged and checked at its source in Miragon/corporate-identity. */
 const VENDORED_DOCS_KIT = "docs/.vitepress/miragon/";
 

@@ -22,6 +22,7 @@ body:
         - Value Chain modeler
         - C4 Modeler
         - Business Model Canvas modeler
+        - Modeler Board (in progress)
         - modeler-api or modeler-shell
         - Repository, CI or releases
     validations:

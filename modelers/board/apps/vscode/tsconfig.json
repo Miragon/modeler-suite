@@ -1,0 +1,12 @@
+{
+  "//": "jsx: the webview reads the board's renderer from its TSX sources. test-support: the declaration of commands.realInput, should a test of the webview run in the browser project.",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["node", "vscode"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "test-smoke/**/*.ts", "../../test-support/**/*.ts"]
+}

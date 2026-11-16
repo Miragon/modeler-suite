@@ -16,7 +16,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const CI_PATHS = join(ROOT, ".github/scripts/ci-paths.sh");
 const CI_GATE = join(ROOT, ".github/scripts/ci-gate.sh");
 const CI_WORKFLOW = ".github/workflows/ci.yml";
-const MODELERS = ["event-storming", "wardley-maps"];
+const MODELERS = ["board", "event-storming", "wardley-maps"];
 const MODELERS_WITH_ORCA_PLUGIN = ["event-storming"];
 
 interface Reach {
@@ -48,6 +48,14 @@ const modeler = (name: string): Reach => ({
   modelers: [name],
   orcaModelers: MODELERS_WITH_ORCA_PLUGIN.filter((withPlugin) => withPlugin === name),
 });
+/**
+ * The board shows the other modelers' files in place, so its jobs run with a change to what it
+ * reads of one: its packages, its example files and the manifest of its VS Code extension.
+ */
+const withTheBoard = (name: string): Reach => ({
+  ...modeler(name),
+  modelers: ["board", name].sort(),
+});
 
 /** Edits only: the base commit holds each of these files. */
 const REACH_OF_AN_EDIT: [string, Reach][] = [
@@ -68,8 +76,13 @@ const REACH_OF_AN_EDIT: [string, Reach][] = [
   ["plugins/modeler-kit/README.md", TEMPLATE_ONLY],
   ["modelers/wardley-maps/docs/guide.md", NOTHING],
   ["modelers/wardley-maps/README.md", NOTHING],
-  ["modelers/wardley-maps/packages/dsl/src/index.ts", modeler("wardley-maps")],
-  ["modelers/wardley-maps/packages/dsl/README.md", modeler("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/src/index.ts", withTheBoard("wardley-maps")],
+  ["modelers/wardley-maps/packages/dsl/README.md", withTheBoard("wardley-maps")],
+  ["modelers/wardley-maps/example/tea.owm", withTheBoard("wardley-maps")],
+  ["modelers/wardley-maps/apps/vscode/package.json", withTheBoard("wardley-maps")],
+  ["modelers/wardley-maps/apps/vscode/src/extension.ts", modeler("wardley-maps")],
+  ["modelers/wardley-maps/apps/webapp/package.json", modeler("wardley-maps")],
+  ["modelers/wardley-maps/docs/example/tea.owm", NOTHING],
   ["modelers/wardley-maps/vitest.config.ts", modeler("wardley-maps")],
   ["modelers/wardley-maps/package.json", modeler("wardley-maps")],
   ["modelers/wardley-maps/eslint.config.js", modeler("wardley-maps")],
@@ -82,9 +95,12 @@ const REACH_OF_AN_EDIT: [string, Reach][] = [
   ["modelers/event-storming/.claude/rules/rule.md", modeler("event-storming")],
   [
     "modelers/event-storming/packages/renderer/src/theme/cd-canvas.css",
-    { ...modeler("event-storming"), template: true },
+    { ...withTheBoard("event-storming"), template: true },
   ],
-  ["modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css", modeler("wardley-maps")],
+  ["modelers/wardley-maps/packages/renderer/src/theme/cd-canvas.css", withTheBoard("wardley-maps")],
+  ["modelers/board/packages/renderer/src/index.ts", modeler("board")],
+  ["modelers/board/example/example.board", modeler("board")],
+  ["modelers/board/apps/vscode/package.json", modeler("board")],
   ["packages/api/src/index.ts", EVERYTHING],
   ["packages/shell/README.md", EVERYTHING],
   [".github/workflows/ci.yml", EVERYTHING],
@@ -206,7 +222,7 @@ describe("the paths a change reaches in CI", () => {
         "modelers/wardley-maps/packages/dsl/src/index.ts": null,
         "modelers/wardley-maps/packages/dsl/src/main.ts": "a",
       }),
-    ).toEqual(modeler("wardley-maps"));
+    ).toEqual(withTheBoard("wardley-maps"));
   });
 
   it("joins what every changed path reaches", () => {
@@ -225,7 +241,7 @@ describe("the paths a change reaches in CI", () => {
 
   it("compares a push with its base too", () => {
     afterChanging("modelers/wardley-maps/packages/dsl/src/index.ts");
-    expect(affected("push", "PUSH_BEFORE_SHA", base)).toEqual(modeler("wardley-maps"));
+    expect(affected("push", "PUSH_BEFORE_SHA", base)).toEqual(withTheBoard("wardley-maps"));
   });
 
   it.each([

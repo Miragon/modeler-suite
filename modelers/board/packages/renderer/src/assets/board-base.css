@@ -1,0 +1,368 @@
+/*! @miragon/board-renderer base sheet
+ * tailwindcss v4.3.5 (preflight.css) | MIT License | https://tailwindcss.com
+ * Copyright (c) Tailwind Labs, Inc. */
+
+/* The base the board's sheet (board.css) was measured on, for the board's own elements only. The
+   page the board was built on gave every element Tailwind's preflight and two declarations of its
+   ui-kit, and the sheet relies on both: a box with a padding keeps its set size, a button has no
+   ground and no border of its own, a heading no size. A host's page gives neither.
+
+   What follows is preflight.css without its html rule, its comments kept. Every selector is
+   written as `.board-root :where(SELECTOR):not(:where(.board-engine *))`: the board's own
+   elements, the .board-engine it hands a host among them, and nothing a host puts below that
+   element. A pseudo-element matches nothing inside :where(), so it follows the :not(). :where()
+   leaves every rule at the weight of one class: between two rules the order decides, as it did in
+   the source but for the one case named below. board.css imports this file into the layer
+   board-base, under every rule of its own and of React Flow. The source's --theme() calls are
+   written as what they compiled to: the mono stack, and `normal` where no theme set a value. */
+
+/* What the page gave by inheritance: the browser's 16px, the line height and the tab size of
+   preflight's html rule, the font smoothing of the ui-kit's body rule. The font family, the ground
+   and the colour of that page are on .board-root in board.css. */
+.board-root {
+  font-size: 16px;
+  line-height: 1.5;
+  tab-size: 4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/*
+  1. Prevent padding and border from affecting element width. (https://github.com/mozdevs/cssremedy/issues/4)
+  2. Remove default margins and padding
+  3. Reset all borders.
+*/
+
+.board-root :where(*):not(:where(.board-engine *)),
+.board-root :where(*):not(:where(.board-engine *))::after,
+.board-root :where(*):not(:where(.board-engine *))::before,
+.board-root :where(*):not(:where(.board-engine *))::backdrop,
+.board-root :where(*):not(:where(.board-engine *))::file-selector-button {
+  box-sizing: border-box; /* 1 */
+  margin: 0; /* 2 */
+  padding: 0; /* 2 */
+  border: 0 solid; /* 3 */
+}
+
+/* The ui-kit's two declarations on every element. On the source's page they came after preflight
+   and lost to its `table` rule by weight; at one weight they have to stand before it. */
+.board-root :where(*):not(:where(.board-engine *)) {
+  border-color: var(--board-border);
+  outline-color: var(--board-ring);
+}
+
+/*
+  1. Add the correct height in Firefox.
+  2. Correct the inheritance of border color in Firefox. (https://bugzilla.mozilla.org/show_bug.cgi?id=190655)
+  3. Reset the default border style to a 1px solid border.
+*/
+
+.board-root :where(hr):not(:where(.board-engine *)) {
+  height: 0; /* 1 */
+  color: inherit; /* 2 */
+  border-top-width: 1px; /* 3 */
+}
+
+/*
+  Add the correct text decoration in Chrome, Edge, and Safari.
+*/
+
+.board-root :where(abbr:where([title])):not(:where(.board-engine *)) {
+  -webkit-text-decoration: underline dotted;
+  text-decoration: underline dotted;
+}
+
+/*
+  Remove the default font size and weight for headings.
+*/
+
+.board-root :where(h1, h2, h3, h4, h5, h6):not(:where(.board-engine *)) {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/*
+  Reset links to optimize for opt-in styling instead of opt-out.
+*/
+
+.board-root :where(a):not(:where(.board-engine *)) {
+  color: inherit;
+  -webkit-text-decoration: inherit;
+  text-decoration: inherit;
+}
+
+/*
+  Add the correct font weight in Edge and Safari.
+*/
+
+.board-root :where(b, strong):not(:where(.board-engine *)) {
+  font-weight: bolder;
+}
+
+/*
+  1. Use the user's configured `mono` font-family by default.
+  2. Use the user's configured `mono` font-feature-settings by default.
+  3. Use the user's configured `mono` font-variation-settings by default.
+  4. Correct the odd `em` font sizing in all browsers.
+*/
+
+.board-root :where(code, kbd, samp, pre):not(:where(.board-engine *)) {
+  font-family: var(--board-font-mono); /* 1 */
+  font-feature-settings: normal; /* 2 */
+  font-variation-settings: normal; /* 3 */
+  font-size: 1em; /* 4 */
+}
+
+/*
+  Add the correct font size in all browsers.
+*/
+
+.board-root :where(small):not(:where(.board-engine *)) {
+  font-size: 80%;
+}
+
+/*
+  Prevent `sub` and `sup` elements from affecting the line height in all browsers.
+*/
+
+.board-root :where(sub, sup):not(:where(.board-engine *)) {
+  font-size: 75%;
+  line-height: 0;
+  position: relative;
+  vertical-align: baseline;
+}
+
+.board-root :where(sub):not(:where(.board-engine *)) {
+  bottom: -0.25em;
+}
+
+.board-root :where(sup):not(:where(.board-engine *)) {
+  top: -0.5em;
+}
+
+/*
+  1. Remove text indentation from table contents in Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=999088, https://bugs.webkit.org/show_bug.cgi?id=201297)
+  2. Correct table border color inheritance in all Chrome and Safari. (https://bugs.chromium.org/p/chromium/issues/detail?id=935729, https://bugs.webkit.org/show_bug.cgi?id=195016)
+  3. Remove gaps between table borders by default.
+*/
+
+.board-root :where(table):not(:where(.board-engine *)) {
+  text-indent: 0; /* 1 */
+  border-color: inherit; /* 2 */
+  border-collapse: collapse; /* 3 */
+}
+
+/*
+  Use the modern Firefox focus style for all focusable elements.
+*/
+
+.board-root :where(:-moz-focusring:where(:not(iframe))):not(:where(.board-engine *)) {
+  outline: auto;
+}
+
+/*
+  Add the correct vertical alignment in Chrome and Firefox.
+*/
+
+.board-root :where(progress):not(:where(.board-engine *)) {
+  vertical-align: baseline;
+}
+
+/*
+  Add the correct display in Chrome and Safari.
+*/
+
+.board-root :where(summary):not(:where(.board-engine *)) {
+  display: list-item;
+}
+
+/*
+  Make lists unstyled by default.
+*/
+
+.board-root :where(ol, ul, menu):not(:where(.board-engine *)) {
+  list-style: none;
+}
+
+/*
+  1. Make replaced elements `display: block` by default. (https://github.com/mozdevs/cssremedy/issues/14)
+  2. Add `vertical-align: middle` to align replaced elements more sensibly by default. (https://github.com/jensimmons/cssremedy/issues/14#issuecomment-634934210)
+      This can trigger a poorly considered lint error in some tools but is included by design.
+*/
+
+.board-root
+  :where(img, svg, video, canvas, audio, iframe, embed, object):not(:where(.board-engine *)) {
+  display: block; /* 1 */
+  vertical-align: middle; /* 2 */
+}
+
+/*
+  Constrain images and videos to the parent width and preserve their intrinsic aspect ratio. (https://github.com/mozdevs/cssremedy/issues/14)
+*/
+
+.board-root :where(img, video):not(:where(.board-engine *)) {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+  1. Inherit font styles in all browsers.
+  2. Remove border radius in all browsers.
+  3. Remove background color in all browsers.
+  4. Ensure consistent opacity for disabled states in all browsers.
+*/
+
+.board-root :where(button, input, select, optgroup, textarea):not(:where(.board-engine *)),
+.board-root :where(*):not(:where(.board-engine *))::file-selector-button {
+  font: inherit; /* 1 */
+  font-feature-settings: inherit; /* 1 */
+  font-variation-settings: inherit; /* 1 */
+  letter-spacing: inherit; /* 1 */
+  color: inherit; /* 1 */
+  border-radius: 0; /* 2 */
+  background-color: transparent; /* 3 */
+  opacity: 1; /* 4 */
+}
+
+/*
+  Restore default font weight.
+*/
+
+.board-root :where(:where(select:is([multiple], [size])) optgroup):not(:where(.board-engine *)) {
+  font-weight: bolder;
+}
+
+/*
+  Restore indentation.
+*/
+
+.board-root
+  :where(:where(select:is([multiple], [size])) optgroup option):not(:where(.board-engine *)) {
+  padding-inline-start: 20px;
+}
+
+/*
+  Restore space after button.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::file-selector-button {
+  margin-inline-end: 4px;
+}
+
+/*
+  Reset the default placeholder opacity in Firefox. (https://github.com/tailwindlabs/tailwindcss/issues/3300)
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::placeholder {
+  opacity: 1;
+}
+
+/*
+  Set the default placeholder color to a semi-transparent version of the current text color in browsers that do not
+  crash when using `color-mix(…)` with `currentcolor`. (https://github.com/tailwindlabs/tailwindcss/issues/17194)
+*/
+
+@supports (not (-webkit-appearance: -apple-pay-button)) /* Not Safari */ or
+  (contain-intrinsic-size: 1px) /* Safari 17+ */ {
+  .board-root :where(*):not(:where(.board-engine *))::placeholder {
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+  }
+}
+
+/*
+  Prevent resizing textareas horizontally by default.
+*/
+
+.board-root :where(textarea):not(:where(.board-engine *)) {
+  resize: vertical;
+}
+
+/*
+  Remove the inner padding in Chrome and Safari on macOS.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-search-decoration {
+  -webkit-appearance: none;
+}
+
+/*
+  1. Ensure date/time inputs have the same height when empty in iOS Safari.
+  2. Ensure text alignment can be changed on date/time inputs in iOS Safari.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-date-and-time-value {
+  min-height: 1lh; /* 1 */
+  text-align: inherit; /* 2 */
+}
+
+/*
+  Prevent height from changing on date/time inputs in macOS Safari when the input is set to `display: block`.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit {
+  display: inline-flex;
+}
+
+/*
+  Remove excess padding from pseudo-elements in date/time inputs to ensure consistent height across browsers.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-year-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-month-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-day-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-hour-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-minute-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-second-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-millisecond-field,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-datetime-edit-meridiem-field {
+  padding-block: 0;
+}
+
+/*
+  Center dropdown marker shown on inputs with paired `<datalist>`s in Chrome. (https://github.com/tailwindlabs/tailwindcss/issues/18499)
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-calendar-picker-indicator {
+  line-height: 1;
+}
+
+/*
+  Remove the additional `:invalid` styles in Firefox. (https://github.com/mozilla/gecko-dev/blob/2f9eacd9d3d995c937b4251a5557d95d494c9be1/layout/style/res/forms.css#L728-L737)
+*/
+
+.board-root :where(:-moz-ui-invalid):not(:where(.board-engine *)) {
+  box-shadow: none;
+}
+
+/*
+  Correct the inability to style the border radius in iOS Safari.
+*/
+
+.board-root
+  :where(button, input:where([type="button"], [type="reset"], [type="submit"])):not(
+    :where(.board-engine *)
+  ),
+.board-root :where(*):not(:where(.board-engine *))::file-selector-button {
+  appearance: button;
+}
+
+/*
+  Correct the cursor style of increment and decrement buttons in Safari.
+*/
+
+.board-root :where(*):not(:where(.board-engine *))::-webkit-inner-spin-button,
+.board-root :where(*):not(:where(.board-engine *))::-webkit-outer-spin-button {
+  height: auto;
+}
+
+/*
+  Make elements with the HTML hidden attribute stay hidden by default.
+*/
+
+.board-root :where([hidden]:where(:not([hidden="until-found"]))):not(:where(.board-engine *)) {
+  display: none !important;
+}

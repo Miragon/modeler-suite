@@ -70,6 +70,16 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/packages/renderer'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/renderer'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/host'].dependencies['@miragon/modeler-api']"
         }
       ]
     },
@@ -351,6 +361,31 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/e2e'].devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/e2e/package.json",
+          "jsonpath": "$.devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/e2e'].devDependencies['@miragon/modeler-shell']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['@miragon/modeler-shell']"
         }
       ]
     },
@@ -391,6 +426,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/wardley-schema-model']"
         }
       ]
     },
@@ -421,6 +461,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/wardley-dsl']"
         }
       ]
     },
@@ -461,6 +506,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/wardley-maps/apps/ide-editor'].dependencies['@miragon/wardley-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/wardley-renderer']"
         }
       ]
     },
@@ -616,6 +666,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/event-storming/apps/ide-editor'].dependencies['@miragon/event-storming-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/event-storming-renderer']"
         }
       ]
     },
@@ -923,6 +978,26 @@
           "type": "json",
           "path": "apps/vscode/package.json",
           "jsonpath": "$.dependencies['team-topologies-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/apps/editors/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/team-topologies-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/modelers/board/apps/editors/package.json",
+          "jsonpath": "$.dependencies['@miragon/team-topologies-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/team-topologies-schema-model']"
         }
       ]
     },
@@ -958,6 +1033,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/ide-editor'].dependencies['@miragon/context-maps-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/context-maps-schema-model']"
         }
       ]
     },
@@ -1013,6 +1093,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/context-maps/apps/orca'].dependencies['@miragon/context-maps-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/context-maps-renderer']"
         }
       ]
     },
@@ -1083,6 +1168,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/ide-editor'].dependencies['@miragon/value-chain-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/value-chain-schema-model']"
         }
       ]
     },
@@ -1113,6 +1203,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/value-chain/apps/orca'].dependencies['@miragon/value-chain-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/value-chain-renderer']"
         }
       ]
     },
@@ -1267,6 +1362,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/c4/apps/webapp'].dependencies['@miragon/c4-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/c4-renderer']"
         }
       ]
     },
@@ -1396,6 +1496,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/apps/webapp'].dependencies['@miragon/business-model-canvas-dsl']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/business-model-canvas-dsl']"
         }
       ]
     },
@@ -1427,6 +1532,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].dependencies['@miragon/business-model-canvas-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/business-model-canvas-renderer']"
         }
       ]
     },
@@ -1486,6 +1596,194 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/business-model-canvas/apps/orca'].version"
+        }
+      ]
+    },
+    "modelers/board/packages/schema-model": {
+      "component": "board-schema-model",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/schema-model'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/board-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/board-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['@miragon/board-schema-model']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/renderer'].dependencies['@miragon/board-schema-model']"
+        }
+      ]
+    },
+    "modelers/board/packages/renderer": {
+      "component": "board-renderer",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/renderer'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/board-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/board-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['@miragon/board-renderer']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/host'].dependencies['@miragon/board-renderer']"
+        }
+      ]
+    },
+    "modelers/board/packages/files": {
+      "component": "board-files",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/files'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/board-files']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/board-files']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['@miragon/board-files']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/host'].dependencies['@miragon/board-files']"
+        }
+      ]
+    },
+    "modelers/board/packages/host": {
+      "component": "board-host",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/packages/host'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/board-host']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].dependencies['@miragon/board-host']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['@miragon/board-host']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['@miragon/board-host']"
+        }
+      ]
+    },
+    "modelers/board/apps/editors": {
+      "component": "board-editors",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['board-suite-editors']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['board-suite-editors']"
+        }
+      ]
+    },
+    "modelers/board/apps/ide-editor": {
+      "component": "board-ide-editor",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/ide-editor'].version"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].dependencies['board-ide-editor']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].dependencies['board-ide-editor']"
+        }
+      ]
+    },
+    "modelers/board/apps/vscode": {
+      "component": "board-vscode",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/vscode'].version"
+        }
+      ]
+    },
+    "modelers/board/apps/webapp": {
+      "component": "board-webapp",
+      "initial-version": "0.1.0",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/webapp'].version"
         }
       ]
     }
