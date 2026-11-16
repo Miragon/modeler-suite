@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-host",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "What every host of a board shares: a modeler of @miragon/modeler-api as an editor in a model node, and a board host built from the files of a repository and a registry of editors.",
   "license": "MIT",
@@ -21,8 +21,8 @@
     "test:browser": "npm --prefix ../.. run test:browser"
   },
   "dependencies": {
-    "@miragon/board-files": "0.0.0",
-    "@miragon/board-renderer": "0.0.0",
+    "@miragon/board-files": "0.1.0",
+    "@miragon/board-renderer": "0.1.0",
     "@miragon/modeler-api": "1.7.0"
   },
   "devDependencies": {

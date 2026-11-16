@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.1.0 (2026-11-16)
+
+
+### Features
+
+* **board:** add the board modeler ([#656](https://github.com/Miragon/modeler-suite/issues/656)) ([12eda88](https://github.com/Miragon/modeler-suite/commit/12eda886b6b4d6e764e7d3588fed8a69a0a5a68d))
+* **board:** give the Modeler Board an icon of its own ([#658](https://github.com/Miragon/modeler-suite/issues/658)) ([85246f6](https://github.com/Miragon/modeler-suite/commit/85246f6aabaf42b9f1eb793307539bdb65681c83))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/board-files bumped from 0.0.0 to 0.1.0
+    * @miragon/board-host bumped from 0.0.0 to 0.1.0
+    * @miragon/board-renderer bumped from 0.0.0 to 0.1.0
+    * @miragon/board-schema-model bumped from 0.0.0 to 0.1.0
+    * board-ide-editor bumped from 0.0.0 to 0.1.0
+    * board-suite-editors bumped from 0.0.0 to 0.1.0
+
 ## 0.0.0
 
 Not released: the extension before its first release, a preview built from a branch.
