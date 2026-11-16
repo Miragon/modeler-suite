@@ -28,8 +28,10 @@ export interface Documents {
   current(): Session | undefined;
   /** ends the open document, with what its editors still write */
   close(): Promise<void>;
-  /** closes the open document and mounts this one in its place */
+  /** closes the open document and mounts this one in its place, fitted */
   show(next: OpenDocument, startScreen?: boolean): Promise<Session>;
+  /** mounts the document of the last visit, at the view it was left at where that still shows it */
+  resume(last: OpenDocument): Promise<Session>;
 }
 
 export interface ActionsPage {
@@ -98,7 +100,7 @@ export function createActions(documents: Documents, on: ActionsPage): Actions {
         return;
       }
       if (last !== undefined && (last.kind === "example" || boardFileText(last.text).ok)) {
-        await documents.show(last);
+        await documents.resume(last);
         return;
       }
       const session = await documents.show({ kind: "board", text: "" }, true);

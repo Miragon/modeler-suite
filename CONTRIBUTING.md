@@ -46,9 +46,9 @@ docs/                    the documentation site, https://miragon.github.io/model
 
 The `schema-model`, `dsl`, `cml`, `layout` and `transforms` packages are DOM-free; the renderer
 implements `@miragon/modeler-api` on diagram-js, and both apps mount `@miragon/modeler-shell`. The
-board differs: its canvas is React Flow, its DOM-free packages are `schema-model` and `files`, it
-has no `docs/` yet, and its `apps/editors` bundles the seven other renderers, whose models a board
-shows in place.
+board differs: its canvas is React Flow, its DOM-free packages are `schema-model` and `files`, its
+`docs/` holds the parts of its guide and no demo or screenshots yet, and its `apps/editors` bundles
+the seven other renderers, whose models a board shows in place.
 
 ## Setup
 
@@ -137,7 +137,7 @@ watch-builds the extension; debug it with the launch configuration in the modele
 - **e2e:** `npm run <modeler> test:e2e` runs Playwright against the web app and the VS Code
   webview, both held to the shell's conformance kit; some modelers add WebKit projects. The board
   runs its own specs in the kit's place, a deviation with an end that
-  [its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end) records.
+  [its guide](modelers/board/docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end) records.
   A running server is reused, so pick free ports beside another checkout:
   `E2E_PORT=6101 E2E_WEBVIEW_PORT=6111 npm run wardley-maps test:e2e`.
 
@@ -148,7 +148,7 @@ fixture, check the chrome, edit, save, undo, switch the four default themes, wit
 the modeler's `test-results/vscode-smoke/`. The board's smoke expects its one light picture under
 each of the four themes and runs without the steps keys, history and workbench, a deviation with
 an end that
-[its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end) records.
+[its guide](modelers/board/docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end) records.
 On macOS it opens a window that takes the focus, so **run it in Docker locally**:
 
 ```sh
@@ -259,6 +259,11 @@ patch, a breaking change a major (a minor on 0.x); `chore`, `ci`, `docs`, `test`
 `refactor` release nothing. Never edit a version or a `CHANGELOG.md` by hand. Every new
 `@deprecated` gets an issue that names its target version. Details, publishing and the first
 release of a new npm package are in [docs/ci-and-releases.md](docs/ci-and-releases.md).
+
+The board is held back from publishing: a release tags its components and publishes nothing of it,
+until the pull request that makes it public takes it off `HELD_BACK` in
+`.github/scripts/release-plan.mjs`
+([a modeler that is held back](docs/ci-and-releases.md#a-modeler-that-is-held-back)).
 
 `@miragon/modeler-api` is on 1.x: a new optional surface of the contract or kit is a `feat`; a new
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).

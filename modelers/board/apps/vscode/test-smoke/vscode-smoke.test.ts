@@ -15,11 +15,16 @@ import {
   editInPlaceLeavesTheModelDirty,
   modelsDrawnAndPictureLoaded,
   pickerFollowsTheFolder,
+  modelIsSavedInItsOwnTab,
+  renameInTheExplorerMovesTheNode,
+  savedTextIsReadAgain,
+  undoKeyStaysInTheArmedModel,
 } from "./board-steps.js";
 
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 const boardRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const exampleRoot = join(boardRoot, "example");
+const screenshotDir = join(boardRoot, "test-results/vscode-smoke");
 
 // The release passes the VSIX it is about to publish, so the file users get is the one tested.
 const prebuiltVsix = process.env.VSCODE_SMOKE_VSIX;
@@ -54,7 +59,7 @@ afterAll(async () => {
 });
 
 it(
-  "opens a board with its models, edits, saves, undoes and themes it in a real VS Code",
+  "opens a board with its models, edits, saves, undoes and themes it in a real VS Code, edits a model in place and follows a renamed file",
   { timeout: 600_000 },
   async () => {
     const board = await readFile(join(exampleRoot, "example.board"), "utf8");
@@ -81,18 +86,41 @@ it(
       ready: (context) => boardReady(context, modelCount),
       edit: addGroup,
       // What only a real VS Code with a real folder shows: the files of the workspace reach
-      // the board, the list follows the folder, and an edit in place lands in the model's own
-      // document, which the person saves.
+      // the board, the list follows the folder, an edit in place lands in the model's own
+      // document, which the person saves and the model's notation reads again, the undo key
+      // inside a model stays there, and a file renamed in the Explorer keeps its node.
       custom: async (context) => {
-        await modelsDrawnAndPictureLoaded(context, modelCount);
-        await pickerFollowsTheFolder(context, Object.keys(models));
-        await editInPlaceLeavesTheModelDirty(context, {
+        const tea = {
           node: "n_wardley_map",
-          shape: "cmp_water",
           file: "models/tea.owm",
           text: models["models/tea.owm"] ?? "",
           board: "example.board",
+        };
+        await modelsDrawnAndPictureLoaded(context, modelCount);
+        await pickerFollowsTheFolder(context, Object.keys(models));
+        await editInPlaceLeavesTheModelDirty(context, { ...tea, shape: "cmp_water" });
+        await undoKeyStaysInTheArmedModel(context, { ...tea, shape: "cmp_cup" });
+        const saved = await modelIsSavedInItsOwnTab(context, {
+          ...tea,
+          gone: "component Water [0.38, 0.82]",
+          kept: "component Cup [0.73, 0.78]",
         });
+        await renameInTheExplorerMovesTheNode(context, {
+          node: tea.node,
+          folder: "models",
+          name: "tea.owm",
+          renamed: "tea-renamed.owm",
+          board: tea.board,
+        });
+        await savedTextIsReadAgain(context, {
+          text: saved,
+          copy: "models/tea-as-saved.owm",
+          keptShape: "cmp_cup",
+          goneShape: "cmp_water",
+        });
+        // For whoever reads a run: the board after all of it, beside the Explorer.
+        await context.webview.locator('[data-chrome="zoom"] [data-zoom="fit"]').click();
+        await context.page.screenshot({ path: join(screenshotDir, "board-renamed.png") });
       },
       // Off: the step focuses the first diagram-js canvas of the page and selects and copies
       // its elements. On a board that canvas is the preview of a model, which is inert; the
@@ -102,11 +130,11 @@ it(
       // and an undo. A change of the board moves neither in any model's preview, so it would
       // hold whatever the board does.
       history: false,
-      // Off: motion, hidden and reload read a diagram-js view as well, and the reload expects
-      // the view back, which the board does not keep across a reload yet.
+      // Off: motion, hidden and reload read a diagram-js view as well. The board keeps its own
+      // view across a reload, and the step would read the view of a model's preview.
       workbench: false,
       name: "board",
-      screenshotDir: join(boardRoot, "test-results/vscode-smoke"),
+      screenshotDir,
       vscodeVersion: process.env.VSCODE_VERSION || undefined,
       keepTemporaryFiles: process.env.VSCODE_SMOKE_KEEP === "1",
       log: (line) => console.log(`[vscode-smoke] ${line}`),

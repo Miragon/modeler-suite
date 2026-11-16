@@ -110,6 +110,55 @@ describe("connectBackend", () => {
     });
   });
 
+  test("says that a backend in memory shows no file, and fails whoever asks all the same", async () => {
+    const { files } = connect();
+    expect(files.showsFiles?.()).toBeUndefined();
+    await vi.waitFor(() => expect(files.showsFiles?.()).toBe(false));
+    await expect(files.showFile?.("notes/readme.md")).rejects.toThrow(
+      "this host cannot show a file",
+    );
+  });
+
+  test("asks a backend that shows files to show one, with a path that was checked", async () => {
+    const backend = createCountingBackend({ [PATH]: TEA });
+    const shown: string[] = [];
+    const files = connectBackend(
+      {
+        ...backend,
+        async showFile(path) {
+          shown.push(path);
+        },
+      },
+      RULE,
+    );
+    connected.push(files);
+    await vi.waitFor(() => expect(files.showsFiles?.()).toBe(true));
+    // a file no board shows is what a page asks to have shown
+    await files.showFile?.("notes/readme.md");
+    await expect(files.showFile?.(".git/config")).rejects.toThrow(
+      "a board reaches no dot file and no file in a dot folder",
+    );
+    await expect(files.showFile?.("../outside.md")).rejects.toThrow(
+      "this path is outside the repository",
+    );
+    expect(shown).toEqual(["notes/readme.md"]);
+  });
+
+  test("tells a moved folder as the moves of its files, in one call", async () => {
+    const { backend, files } = connect();
+    backend.outside("models/sample.tt", "{}");
+    const told: string[][] = [];
+    files.onMoved((moves) => told.push(moves.map((move) => `${move.from} > ${move.to}`)));
+    // the server tells a page nothing before it answered the page's hello
+    await vi.waitFor(() => expect(files.paths()).toContain("models/sample.tt"));
+    backend.move("models", "archive");
+    await vi.waitFor(() => expect(told).toHaveLength(1));
+    expect(told[0]).toEqual([
+      "models/sample.tt > archive/sample.tt",
+      "models/tea.owm > archive/tea.owm",
+    ]);
+  });
+
   test("checks every path, though the files are in the page", async () => {
     const { backend, files } = connect();
     const picture = new Blob([new Uint8Array([9])], { type: "image/png" });

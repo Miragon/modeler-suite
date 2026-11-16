@@ -15,6 +15,7 @@ import {
   fitBox,
   openEditor,
   type BindModel,
+  type EditorNotice,
   type EditorState,
   type EmbedOptions,
   type EmbeddedModeler,
@@ -497,6 +498,128 @@ describe("destroy", () => {
     keydown(target.element, { key: "z", ctrlKey: true });
     keys.stop();
     expect(keys.heard).toEqual(["Control+z"]);
+  });
+});
+
+describe("an editor that moves into another element", () => {
+  it("stands in the new element as it stood in the old one: the same modeler, its view kept, nothing imported", async () => {
+    const old = engine({ armed: true });
+    const { editor, modeler } = embed(old);
+    await editor.ready;
+    modeler.setViewState({ x: -30, y: 12, scale: 0.8 });
+    modeler.record.viewStates.length = 0;
+    const next = engine({ armed: true });
+
+    editor.rehome(next.context);
+
+    const root = next.element.querySelector(":scope > .board-host-editor");
+    expect(root?.querySelector(":scope > .djs-container")).toBe(modeler.container());
+    expect([next.element.dataset.embed, next.element.dataset.notation]).toEqual([
+      "diagram-js",
+      STAND_IN,
+    ]);
+    // the old element is as the board made it
+    expect(old.element.children).toHaveLength(0);
+    expect(old.element.dataset.embed).toBeUndefined();
+    expect(old.element.dataset.notation).toBeUndefined();
+    expect(modeler.record.imports).toEqual([TEXT]);
+    expect(modeler.record.destroyed).toBe(0);
+    expect(modeler.getViewState()).toEqual({ x: -30, y: 12, scale: 0.8 });
+    expect(modeler.record.viewStates).toEqual([]);
+    // no second fit: the view is the person's
+    expect(modeler.record.viewboxes).toHaveLength(1);
+  });
+
+  it("keeps the history keys of the element it stands in now, by that element's arming", async () => {
+    const old = engine({ armed: true });
+    const { editor } = embed(old, { embed: { containHistoryKeys: true } });
+    await editor.ready;
+    const next = engine({ armed: false });
+    editor.rehome(next.context);
+    const keys = keysAtWindow();
+
+    // from the old element, which is armed and holds no editor any more
+    keydown(old.element, { key: "z", ctrlKey: true });
+    // from the new one while it is a preview
+    keydown(svgOf(next), { key: "z", ctrlKey: true });
+    expect(keys.heard).toEqual(["Control+z", "Control+z"]);
+
+    next.setArmed(true);
+    keydown(svgOf(next), { key: "z", ctrlKey: true });
+    keys.stop();
+    expect(keys.heard).toEqual(["Control+z", "Control+z"]);
+  });
+
+  it("is released in the element it stands in now", async () => {
+    const old = engine({ armed: true });
+    const { editor, modeler } = embed(old);
+    await editor.ready;
+    const next = engine({ armed: true });
+    editor.rehome(next.context);
+    modeler.elements?.reveal("a");
+    svgOf(next).focus();
+    expect(next.element.querySelector(".stand-in-pad")).not.toBeNull();
+
+    editor.release();
+
+    expect(modeler.elements?.selection()).toEqual([]);
+    expect(next.element.contains(document.activeElement)).toBe(false);
+  });
+
+  it("does nothing for the element it stands in already, and leaves the new one clean when it ends", async () => {
+    const old = engine({ armed: true });
+    const { editor, modeler } = embed(old, { embed: { containHistoryKeys: true } });
+    await editor.ready;
+    const root = old.element.querySelector(".board-host-editor");
+
+    // not taken out and put back: the canvas keeps the focus it has
+    svgOf(old).focus();
+    editor.rehome(old.context);
+    expect(document.activeElement).toBe(svgOf(old));
+    expect(old.element.querySelector(":scope > .board-host-editor")).toBe(root);
+    expect(old.element.dataset.embed).toBe("diagram-js");
+    const keys = keysAtWindow();
+    keydown(svgOf(old), { key: "z", ctrlKey: true });
+    expect(keys.heard).toEqual([]);
+
+    const next = engine({ armed: true });
+    editor.rehome(next.context);
+    editor.destroy();
+    editors.length = 0;
+    expect(modeler.record.destroyed).toBe(1);
+    expect(next.element.children).toHaveLength(0);
+    expect(next.element.dataset.embed).toBeUndefined();
+    expect(next.element.dataset.notation).toBeUndefined();
+    keydown(next.element, { key: "z", ctrlKey: true });
+    keys.stop();
+    expect(keys.heard).toEqual(["Control+z"]);
+  });
+});
+
+describe("what a binding says once", () => {
+  it("reaches the host that asked for it: a dropped change with its reason, and the change after it", async () => {
+    const target = engine({ armed: true });
+    const notices: EditorNotice[] = [];
+    const { editor, modeler, session } = embed(target, {
+      embed: { onNotice: (notice) => notices.push(notice) },
+    });
+    await editor.ready;
+
+    modeler.commands.move("a", 10, 10);
+    session.drop("too-large");
+
+    expect(notices).toEqual([{ kind: "edited" }, { kind: "dropped", reason: "too-large" }]);
+  });
+
+  it("is said to nobody where the host did not ask", async () => {
+    const target = engine({ armed: true });
+    const { editor, modeler, session } = embed(target);
+    await editor.ready;
+
+    modeler.commands.move("a", 10, 10);
+    session.drop("crossed");
+
+    expect(session.writes).toHaveLength(1);
   });
 });
 

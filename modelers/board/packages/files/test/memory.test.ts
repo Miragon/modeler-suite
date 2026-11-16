@@ -186,11 +186,63 @@ describe("a move", () => {
     expect((await backend.openText("drinks/tea.owm")).text()).toBe(TEA);
   });
 
-  test("moves bytes as well as texts", async () => {
+  test("moves bytes as well as texts, and says that the bytes of both paths are new", async () => {
     const backend = backendOf();
+    const heard: string[] = [];
+    backend.onMoved((moves) => heard.push(...moves.map((move) => `moved ${move.to}`)));
+    backend.onBytesChanged((paths) => heard.push(`bytes ${paths.join(" ")}`));
     backend.move("assets/logo.png", "assets/mark.png");
     expect(await backend.readBytes("assets/mark.png")).toEqual(PNG);
     expect(await backend.readBytes("assets/logo.png")).toBeUndefined();
+    // the move first: whoever follows it asks for the new path, not for the one that is empty
+    expect(heard).toEqual(["moved assets/mark.png", "bytes assets/logo.png assets/mark.png"]);
+    // a text that moves has no bytes to tell
+    backend.move("b.tt", "c.tt");
+    expect(heard.slice(2)).toEqual(["moved c.tt"]);
+  });
+
+  test("moves a folder as one call with a move per file below it, and no file beside it", async () => {
+    const backend = createMemoryBackend({
+      "models/tea.owm": TEA,
+      "models/deep/down.tt": "{}",
+      "models/logo.png": PNG,
+      "models-old/tea.owm": "title Old\n",
+      "modelsfile.owm": TEA,
+    });
+    const text = await backend.openText("models/deep/down.tt");
+    const heard: string[] = [];
+    backend.onListChanged(() => heard.push("list"));
+    backend.onMoved((moves) =>
+      heard.push(`moved ${moves.map((move) => `${move.from} > ${move.to}`).join(", ")}`),
+    );
+    text.onGone(() => heard.push("gone"));
+    backend.onBytesChanged((paths) => heard.push(`bytes ${paths.join(" ")}`));
+
+    backend.move("models", "archive/2026");
+
+    expect(heard).toEqual([
+      "list",
+      "moved models/deep/down.tt > archive/2026/deep/down.tt, models/logo.png > archive/2026/logo.png, models/tea.owm > archive/2026/tea.owm",
+      "gone",
+      "bytes models/logo.png archive/2026/logo.png",
+    ]);
+    expect(backend.list()).toEqual([
+      "archive/2026/deep/down.tt",
+      "archive/2026/logo.png",
+      "archive/2026/tea.owm",
+      "models-old/tea.owm",
+      "modelsfile.owm",
+    ]);
+    expect(backend.textOf("archive/2026/tea.owm")).toBe(TEA);
+  });
+
+  test("moves a file and not a folder where the path is both a file and the start of others", () => {
+    const backend = createMemoryBackend({ plan: TEA, "plan/old.owm": TEA });
+    const moves: string[] = [];
+    backend.onMoved((moved) => moves.push(...moved.map((move) => `${move.from} > ${move.to}`)));
+    backend.move("plan", "plan.owm");
+    expect(moves).toEqual(["plan > plan.owm"]);
+    expect(backend.list()).toEqual(["plan.owm", "plan/old.owm"]);
   });
 
   test("a text that arrives at a path is told to the texts open there", async () => {
@@ -213,8 +265,16 @@ describe("a move", () => {
     backend.onMoved(() => void (moved += 1));
     backend.move("missing.owm", "x.owm");
     backend.move("b.tt", "b.tt");
+    backend.move("models", "models");
+    backend.move("empty/folder", "x");
     expect(moved).toBe(0);
     expect(backend.list()).toEqual(["assets/logo.png", "b.tt", "models/tea.owm"]);
+  });
+});
+
+describe("what it cannot do", () => {
+  test("shows no file: it has no editor to show one in, and so no such member", () => {
+    expect("showFile" in backendOf()).toBe(false);
   });
 });
 

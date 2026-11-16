@@ -404,6 +404,91 @@ describe("the document that is open", () => {
   });
 });
 
+describe("what the editor of the open document keeps", () => {
+  const VIEW = { x: -120.5, y: 40, zoom: 1.35 };
+
+  test("nothing is kept in a store that holds nothing", () => {
+    expect(createOpenStorage(memoryStore()).state("boardView")).toBeUndefined();
+  });
+
+  test("a value is there under its key for the next storage on the same store", () => {
+    const store = memoryStore();
+
+    expect(createOpenStorage(store).keepState("boardView", VIEW)).toBe(true);
+
+    expect(createOpenStorage(store).state("boardView")).toEqual(VIEW);
+    expect(createOpenStorage(store).state("another")).toBeUndefined();
+    // a name every object has is no kept key
+    expect(createOpenStorage(store).state("toString")).toBeUndefined();
+    expect(keysOf(store)).toEqual(["miragon-board:open-state"]);
+  });
+
+  test("a second key leaves the first, and a second value takes the place of the first", () => {
+    const open = createOpenStorage(memoryStore());
+    open.keepState("boardView", VIEW);
+    open.keepState("legend", true);
+    open.keepState("boardView", { ...VIEW, zoom: 2 });
+
+    expect(open.state("boardView")).toEqual({ ...VIEW, zoom: 2 });
+    expect(open.state("legend")).toBe(true);
+  });
+
+  test("forgetting takes all of it, and leaves which document is open", () => {
+    const store = memoryStore();
+    const open = createOpenStorage(store);
+    open.keep({ kind: "example" });
+    open.keepState("boardView", VIEW);
+
+    expect(open.forgetState()).toBe(true);
+
+    expect(open.state("boardView")).toBeUndefined();
+    expect(open.read()).toEqual({ kind: "example" });
+    expect(keysOf(store)).toEqual(["miragon-board:open"]);
+  });
+
+  test("is kept beside the open document and beside the example: neither takes it along", () => {
+    const store = memoryStore();
+    const open = createOpenStorage(store);
+    open.keepState("boardView", VIEW);
+
+    open.keep({ kind: "board", text: "" });
+    open.forget();
+    createAppStorage(store, EXAMPLE).reset();
+
+    expect(open.state("boardView")).toEqual(VIEW);
+  });
+
+  test.each([
+    ["no JSON", "not JSON at all"],
+    ["no object", '"boardView"'],
+    ["null", "null"],
+    ["a list", '[{"x":0,"y":0,"zoom":1}]'],
+  ])(
+    "a value of another shape under the key is nothing kept, and is replaced: %s",
+    (_what, value) => {
+      const store = memoryStore();
+      store.setItem("miragon-board:open-state", value);
+      const open = createOpenStorage(store);
+
+      expect(open.state("boardView")).toBeUndefined();
+      expect(open.keepState("boardView", VIEW)).toBe(true);
+      expect(open.state("boardView")).toEqual(VIEW);
+      // nothing of the other value is carried along
+      expect(JSON.parse(store.getItem("miragon-board:open-state") ?? "")).toEqual({
+        boardView: VIEW,
+      });
+    },
+  );
+
+  test("a storage that refuses answers false and throws nothing", () => {
+    const open = createOpenStorage(failing(["getItem", "setItem", "removeItem"]));
+
+    expect(open.keepState("boardView", VIEW)).toBe(false);
+    expect(open.forgetState()).toBe(false);
+    expect(open.state("boardView")).toBeUndefined();
+  });
+});
+
 describe("resetRequested", () => {
   test.each(["?reset", "?reset=", "?reset=1", "?a=1&reset", "reset"])(
     "%s asks for it",

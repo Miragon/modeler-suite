@@ -41,7 +41,8 @@ pad; Done, or a zoom of the board, ends it. An edit is written into that model's
 example and never into the board file. The Model picker adds another node for a file of the
 example, and Text, Image and Group add to the board. The example and what you change of it are
 kept in this browser's local storage, and "Reset the example" in the menu brings it back, with an
-Undo. "Export as .board" in the menu, or Ctrl or Cmd + S, downloads the board file. The storage has
+Undo. A board comes back at the place you left it after a reload. "Export as .board" in the menu,
+or Ctrl or Cmd + S, downloads the board file. The storage has
 the room the browser gives one site: a picture it has no room for is drawn until the page is
 loaded again, and the status box then says that a picture is missing.
 
@@ -81,9 +82,18 @@ read against the suite's root, and its models would not be found. If the file sh
 was seen for a file given on the command line at the first start after the install, close it and
 open it from the Explorer, or run "Reopen Editor With..." and pick Board.
 
-It cannot yet follow a file that is renamed or moved, save the models together with the board, keep
-the view across a reload, show an entry in the Problems view, or show a file no notation of the
-suite covers. It is light only. A model is edited at 100 %, so in an editor that is narrower than
+Daily use, seen in a real VS Code in the suite's Docker runner and by no person yet: a board
+follows a file you rename or move in VS Code, or a folder above it, and then has an unsaved
+change; a file no notation of the suite covers is a card whose button opens it as VS Code opens
+it; the Problems view names the line of a board text that cannot be read; **Board: New Empty
+Board** and **Board: New Board from Example** create a board, and **Open Source to the Side**
+shows its text; the setting **Save Models With Board** (off by default) saves the models you
+edited on a board when you save the board yourself; and a board comes back at the place you left
+it when its view or VS Code's window is loaded again, where that place shows one of its nodes. To drop a picture onto a board, hold Shift.
+It cannot yet follow a file that another program moves or one that moves while its board is
+closed, an undo on a board right after a rename takes a node's new path back, a change made in
+the moment a file is renamed may be dropped, which its node then says, and it is light
+only. A model is edited at 100 %, so in an editor that is narrower than
 the model's node a part of it is out of reach. A board opens no symbolic link and no file behind a
 linked folder, wherever the link leads.
 
@@ -91,12 +101,21 @@ linked folder, wherever the link leads.
 memory, and its webview as a page inside the shell's VS Code stub, with real mouse and keyboard
 input in Chromium, also as the production bundle under the extension's content security policy.
 And a real VS Code: the packed extension's smoke passes in the suite's Docker runner on VS Code
-1.146.0 and on 1.96.0, the oldest the manifest allows, on Linux. [`CLAUDE.md`](CLAUDE.md) lists
-what the code takes for granted about VS Code, item by item, with what a real one showed of each
-and what could not be reached there. An independent review then installed the VSIX in the runner's
+1.146.0 and on 1.96.0, the oldest the manifest allows, on Linux.
+[`docs/vscode.md`](docs/vscode.md#taken-for-granted-about-vs-code) lists what the code takes for
+granted about VS Code, item by item, with what a real one showed of each and what could not be
+reached there. An independent review then installed the VSIX in the runner's
 VS Code as a person does, and tried the files of a repository as a page that is not the board's:
 it found no way to a file that is no model and no picture, and what it did find is fixed or named
-in the guide. Nobody has walked it by hand yet, and it was not run on macOS or Windows.
+in the guide. That is the state of the extension before daily use was built. Daily use was then
+walked through in the same runner, on both versions, with real mouse and keyboard input:
+[`docs/vscode.md`](docs/vscode.md#taken-for-granted-for-daily-use-as-seen-in-a-real-vs-code)
+lists the sixteen things it takes for granted about VS Code with how each ended, ten as assumed,
+two that differed and were cured, four seen in part. A second independent review then walked it
+again to lose a person's work and to overload the extension: what it found is changed and was
+seen again in the runner, or is named in the guide
+([`docs/vscode.md`](docs/vscode.md#the-review-of-the-fourth-increment-in-a-real-vs-code)).
+Nobody has walked the extension by hand yet, and it was not run on macOS or Windows.
 
 ## What it stands on
 
@@ -119,18 +138,26 @@ Still to come before this is a modeler like the others:
   pinned by name and reason, where the suite's rule for a renderer is none;
 - one chrome: under the shell the board keeps a toolbar of its own, its e2e projects run the
   board's own specs and not the shell's conformance kit, and its smoke in VS Code runs without
-  three of the driver's steps. [`CLAUDE.md`](CLAUDE.md) records each as a deviation with its end;
-- daily use in VS Code (files that move, saving, the view kept), the Orca plugin, the docs, an icon
-  of its own and a public web app.
+  three of the driver's steps.
+  [`docs/ide-editor.md`](docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end)
+  records each as a deviation with its end;
+- daily use in VS Code walked by a person, and a model that fits a narrow editor; the Orca
+  plugin, the docs, an icon of its own and a public web app.
 
 The suite's root tests pass with this folder in the tree: until the extension is on a marketplace,
 `test/modeler-collection.test.ts` lists the board as pending its first publish, so the extension
-pack leaves it out. Nothing of the board is published, and no CI run has seen this branch yet: its
-jobs were run on one machine, in the form that machine allows.
+pack leaves it out. The suite's releases hold the board back: they tag its components and publish
+nothing of it until the pull request that makes it public
+([CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)). Nothing of the
+board is published, and no CI run has seen this branch yet: its jobs were run on one machine, in
+the form that machine allows.
 
-[`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it, what the host brings and
-what must not change in passing; the test READMEs of the [renderer](packages/renderer/test/README.md)
-and of the [host package](packages/host/test/README.md) say what each test holds.
+[`CLAUDE.md`](CLAUDE.md) says what is in the tree and what must not change in passing, and names
+the document of each part under [`docs/`](docs/);
+[`docs/renderer.md`](docs/renderer.md#what-is-left-with-the-host) says what the host brings and
+[`docs/state.md`](docs/state.md) what was run on the tree; the test READMEs of the
+[renderer](packages/renderer/test/README.md) and of the
+[host package](packages/host/test/README.md) say what each test holds.
 
 ## Not on diagram-js
 

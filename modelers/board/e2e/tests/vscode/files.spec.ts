@@ -184,13 +184,16 @@ test("a change of a model from outside shows in its node, and nothing is written
   expect(problems).toEqual([]);
 });
 
-test("an edit made on a text the file no longer has is dropped whole: the file keeps the outside's text and the node shows it", async ({
+test("an edit made on a text the file no longer has is dropped whole: the file keeps the outside's text, the node shows it and says so once", async ({
   page,
 }) => {
   const problems = problemsOf(page);
   await openWebview(page, { host: true });
   await modelsReady(page);
   const engine = await arm(page, WARDLEY_NODE);
+  // what a node says of a change that is not in its file; no node says anything yet
+  const said = page.locator(".board-host-notice:not([hidden])");
+  await expect(said).toHaveCount(0);
   const spring = page.locator('.djs-shape[data-element-id="cmp_spring"]');
   const outside = `${TEA_TEXT}component Spring [0.25, 0.9]\n`;
   const edits = async () =>
@@ -229,12 +232,20 @@ test("an edit made on a text the file no longer has is dropped whole: the file k
   expect(await fileText(page, TEA)).toBe(outside);
   expect(await fileWrites(page)).toEqual([]);
   expect(await armedNode(page)).toBe(WARDLEY_NODE);
+  // The person is told in words, by the node whose change it was and by no other.
+  await expect(said).toHaveCount(1);
+  await expect(engine.locator(".board-host-notice")).toHaveAttribute("data-reason", "crossed");
+  await expect(engine.locator(".board-host-notice")).toHaveText(
+    "Your last change was dropped: this file changed elsewhere at the same time. " +
+      "Make it again on what you see now.",
+  );
 
-  // And the next edit is made on the text the file has, so it lands.
+  // And the next edit is made on the text the file has, so it lands, and the words go with it.
   await selectWater();
   await page.keyboard.press("Delete");
   await expect(water(page)).toHaveCount(0);
   await expect.poll(() => fileText(page, TEA)).toBe(withoutWater(outside));
+  await expect(said).toHaveCount(0);
   expect(await fileWrites(page)).toEqual([TEA]);
   expect((await edits()).at(-1)).toEqual({
     type: "board.text.edit",
@@ -321,6 +332,155 @@ test("the picker follows the repository, and a picked model is one line more in 
     file: second,
   });
   // the board file stores where the file sits: the file itself is not written
+  expect(await fileWrites(page)).toEqual([]);
+  expect(problems).toEqual([]);
+});
+
+/** the file of every node that shows one, by the node's id, as the canvas has it */
+const nodeFiles = (page: Page): Promise<Record<string, string>> =>
+  page.evaluate(() =>
+    Object.fromEntries(
+      (window.editor?.modeler.board.store.getSnapshot().nodes ?? [])
+        .filter((node) => node.attrs.file !== undefined)
+        .map((node) => [node.id, String(node.attrs.file)]),
+    ),
+  );
+
+/** A file or a folder of the repository gets another path, as a rename in the Explorer gives it. */
+const moveInRepository = (page: Page, from: string, to: string): Promise<void> =>
+  page.evaluate(([old, next]) => window.vscodeHost?.backend.move(old, next), [from, to] as const);
+
+/** the id of the element each applied edit of the board file wrote, one line each */
+const editedIds = async (page: Page): Promise<string[]> =>
+  (await appliedEdits(page)).map(
+    (edit) => (JSON.parse(edit.text.split("\n")[0] ?? "") as { id: string }).id,
+  );
+
+test("files that move in the repository are followed: a picture's node and a model's node each get their new path in one edit of the board file", async ({
+  page,
+}) => {
+  const problems = problemsOf(page);
+  await openWebview(page, { host: true });
+  await modelsReady(page);
+  const pictures = page.locator('.board-image[data-missing="false"] img');
+  await expect(pictures).toHaveCount(1);
+  const before = await nodeFiles(page);
+  const picture = Object.entries(before).find(([, file]) => file.startsWith("assets/"));
+  if (!picture) throw new Error("the example shows no picture");
+  const [pictureNode, picturePath] = picture;
+
+  // a picture, renamed in the Explorer: the image node has no editor, the board follows for it
+  await moveInRepository(page, picturePath, "assets/renamed-mark.svg");
+  await expect
+    .poll(() => nodeFiles(page))
+    .toEqual({ ...before, [pictureNode]: "assets/renamed-mark.svg" });
+  await expect.poll(async () => (await appliedEdits(page)).length).toBe(1);
+  await expect(pictures).toHaveCount(1);
+  await expect
+    .poll(() =>
+      pictures.evaluateAll((all) => all.every((img) => (img as HTMLImageElement).naturalWidth > 0)),
+    )
+    .toBe(true);
+
+  // a model, moved into another folder: its node follows through its own editor
+  await moveInRepository(page, TEA, "maps/tea.owm");
+  await expect
+    .poll(() => nodeFiles(page))
+    .toEqual({
+      ...before,
+      [pictureNode]: "assets/renamed-mark.svg",
+      [WARDLEY_NODE]: "maps/tea.owm",
+    });
+  await expect.poll(async () => (await appliedEdits(page)).length).toBe(2);
+  await modelsReady(page);
+  expect(await pickerModels(page)).toContain("maps/tea.owm");
+
+  // each edit is the one line of the node that moved, and the document is what the canvas has
+  expect(await editedIds(page)).toEqual([pictureNode, WARDLEY_NODE]);
+  expect(await documentText(page)).toBe(await canvasText(page));
+  // no file was written for it: a board stores where a file sits
+  expect(await fileWrites(page)).toEqual([]);
+
+  // the model is still edited in place, in the file it is now
+  await deleteWater(page);
+  await expect.poll(() => fileText(page, "maps/tea.owm")).toBe(TEA_WITHOUT_WATER);
+  expect(await fileWrites(page)).toEqual(["maps/tea.owm"]);
+  expect(problems).toEqual([]);
+});
+
+test("a renamed folder moves every node below it: one edit of the board file per node, none of them on the board's own history, and each one a step of VS Code's undo", async ({
+  page,
+}) => {
+  const problems = problemsOf(page);
+  await openWebview(page, { host: true });
+  await modelsReady(page);
+  const before = await nodeFiles(page);
+  const models = Object.entries(before).filter(([, file]) => file.startsWith("models/"));
+  expect(models.map(([, file]) => file).sort()).toEqual([...EXAMPLE_MODELS]);
+  /** how many gestures the board's own history could take back */
+  const boardHistory = (): Promise<number | undefined> =>
+    page.evaluate(() => window.editor?.modeler.board.store.undo.undoStack.length);
+  const groups = page.locator(".board-group");
+  const failedEngines = page.locator('.board-engine[data-embed-state="failed"]');
+
+  // a gesture of the person's first: the one thing the board's own undo may take back
+  await expect(groups).toHaveCount(1);
+  await toolbarButton(page, "Group").click();
+  await expect(groups).toHaveCount(2);
+  await expect.poll(async () => (await appliedEdits(page)).length).toBe(1);
+  expect(await boardHistory()).toBe(1);
+
+  // the folder of the models gets another name in the Explorer
+  await moveInRepository(page, "models", "diagrams");
+  const after = {
+    ...before,
+    ...Object.fromEntries(models.map(([id, file]) => [id, file.replace(/^models\//, "diagrams/")])),
+  };
+  await expect.poll(() => nodeFiles(page)).toEqual(after);
+  await modelsReady(page);
+  await expect(failedEngines).toHaveCount(0);
+  // one edit of the board file for each node that moved, each the one line of its node
+  await expect.poll(async () => (await appliedEdits(page)).length).toBe(1 + models.length);
+  expect((await editedIds(page)).slice(1).sort()).toEqual(models.map(([id]) => id).sort());
+  expect(await documentText(page)).toBe(await canvasText(page));
+  expect((await pickerModels(page)).sort()).toEqual(
+    EXAMPLE_MODELS.map((file) => file.replace(/^models\//, "diagrams/")),
+  );
+  // no file was written for it, and no move is a gesture the board's undo knows
+  expect(await fileWrites(page)).toEqual([]);
+  expect(await boardHistory()).toBe(1);
+
+  // the board's own undo takes the gesture before the moves back and leaves every new path
+  await page.evaluate(() => window.editor?.modeler.board.undo());
+  await expect(groups).toHaveCount(1);
+  expect(await nodeFiles(page)).toEqual(after);
+  await expect.poll(async () => (await appliedEdits(page)).length).toBe(2 + models.length);
+  await expect.poll(() => documentText(page)).toBe(await canvasText(page));
+
+  // VS Code's undo is the document's, and every edit of the document is a step of it. The
+  // first step back is the group again, the second the last node's old path, whose file is no
+  // longer there: its node says so, and the other six stay as they are.
+  const undoInVsCode = (): Promise<boolean | undefined> =>
+    page.evaluate(() => window.vscodeHost?.host.undo(window.vscodeHost.document));
+  expect(await undoInVsCode()).toBe(true);
+  await expect(groups).toHaveCount(2);
+  expect(await nodeFiles(page)).toEqual(after);
+  expect(await undoInVsCode()).toBe(true);
+  await expect
+    .poll(async () =>
+      Object.values(await nodeFiles(page)).filter((file) => file.startsWith("models/")),
+    )
+    .toHaveLength(1);
+  await expect(failedEngines).toHaveCount(1);
+  await expect(failedEngines).toContainText("This file could not be opened.");
+  await modelsReady(page, models.length - 1);
+  // VS Code's redo brings the new path back, and the node its model
+  expect(await page.evaluate(() => window.vscodeHost?.host.redo(window.vscodeHost.document))).toBe(
+    true,
+  );
+  await expect.poll(() => nodeFiles(page)).toEqual(after);
+  await modelsReady(page);
+  await expect(failedEngines).toHaveCount(0);
   expect(await fileWrites(page)).toEqual([]);
   expect(problems).toEqual([]);
 });
@@ -500,7 +660,7 @@ test("without an extension that answers, the board still opens: its notes drawn,
   // the page asked once, and waits
   const posted = await postedMessages(page);
   expect(posted.filter((message) => message.type === "board.hello")).toEqual([
-    { type: "board.hello", protocol: 2 },
+    { type: "board.hello", protocol: 3 },
   ]);
   expect(problems).toEqual([]);
 });

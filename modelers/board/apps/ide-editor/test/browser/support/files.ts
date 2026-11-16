@@ -10,6 +10,7 @@ import {
   suffixRule,
   type BoardFiles,
   type MemoryBackend,
+  type MemoryFile,
 } from "@miragon/board-files";
 
 export interface TestFiles {
@@ -21,13 +22,15 @@ export interface TestFiles {
    * host built from the files stopped listening) and `dispose` (the port's owner ended it).
    */
   readonly log: string[];
+  /** how many listeners wait for a file that moves, at this moment */
+  movedListeners(): number;
 }
 
 export function testFiles(
-  texts: Readonly<Record<string, string>>,
+  repository: Readonly<Record<string, MemoryFile>>,
   editors: ReadonlyArray<{ readonly suffixes: readonly string[] }>,
 ): TestFiles {
-  const backend = createMemoryBackend({ ...texts });
+  const backend = createMemoryBackend({ ...repository });
   const port = connectBackend(
     backend,
     suffixRule({
@@ -36,8 +39,19 @@ export function testFiles(
     }),
   );
   const log: string[] = [];
+  let movedListeners = 0;
   const files: BoardFiles = {
     ...port,
+    onMoved(listener) {
+      const off = port.onMoved(listener);
+      movedListeners++;
+      let listening = true;
+      return () => {
+        if (listening) movedListeners--;
+        listening = false;
+        off();
+      };
+    },
     async openText(path) {
       const session = await port.openText(path);
       return {
@@ -60,5 +74,5 @@ export function testFiles(
       port.dispose();
     },
   };
-  return { backend, files, log };
+  return { backend, files, log, movedListeners: () => movedListeners };
 }

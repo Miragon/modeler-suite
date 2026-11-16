@@ -1,8 +1,9 @@
 /**
- * The host of the board's editor in a web app. `mountBoardEditor` asks it the three things it
- * asks the VS Code webview: whether the canvas keeps its own history (here it does), the shell,
- * which here is mounted with the web column (the File group, the legal line, the start screen),
- * and the document, which here is the page's own: one text, handed over when the editor mounts.
+ * The host of the board's editor in a web app. `mountBoardEditor` asks it what it asks the VS
+ * Code webview: whether the canvas keeps its own history (here it does), the shell, which here
+ * is mounted with the web column (the File group, the legal line, the start screen), the
+ * document, which here is the page's own: one text, handed over when the editor mounts, and
+ * the place the board's view is kept in, which here is the browser's storage.
  */
 import {
   mountShell,
@@ -11,7 +12,7 @@ import {
   type LegalLineOptions,
   type MenuEntry,
 } from "@miragon/modeler-shell";
-import type { BoardEditorHost } from "board-ide-editor";
+import type { BoardEditorHost, KeptState } from "board-ide-editor";
 
 /** The one board text an editor is mounted for. Another document is another editor. */
 export interface WebDocument {
@@ -42,9 +43,15 @@ export interface WebColumn {
   readonly startScreen: boolean;
 }
 
-export function webEditorHost(document: WebDocument, column: WebColumn): BoardEditorHost {
+export function webEditorHost(
+  document: WebDocument,
+  column: WebColumn,
+  state?: KeptState,
+): BoardEditorHost {
   return {
     canvasOwnsHistory: true,
+    // The page keeps one place, for the document that is open: absent, the board is fitted.
+    ...(state ? { state } : {}),
     mountShell(root, options) {
       const shell = mountShell(root, {
         ...options,

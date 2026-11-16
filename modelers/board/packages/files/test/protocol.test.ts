@@ -11,7 +11,9 @@ import {
   PROTOCOL,
   serveFiles,
   toBase64,
+  WriteRefusal,
   type ClientMessage,
+  type DropReason,
   type HostMessage,
 } from "../src/index.js";
 import {
@@ -52,6 +54,13 @@ function taken(wire: Wire): HostMessage[] {
   return wire.fromHost.splice(0);
 }
 
+/** the host's word that the page's last edit of a path is not in the place */
+const dropped = (path: string, reason: DropReason): HostMessage => ({
+  type: "board.text.dropped",
+  path,
+  reason,
+});
+
 describe("the messages", () => {
   // a type added to the protocol and not to this table fails the type check
   const TYPES = {
@@ -62,9 +71,12 @@ describe("the messages", () => {
     "board.text.settle": "page",
     "board.bytes.read": "page",
     "board.file.create": "page",
+    "board.file.show": "page",
+    "board.welcome": "host",
     "board.paths": "host",
     "board.text.opened": "host",
     "board.text.update": "host",
+    "board.text.dropped": "host",
     "board.text.gone": "host",
     "board.moved": "host",
     "board.bytes": "host",
@@ -97,8 +109,8 @@ describe("the messages", () => {
     for (const type of SHELL_TYPES) expect(isBoardMessage({ type })).toBe(false);
   });
 
-  test("the protocol is version 2", () => {
-    expect(PROTOCOL).toBe(2);
+  test("the protocol is version 3", () => {
+    expect(PROTOCOL).toBe(3);
   });
 
   test("isBoardMessage takes an object with such a type and nothing else", () => {
@@ -141,6 +153,7 @@ describe("the server, before the hello", () => {
     ["an open", { type: "board.text.open", requestId: 7, path: "models/tea.owm" }],
     ["a read", { type: "board.bytes.read", requestId: 7, path: "assets/logo.png" }],
     ["a settle", { type: "board.text.settle", requestId: 7 }],
+    ["a show", { type: "board.file.show", requestId: 7, path: "notes/readme.md" }],
     [
       "a create",
       {
@@ -182,7 +195,7 @@ describe("the server, before the hello", () => {
       {
         type: "board.failed",
         requestId: 1,
-        message: "this host speaks protocol 2, the page said 1",
+        message: "this host speaks protocol 3, the page said 1",
       },
     ]);
     expect(backend.calls.openText).toEqual([]);
@@ -190,7 +203,7 @@ describe("the server, before the hello", () => {
     wire.fromHost.length = 0;
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     await settled();
-    expect(wire.fromHost.map((message) => message.type)).toEqual(["board.paths"]);
+    expect(wire.fromHost.map((message) => message.type)).toEqual(["board.welcome", "board.paths"]);
   });
 
   test("a hello without a protocol is none either", async () => {
@@ -202,20 +215,30 @@ describe("the server, before the hello", () => {
       {
         type: "board.failed",
         requestId: 3,
-        message: "this host speaks protocol 2, the page said undefined",
+        message: "this host speaks protocol 3, the page said undefined",
       },
     ]);
   });
 });
 
 describe("the server, the list", () => {
-  test("answers the hello with the whole list, and with nothing else", async () => {
+  test("answers the hello with the welcome and the whole list, and with nothing else", async () => {
     const { wire } = await served(false);
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     await settled();
     expect(wire.fromHost).toEqual([
+      // a backend in memory has no editor to show a file in
+      { type: "board.welcome", shows: false },
       { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt", "models/tea.owm"] },
     ]);
+  });
+
+  test("says in the welcome that it shows files where the backend can", async () => {
+    const wire = createWire();
+    serveFiles(wire.host, { ...createCountingBackend(files()), showFile: async () => {} }, RULE);
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    expect(wire.fromHost[0]).toEqual({ type: "board.welcome", shows: true });
   });
 
   test("sends the whole list again after every change of it", async () => {
@@ -351,6 +374,8 @@ describe("the server, a text", () => {
     await settled();
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
+      // false is a place that has another text than the write was made on
+      dropped("models/tea.owm", "crossed"),
     ]);
     expect(backend.textOf("models/tea.owm")).toBe(TEA);
   });
@@ -365,6 +390,7 @@ describe("the server, a text", () => {
     await settled();
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
+      dropped("models/tea.owm", "refused"),
     ]);
   });
 
@@ -443,6 +469,7 @@ describe("the server, a text", () => {
     await settled();
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/tea.owm", text: "kept one", version: 3 },
+      dropped("models/tea.owm", "crossed"),
     ]);
   });
 
@@ -486,6 +513,7 @@ describe("the server, a text", () => {
     expect(asked).toBe(0);
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/tea.owm", text: TEA, version: 2 },
+      dropped("models/tea.owm", "refused"),
     ]);
   });
 
@@ -581,6 +609,7 @@ describe("the server, a text", () => {
     await settled();
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/tea.owm", text: "title Back\n", version: 3 },
+      dropped("models/tea.owm", "crossed"),
     ]);
   });
 
@@ -753,6 +782,8 @@ describe("the server, the version of a text", () => {
     expect(backend.bases).toEqual([]);
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: OUTSIDE, version: 2 },
+      // a word of the edit and no version: the page may have written on the outside's text since
+      dropped(PATH, "crossed"),
     ]);
     // and the edit the page makes once it heard is the place's
     wire.send({ type: "board.text.edit", path: PATH, text: "title Mine again\n", version: 2 });
@@ -772,7 +803,7 @@ describe("the server, the version of a text", () => {
     await settled();
     expect(backend.textOf(PATH)).toBe(TEA);
     expect(backend.bases).toEqual([]);
-    expect(wire.fromHost).toEqual([]);
+    expect(wire.fromHost).toEqual([dropped(PATH, "crossed")]);
   });
 
   test("asks when an edit's turn comes: one that waited behind a write the outside crossed is dropped", async () => {
@@ -791,22 +822,28 @@ describe("the server, the version of a text", () => {
     gate.resolve(false);
     await settled();
     expect(started).toEqual(["one"]);
-    // the refusal needs no answer: the page was told the place's text since it wrote
+    // the refusal needs no text: the page was told the place's since it wrote. Both edits are
+    // lost, and that is said once.
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: OUTSIDE, version: 2 },
+      dropped(PATH, "crossed"),
     ]);
   });
 
-  test("answers a refused write once: an edit made before the page heard the answer is dropped without another", async () => {
+  test("answers a refused write with the text once: an edit made before the page heard the answer is dropped without another text", async () => {
     const { wire, backend } = await opened();
     backend.onWrite = async () => false;
     wire.send({ type: "board.text.edit", path: PATH, text: "refused", version: 1 });
     await settled();
-    expect(taken(wire)).toEqual([{ type: "board.text.update", path: PATH, text: TEA, version: 2 }]);
+    expect(taken(wire)).toEqual([
+      { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      dropped(PATH, "crossed"),
+    ]);
     backend.onWrite = undefined;
     wire.send({ type: "board.text.edit", path: PATH, text: "made on the refused one", version: 1 });
     await settled();
-    expect(wire.fromHost).toEqual([]);
+    // no second text, which would be one more version; that the edit is lost is said
+    expect(wire.fromHost).toEqual([dropped(PATH, "crossed")]);
     expect(backend.textOf(PATH)).toBe(TEA);
     expect(backend.bases).toEqual([TEA]);
   });
@@ -848,6 +885,7 @@ describe("the server, the version of a text", () => {
     expect(backend.textOf(PATH)).toBe("title Theirs\n");
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: "title Theirs\n", version: 2 },
+      dropped(PATH, "crossed"),
     ]);
   });
 
@@ -893,6 +931,7 @@ describe("the server, the version of a text", () => {
     expect(place.text).toBe("title Changed on the disk\n");
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: "title Changed on the disk\n", version: 2 },
+      dropped(PATH, "crossed"),
     ]);
     // made on what the page was told, the next write is the place's
     wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 2 });
@@ -972,6 +1011,235 @@ describe("the server, the version of a text", () => {
   });
 });
 
+describe("the server, why an edit is not in the place", () => {
+  const PATH = "models/tea.owm";
+
+  async function opened(): Promise<{ wire: Wire; backend: CountingBackend }> {
+    const bench = await served();
+    bench.wire.send({ type: "board.text.open", requestId: 1, path: PATH });
+    await settled();
+    taken(bench.wire);
+    return bench;
+  }
+
+  test.each<[string, () => Promise<boolean>, DropReason]>([
+    ["crossed for a place that has another text", async () => false, "crossed"],
+    [
+      "too-large where the place says that the text is too large",
+      () => Promise.reject(new WriteRefusal("too-large")),
+      "too-large",
+    ],
+    [
+      "refused where the place says so",
+      () => Promise.reject(new WriteRefusal("refused")),
+      "refused",
+    ],
+    ["refused for a write that throws", () => Promise.reject(new Error("no disk")), "refused"],
+  ])("says %s", async (_what, write, reason) => {
+    const { wire, backend } = await opened();
+    backend.onWrite = write;
+    wire.send({ type: "board.text.edit", path: PATH, text: "mine", version: 1 });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      dropped(PATH, reason),
+    ]);
+  });
+
+  test("a refusal names its reason and has a message of its own", () => {
+    const refusal = new WriteRefusal("too-large");
+    expect(refusal).toBeInstanceOf(Error);
+    expect(refusal.reason).toBe("too-large");
+    expect(refusal.name).toBe("WriteRefusal");
+    expect(refusal.message).toBe("the write was refused (too-large)");
+    expect(new WriteRefusal("refused", "the folder is read only").message).toBe(
+      "the folder is read only",
+    );
+  });
+
+  test("says it once for a row of edits that are lost, with the reason of the first", async () => {
+    const { wire, backend } = await opened();
+    const answers: Array<() => Promise<boolean>> = [
+      () => Promise.reject(new WriteRefusal("too-large")),
+      async () => false,
+    ];
+    backend.onWrite = () => (answers.shift() ?? (async () => true))();
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "two", version: 1 });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      dropped(PATH, "too-large"),
+    ]);
+  });
+
+  test("says nothing where the place took a later edit that the page made from the refused one", async () => {
+    const { wire, backend } = await opened();
+    const answers: Array<() => Promise<boolean>> = [async () => false];
+    backend.onWrite = (_path, text, base, write) =>
+      (answers.shift() ?? (() => write(text, base)))();
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    wire.send({ type: "board.text.edit", path: PATH, text: "one and two", version: 1 });
+    await settled();
+    // the page shows "one and two", and so does the place: nothing of the first edit is lost
+    expect(wire.fromHost).toEqual([]);
+    expect(backend.textOf(PATH)).toBe("one and two");
+  });
+
+  test("says it though a later edit was taken, where the lost one crossed a text of the outside", async () => {
+    const { wire, backend } = await opened();
+    const gate = deferred<boolean>();
+    backend.onWrite = () => gate.promise;
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    await settled();
+    // the outside is told while the first write is at the place, which then refuses it
+    backend.outside(PATH, "title Outside\n");
+    gate.resolve(false);
+    backend.onWrite = undefined;
+    // made by the page on the outside's text, without the first edit
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Outside and two\n", version: 2 });
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Outside and two\n");
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Outside\n", version: 2 },
+      dropped(PATH, "crossed"),
+    ]);
+  });
+
+  test("says it for an edit made on an older version though the edit behind it, made on the last one, was taken", async () => {
+    const { wire, backend } = await opened();
+    backend.outside(PATH, "title Outside\n");
+    // one made before the page heard of the outside's text, one after: both wait for their turn
+    wire.send({ type: "board.text.edit", path: PATH, text: "title Mine\n", version: 1 });
+    wire.send({
+      type: "board.text.edit",
+      path: PATH,
+      text: "title Outside and more\n",
+      version: 2,
+    });
+    await settled();
+    expect(backend.textOf(PATH)).toBe("title Outside and more\n");
+    // the second was not made from the first: the first is lost, and the page is told
+    expect(wire.fromHost).toEqual([
+      { type: "board.text.update", path: PATH, text: "title Outside\n", version: 2 },
+      dropped(PATH, "crossed"),
+    ]);
+  });
+
+  test("says nothing of an edit of a file that went meanwhile: the page was told that it went", async () => {
+    const { wire, backend } = await opened();
+    const gate = deferred<boolean>();
+    backend.onWrite = () => gate.promise;
+    wire.send({ type: "board.text.edit", path: PATH, text: "one", version: 1 });
+    await settled();
+    backend.remove(PATH);
+    gate.resolve(false);
+    await settled();
+    expect(wire.fromHost.filter((message) => message.type !== "board.paths")).toEqual([
+      { type: "board.text.gone", path: PATH },
+    ]);
+  });
+});
+
+describe("the server, a file the page asks to have shown", () => {
+  /** a server whose backend can show a file, with every path it was asked to show */
+  async function showing(
+    showFile?: (path: string) => Promise<void>,
+  ): Promise<{ wire: Wire; backend: CountingBackend; shown: string[] }> {
+    const wire = createWire();
+    const backend = createCountingBackend(files());
+    const shown: string[] = [];
+    serveFiles(
+      wire.host,
+      {
+        ...backend,
+        async showFile(path) {
+          shown.push(path);
+          await showFile?.(path);
+        },
+      },
+      RULE,
+    );
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    wire.fromHost.length = 0;
+    return { wire, backend, shown };
+  }
+
+  test.each([
+    ["a file no board shows", "process/order.bpmn"],
+    ["a file of the repository the backend does not list", "notes/readme.md"],
+    ["a board", "boards/main.board"],
+    ["a model", "models/tea.owm"],
+    ["a picture", "assets/logo.png"],
+  ])(
+    "asks the backend to show %s and answers done, with nothing of the file",
+    async (_what, path) => {
+      const { wire, backend, shown } = await showing();
+      wire.send({ type: "board.file.show", requestId: 4, path });
+      await settled();
+      expect(shown).toEqual([path]);
+      expect(wire.fromHost).toEqual([{ type: "board.done", requestId: 4 }]);
+      // shown, and not read: neither as a text nor as bytes
+      expect(backend.calls).toEqual({ openText: [], readBytes: [], createFile: [] });
+    },
+  );
+
+  test.each<[string, unknown, string]>([
+    ["a path that leaves the root", "../outside/secret.txt", "this path is outside the repository"],
+    ["an absolute path", "/etc/passwd", "this path is outside the repository"],
+    ["a path with a scheme", "file:///etc/passwd", "this path is outside the repository"],
+    ["no path", undefined, "this path is outside the repository"],
+    ["a dot folder", ".git/config", "a board reaches no dot file and no file in a dot folder"],
+    [
+      "a dot file below a folder",
+      "models/.env",
+      "a board reaches no dot file and no file in a dot folder",
+    ],
+  ])("refuses %s before the backend sees it", async (_what, path, message) => {
+    const { wire, shown } = await showing();
+    wire.send({ type: "board.file.show", requestId: 4, path });
+    await settled();
+    expect(shown).toEqual([]);
+    expect(wire.fromHost).toEqual([{ type: "board.failed", requestId: 4, message }]);
+  });
+
+  test("fails with the backend's message where the backend could not show the file", async () => {
+    const { wire } = await showing(() =>
+      Promise.reject(new Error("notes/readme.md does not exist")),
+    );
+    wire.send({ type: "board.file.show", requestId: 4, path: "notes/readme.md" });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 4, message: "notes/readme.md does not exist" },
+    ]);
+  });
+
+  test("fails where the backend shows no file, with a path that is checked first", async () => {
+    const { wire } = await served();
+    wire.send({ type: "board.file.show", requestId: 4, path: "notes/readme.md" });
+    wire.send({ type: "board.file.show", requestId: 5, path: "../outside.txt" });
+    await settled();
+    expect(wire.fromHost).toEqual([
+      { type: "board.failed", requestId: 4, message: "this host cannot show a file" },
+      { type: "board.failed", requestId: 5, message: "this path is outside the repository" },
+    ]);
+  });
+
+  test("is not answered to the page after the one that asked", async () => {
+    const gate = deferred<void>();
+    const { wire } = await showing(() => gate.promise);
+    wire.send({ type: "board.file.show", requestId: 4, path: "notes/readme.md" });
+    await settled();
+    wire.send({ type: "board.hello", protocol: PROTOCOL });
+    await settled();
+    taken(wire);
+    gate.resolve();
+    await settled();
+    expect(wire.fromHost).toEqual([]);
+  });
+});
+
 describe("the server, a settle", () => {
   const PATH = "models/tea.owm";
 
@@ -1011,6 +1279,7 @@ describe("the server, a settle", () => {
     // the refusal is told first: the page has the place's text before it hears that all is dealt with
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      dropped(PATH, "crossed"),
       { type: "board.done", requestId: 3 },
     ]);
   });
@@ -1475,7 +1744,7 @@ describe("the server, what a board may reach", () => {
     serveFiles(wire.host, backend, RULE);
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     await settled();
-    expect(wire.fromHost).toEqual([
+    expect(wire.fromHost.slice(1)).toEqual([
       { type: "board.paths", paths: ["assets/logo.png", "models/sample.tt", "models/tea.owm"] },
     ]);
     wire.fromHost.length = 0;
@@ -1542,7 +1811,7 @@ describe("the server, the lives of a page", () => {
     await settled();
     expect(backend.openTexts()).toBe(0);
     expect(backend.subscriptions()).toBe(3);
-    expect(taken(wire).map((message) => message.type)).toEqual(["board.paths"]);
+    expect(taken(wire).map((message) => message.type)).toEqual(["board.welcome", "board.paths"]);
     // the new page did not open the text: it hears nothing of it, and of the list once
     backend.outside("models/tea.owm", "title Outside\n");
     backend.outside("models/new.owm", TEA);
@@ -1649,8 +1918,10 @@ describe("the server, the lives of a page", () => {
     taken(wire);
     slow.resolve(false);
     await settled();
+    // neither the text nor the word of the lost edit for the path that was closed
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: "models/sample.tt", text: "{}", version: 2 },
+      dropped("models/sample.tt", "crossed"),
     ]);
   });
 
@@ -1680,7 +1951,7 @@ describe("the server, the lives of a page", () => {
     wire.send({ type: "board.text.open", requestId: 2, path: "models/tea.owm" });
     wire.send({ type: "board.hello", protocol: PROTOCOL });
     await settled();
-    expect(wire.fromHost.map((message) => message.type)).toEqual(["board.paths"]);
+    expect(wire.fromHost.map((message) => message.type)).toEqual(["board.welcome", "board.paths"]);
     expect(backend.openTexts()).toBe(0);
   });
 
@@ -1888,6 +2159,89 @@ describe("the client", () => {
     expect(done).toBe(true);
   });
 
+  test("does not know whether the host shows files until the host's welcome says so", async () => {
+    const { wire, files: client } = page();
+    expect(client.showsFiles?.()).toBeUndefined();
+    const known: Array<boolean | undefined> = [];
+    client.onPaths(() => known.push(client.showsFiles?.()));
+    wire.host.post({ type: "board.welcome", shows: true });
+    wire.host.post({ type: "board.paths", paths: [] });
+    await settled();
+    // the welcome comes before the first list, so whoever hears of the list knows
+    expect(known).toEqual([true]);
+    wire.host.post({ type: "board.welcome", shows: false });
+    await settled();
+    expect(client.showsFiles?.()).toBe(false);
+    // only true is a yes
+    wire.send({});
+    wire.host.post({ type: "board.welcome", shows: "yes" } as unknown as HostMessage);
+    await settled();
+    expect(client.showsFiles?.()).toBe(false);
+  });
+
+  test("asks the host to show a file and resolves on done, with nothing of the file", async () => {
+    const { wire, files: client } = page();
+    let answer: unknown = "pending";
+    const shown = client.showFile?.("process/order.bpmn").then((value) => void (answer = value));
+    await settled();
+    expect(wire.fromPage[1]).toEqual({
+      type: "board.file.show",
+      requestId: 1,
+      path: "process/order.bpmn",
+    });
+    expect(answer).toBe("pending");
+    wire.host.post({ type: "board.done", requestId: 1 });
+    await shown;
+    expect(answer).toBeUndefined();
+  });
+
+  test("rejects a show the host failed with the host's message", async () => {
+    const { wire, files: client } = page();
+    const shown = client.showFile?.("../outside.txt");
+    await settled();
+    wire.host.post({
+      type: "board.failed",
+      requestId: 1,
+      message: "this path is outside the repository",
+    });
+    await expect(shown).rejects.toThrow("this path is outside the repository");
+  });
+
+  test("takes one answer for every read it names: each caller gets the bytes", async () => {
+    const { wire, files: client } = page();
+    const reads = [1, 2, 3].map(() => client.readBytes("assets/logo.png"));
+    const other = client.readBytes("assets/other.png");
+    let otherDone = false;
+    void other.then(() => void (otherDone = true));
+    await settled();
+    wire.host.post({
+      type: "board.bytes",
+      requestId: 1,
+      path: "assets/logo.png",
+      base64: PNG_BASE64,
+      mime: "image/png",
+      alsoFor: [2, 3],
+    });
+    const blobs = await Promise.all(reads);
+    for (const blob of blobs) {
+      expect(blob?.type).toBe("image/png");
+      expect([...new Uint8Array((await blob?.arrayBuffer()) ?? new ArrayBuffer(0))]).toEqual([
+        ...PNG,
+      ]);
+    }
+    // a read the answer does not name still waits
+    await settled();
+    expect(otherDone).toBe(false);
+    wire.host.post({
+      type: "board.bytes",
+      requestId: 4,
+      path: "assets/other.png",
+      base64: null,
+      mime: "",
+    });
+    expect(await other).toBeUndefined();
+  });
+
   test("rejects an open that is answered with something else", async () => {
     const { wire, files: client } = page();
     const opened = client.openText("models/tea.owm");
@@ -2036,6 +2390,71 @@ describe("the client", () => {
       { type: "board.text.edit", path: "models/tea.owm", text: "mine", version: 2 },
       { type: "board.text.edit", path: "models/tea.owm", text: "mine again", version: 2 },
     ]);
+  });
+
+  test("tells a dropped edit to the session that posted the last edit of the path, and to no other", async () => {
+    const { wire, files: client, session } = await reader();
+    const other = await client.openText("models/tea.owm");
+    const heard: string[] = [];
+    session.onDropped?.((reason) => heard.push(`first ${reason}`));
+    other.onDropped?.((reason) => heard.push(`other ${reason}`));
+
+    // nobody wrote yet: the word is nobody's
+    wire.host.post({ type: "board.text.dropped", path: "models/tea.owm", reason: "crossed" });
+    await settled();
+    expect(heard).toEqual([]);
+
+    session.write("mine");
+    wire.host.post({ type: "board.text.dropped", path: "models/tea.owm", reason: "too-large" });
+    await settled();
+    other.write("theirs");
+    wire.host.post({ type: "board.text.dropped", path: "models/tea.owm", reason: "refused" });
+    wire.host.post({ type: "board.text.dropped", path: "models/other.owm", reason: "crossed" });
+    await settled();
+    expect(heard).toEqual(["first too-large", "other refused"]);
+    // it is a word about an edit and no text: nothing is replaced, and no version is counted
+    expect(session.text()).toBe("theirs");
+    session.write("mine again");
+    await settled();
+    expect(wire.fromPage.at(-1)).toMatchObject({ type: "board.text.edit", version: 1 });
+  });
+
+  test("tells a dropped edit to nobody once the session that wrote closed or stopped listening", async () => {
+    const { wire, files: client, session } = await reader();
+    const other = await client.openText("models/tea.owm");
+    const heard: string[] = [];
+    const off = session.onDropped?.((reason) => heard.push(`first ${reason}`));
+    other.onDropped?.((reason) => heard.push(`other ${reason}`));
+    session.write("mine");
+    off?.();
+    wire.host.post({ type: "board.text.dropped", path: "models/tea.owm", reason: "crossed" });
+    await settled();
+    other.write("theirs");
+    other.close();
+    wire.host.post({ type: "board.text.dropped", path: "models/tea.owm", reason: "crossed" });
+    await settled();
+    expect(heard).toEqual([]);
+  });
+
+  test("says crossed itself for a write it drops as made on another text than the path has", async () => {
+    const { wire, files: client, session } = await reader();
+    const other = await client.openText("models/tea.owm");
+    const heard: string[] = [];
+    session.onDropped?.((reason) => heard.push(`first ${reason}`));
+    other.onDropped?.((reason) => heard.push(`other ${reason}`));
+    wire.host.post({
+      type: "board.text.update",
+      path: "models/tea.owm",
+      text: "theirs",
+      version: 2,
+    });
+    await settled();
+
+    session.write("mine", TEA);
+    // a write of the text the path has is none, and no drop either
+    session.write("theirs", "theirs");
+
+    expect(heard).toEqual(["first crossed"]);
   });
 
   test("settled asks the host behind its edits and resolves with the answer", async () => {

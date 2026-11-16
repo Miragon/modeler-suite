@@ -10,7 +10,7 @@ export {
   suffixRule,
   type FilesRule,
 } from "./paths.js";
-export type { BoardFiles, FileMove, TextSession } from "./port.js";
+export type { BoardFiles, DropReason, FileMove, TextSession } from "./port.js";
 export {
   fromBase64,
   isBoardMessage,
@@ -20,4 +20,11 @@ export {
   type ClientMessage,
   type HostMessage,
 } from "./protocol.js";
-export { serveFiles, type BackendText, type FilesBackend } from "./server.js";
+export {
+  READS_AT_ONCE,
+  serveFiles,
+  WAITING_LIMIT,
+  WriteRefusal,
+  type BackendText,
+  type FilesBackend,
+} from "./server.js";

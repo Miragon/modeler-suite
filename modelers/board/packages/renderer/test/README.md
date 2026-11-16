@@ -2,8 +2,8 @@
 
 What each test file holds, how the recorded arming traces and the conformance harness are kept,
 and what a browser test of the board has to know. The rules these tests stand under (the port
-as a move, the pinned skips of the kit, what was run) are in the modeler's
-[`CLAUDE.md`](../../../CLAUDE.md).
+as a move, the pinned skips of the kit) are in the modeler's [`CLAUDE.md`](../../../CLAUDE.md),
+and what was run in [`docs/state.md`](../../../docs/state.md).
 
 ## The unit project
 
@@ -205,7 +205,8 @@ as `canvas-behaviour.browser.test.tsx` drives a drag and an arrow.
 
 No test can fail when a preview takes real input or when the pointer math of an armed editor is
 off: a synthetic event ignores `inert`, and every editor in these tests is the recording stand-in
-of `createTestHost`. The modeler's `CLAUDE.md` says what a review measured with real editors.
+of `createTestHost`. [`docs/renderer.md`](../../../docs/renderer.md#real-editors-as-measured)
+says what a review measured with real editors.
 
 What `canvas.browser.test.tsx` cannot see of the code that was cut out of `Canvas`, by 32 single
 edits of `board.tsx`, `click-ownership.ts` and `canvas-keys.ts` (it notices 24): the moving guard

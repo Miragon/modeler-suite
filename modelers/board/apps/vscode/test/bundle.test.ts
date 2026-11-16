@@ -1,6 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { createRequire, isBuiltin } from "node:module";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compileFunction } from "node:vm";
 import { PROTOCOL } from "@miragon/board-files";
 import type { BuildOptions } from "esbuild";
@@ -21,7 +22,7 @@ interface Provider {
 
 const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
   main: string;
-  contributes: { customEditors: { viewType: string }[] };
+  contributes: { customEditors: { viewType: string }[]; commands: { command: string }[] };
 };
 
 interface Built {
@@ -89,7 +90,7 @@ describe("the production extension host bundle", () => {
     expect(built.path.endsWith(manifest.main.replace(/^\.\//, "/"))).toBe(true);
   }, 60_000);
 
-  it("activates with only vscode and Node, and registers the custom editor of the manifest", () => {
+  it("activates with only vscode and Node, and registers the custom editor and the commands of the manifest", () => {
     const { extension, required } = loadBundle(built);
     const subscriptions: { dispose(): unknown }[] = [];
 
@@ -98,9 +99,39 @@ describe("the production extension host bundle", () => {
     expect(vscodeMock.registeredEditors().map((editor) => editor.viewType)).toEqual(
       manifest.contributes.customEditors.map((editor) => editor.viewType),
     );
+    expect(vscodeMock.memory.registeredCommands().sort()).toEqual(
+      manifest.contributes.commands.map((entry) => entry.command).sort(),
+    );
     expect(subscriptions).toHaveLength(1);
     expect(required).toContain("vscode");
     extension.deactivate();
+    // VS Code disposes the subscriptions of an extension it deactivates: the names are free again
+    for (const subscription of subscriptions) subscription.dispose();
+    expect(vscodeMock.memory.registeredCommands()).toEqual([]);
+    expect(vscodeMock.registeredEditors().at(-1)?.disposed).toBe(true);
+    expect(vscodeMock.memory.diagnostics.at(-1)?.disposed).toBe(true);
+  });
+
+  it("writes the example from inside the bundle: every file of the example folder, as it is there", async () => {
+    const { extension } = loadBundle(built);
+    extension.activate({ extensionUri: vscodeStub.Uri.file("/ext"), subscriptions: [] });
+    vscodeMock.answerSaveDialog(vscodeStub.Uri.file("/work/repo/example.board"));
+
+    await vscodeStub.commands.executeCommand("board.newBoardFromExample");
+
+    const folder = fileURLToPath(new URL("../../../example/", import.meta.url));
+    const models = readdirSync(join(folder, "models"));
+    expect(models.length).toBeGreaterThan(0);
+    // tea.owm was in the repository before, and is the repository's still
+    for (const name of models.filter((model) => model !== "tea.owm")) {
+      expect(vscodeMock.memory.disk.text(`/work/repo/models/${name}`), name).toBe(
+        readFileSync(join(folder, "models", name), "utf8"),
+      );
+    }
+    expect(vscodeMock.memory.disk.text("/work/repo/models/tea.owm")).toBe("title Tea\n");
+    expect(vscodeMock.memory.disk.text("/work/repo/example.board")).toContain(
+      '"file":"models/tea.owm"',
+    );
   });
 
   it("serves a board's files from inside the bundle: the suffix table and the files server are in it", async () => {
@@ -134,5 +165,15 @@ describe("the production extension host bundle", () => {
     expect(built.inputs.some((input) => input.endsWith("apps/editors/src/suffixes.ts"))).toBe(true);
     expect(built.inputs.some((input) => input.endsWith("packages/files/src/server.ts"))).toBe(true);
     expect(built.inputs.some((input) => input.includes("memory-vscode"))).toBe(false);
+    // the board's reader, for the Problems view, and the example folder, each file as a text
+    expect(
+      built.inputs.some((input) => input.endsWith("packages/schema-model/src/format.ts")),
+    ).toBe(true);
+    const example = fileURLToPath(new URL("../../../example/", import.meta.url));
+    const shown = ["models", "assets"].flatMap((folder) => readdirSync(join(example, folder)));
+    expect(shown.length).toBeGreaterThan(0);
+    expect(
+      built.inputs.filter((input) => /(^|\/)example\/(models|assets)\//.test(input)),
+    ).toHaveLength(shown.length);
   });
 });

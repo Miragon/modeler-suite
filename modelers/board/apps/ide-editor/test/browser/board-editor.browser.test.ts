@@ -10,13 +10,22 @@ import "@miragon/modeler-shell/shell.css";
 import "@miragon/board-renderer/assets/board.css";
 import "board-suite-editors/base";
 import "../../src/app.css";
+import type { MemoryFile } from "@miragon/board-files";
 import { INVALID_TEXT, type EditorEntry, type EmbeddableModeler } from "@miragon/board-host";
 import { addNode, createCollaborativeModeler } from "@miragon/board-renderer";
 import { encodeBoard } from "@miragon/board-schema-model";
 import { SUITE_EDITORS } from "board-suite-editors";
 import { watchPageErrors } from "../../../editors/test/browser/support/page-errors.js";
 import { mountBoardEditor, type BoardEditor } from "../../src/board-editor.js";
-import { BOARD_MIN_ZOOM, fittedView, viewOf, type BoardView } from "../../src/zoom-target.js";
+import { BOARD_VIEW_KEY } from "../../src/kept-view.js";
+import type { PictureGestures } from "../../src/shortcuts.js";
+import {
+  BOARD_MAX_ZOOM,
+  BOARD_MIN_ZOOM,
+  fittedView,
+  viewOf,
+  type BoardView,
+} from "../../src/zoom-target.js";
 import { testFiles, type TestFiles } from "./support/files.js";
 import { testHost, testWebHost, type TestHost, type TestHostOptions } from "./support/ide-host.js";
 
@@ -105,13 +114,15 @@ interface MountOptions extends TestHostOptions {
   /** the document's first text; absent: the test opens the document itself */
   text?: string | undefined;
   /** the repository; absent: a board without files */
-  files?: Readonly<Record<string, string>> | undefined;
+  files?: Readonly<Record<string, MemoryFile>> | undefined;
   /** the root is `display: none` when the editor is mounted */
   hidden?: boolean | undefined;
   /** default true, as in VS Code: an armed editor's undo keys never reach the host */
   containHistoryKeys?: boolean | undefined;
   /** the host binds the file keys itself, as a web app does */
   fileKeys?: boolean | undefined;
+  /** how a picture gets onto this board, for the shortcuts dialog */
+  pictures?: PictureGestures | undefined;
 }
 
 let mounted: Mounted | undefined;
@@ -175,6 +186,7 @@ async function mount(options: MountOptions = {}): Promise<Mounted> {
     editors,
     containHistoryKeys: options.containHistoryKeys !== false,
     fileKeys: options.fileKeys,
+    pictures: options.pictures,
   });
   mounted = { editor, host, root, files, modelers };
   if (options.text !== undefined) {
@@ -434,6 +446,31 @@ describe("the two chromes as one picture", () => {
     expect(groups[2]?.rows).toContain("Delete the selectionDelBackspace");
     await press("Escape");
     await expect.poll(() => root.querySelector("dialog[open]"), WAIT).toBeNull();
+  });
+
+  it("names the drop of a picture as the host lets it through, and none where the host says nothing of pictures", async () => {
+    const pictureRows = async (root: HTMLElement): Promise<Array<string | null>> => {
+      await realClick(centreOf(one(root, '[data-chrome="menu"]')));
+      await vi.waitFor(() => one(root, '[data-menu-id="keyboard-shortcuts"]'), WAIT);
+      await realClick(centreOf(one(root, '[data-menu-id="keyboard-shortcuts"]')));
+      const dialog = await vi.waitFor(() => one(root, "dialog[open]"), WAIT);
+      const rows = [...dialog.querySelectorAll("tr")]
+        .map((row) => row.textContent)
+        .filter((row) => row.startsWith("Add a picture"));
+      await press("Escape");
+      await expect.poll(() => root.querySelector("dialog[open]"), WAIT).toBeNull();
+      return rows;
+    };
+
+    // VS Code takes a dragged file for itself unless Shift is held
+    const inVsCode = await mount({ text: NOTES, pictures: "shift-drop" });
+    expect(await pictureRows(inVsCode.root)).toEqual(["Add a pictureCtrl+VShift+drop"]);
+    await unmount();
+    const inBrowser = await mount({ text: NOTES, pictures: "drop" });
+    expect(await pictureRows(inBrowser.root)).toEqual(["Add a pictureCtrl+VDrop"]);
+    await unmount();
+    const without = await mount({ text: NOTES });
+    expect(await pictureRows(without.root)).toEqual([]);
   });
 });
 
@@ -698,6 +735,128 @@ describe("the shell's zoom on the board", () => {
     const { editor } = await mount({ text: NOTES });
     editor.modeler.setViewState({ x: 0, y: 0, zoom: 0.01 });
     expect(viewNow(editor).zoom).toBe(BOARD_MIN_ZOOM);
+    editor.modeler.setViewState({ x: 0, y: 0, zoom: 100 });
+    expect(viewNow(editor).zoom).toBe(BOARD_MAX_ZOOM);
+  });
+});
+
+describe("the view the host keeps", () => {
+  /** the left note at 150 %, where no fit of this board would put it */
+  const KEPT: BoardView = { x: 120, y: 200, zoom: 1.5 };
+  const keptViews = (host: TestHost): unknown[] =>
+    host.state.writes.filter(([key]) => key === BOARD_VIEW_KEY).map(([, view]) => view);
+  /** The view kept last is the one the board shows: asked anew at every look, while a wheel may still run. */
+  const keptIsShown = (host: TestHost, editor: BoardEditor): boolean =>
+    JSON.stringify(keptViews(host).at(-1)) === JSON.stringify(viewNow(editor));
+
+  it("is shown in the place of the first fit, and is not written back", async () => {
+    const { editor, root, host } = await mount({ text: NOTES, kept: { [BOARD_VIEW_KEY]: KEPT } });
+    await expectView(editor, KEPT);
+    await expect.poll(() => readout(root), WAIT).toBe("150%");
+    const near = one(root, '.react-flow__node[data-id="n_near"]').getBoundingClientRect();
+    expect(near.left).toBeCloseTo(120, 3);
+    expect(near.top).toBeCloseTo(200, 3);
+
+    // an update of the document leaves it, as it leaves a view the person made
+    await host.document.change(THREE_NOTES);
+    await drawn(editor, root);
+    await settle();
+    expect(viewNow(editor)).toEqual(KEPT);
+    // a write that waited would be made when the editor goes
+    await unmount();
+    expect(host.state.writes).toEqual([]);
+    expect(host.document.edits).toEqual([]);
+  });
+
+  it("is left for the fit where it shows nothing of this board, or is no view", async () => {
+    for (const kept of [{ x: 9000, y: 9000, zoom: 1 }, { x: 120, y: 200, zoom: 40 }, {}, "view"]) {
+      const { editor, host } = await mount({ text: NOTES, kept: { [BOARD_VIEW_KEY]: kept } });
+      await expectView(editor, fittedNotes(editor));
+      await unmount();
+      // what was kept stays as it is until the person moves the view
+      expect(host.state.writes).toEqual([]);
+      expect(host.state.values[BOARD_VIEW_KEY]).toEqual(kept);
+    }
+  });
+
+  it("does not keep the first fit, which is the app's own", async () => {
+    const { editor, root, host } = await mount({ text: NOTES });
+    await expectView(editor, fittedNotes(editor));
+    await host.document.change(THREE_NOTES);
+    await drawn(editor, root);
+    await settle();
+    await unmount();
+    expect(host.state.writes).toEqual([]);
+  });
+
+  it(
+    "keeps a view the person made once it rested: far fewer writes than a wheel has ticks",
+    async () => {
+      const { editor, root, host } = await mount({ text: NOTES });
+      await expectView(editor, fittedNotes(editor));
+      const before = viewNow(editor).zoom;
+      const ticks = 12;
+
+      await commands.realInput([
+        { type: "move", ...panePoint(root) },
+        ...Array.from({ length: ticks }, () => ({ type: "wheel" as const, dy: -60 })),
+      ]);
+      await expect.poll(() => viewNow(editor).zoom, WAIT).toBeGreaterThan(before);
+      await expect.poll(() => keptIsShown(host, editor), WAIT).toBe(true);
+      expect(keptViews(host).length).toBeLessThan(ticks / 2);
+      expect(host.state.values[BOARD_VIEW_KEY]).toEqual(viewNow(editor));
+
+      // a step of the shell's zoom is kept as well, and nothing else is written meanwhile
+      const written = keptViews(host).length;
+      await realClick(centreOf(one(root, '[data-zoom="actual"]')));
+      await expect.poll(() => readout(root), WAIT).toBe("100%");
+      await expect.poll(() => keptViews(host).length, WAIT).toBe(written + 1);
+      expect(keptIsShown(host, editor)).toBe(true);
+      expect(host.state.writes).toHaveLength(written + 1);
+      expect(host.document.edits).toEqual([]);
+    },
+    FLOW_MS,
+  );
+
+  it("keeps the view the board has when the editor goes, and a page mounted on it comes back there", async () => {
+    const first = await mount({ text: NOTES });
+    await expectView(first.editor, fittedNotes(first.editor));
+    await realClick(centreOf(one(first.root, '[data-zoom="in"]')));
+    await expect.poll(() => readout(first.root), WAIT).toBe("100%");
+    const left = viewNow(first.editor);
+    expect(left).not.toEqual(fittedNotes(first.editor));
+    // at once: the view has not rested, and the watch may not have looked at it yet
+    await unmount();
+    expect(keptViews(first.host)).toEqual([left]);
+
+    const again = await mount({ text: NOTES, kept: first.host.state.values });
+    await expectView(again.editor, left);
+    await expect.poll(() => readout(again.root), WAIT).toBe("100%");
+    await unmount();
+    expect(again.host.state.writes).toEqual([]);
+  });
+
+  it("keeps nothing for a host that offers no place", async () => {
+    const root = document.createElement("div");
+    document.body.append(root);
+    const web = testWebHost();
+    expect("state" in web.host).toBe(false);
+    const editor = await mountBoardEditor(web.host, {
+      root,
+      editors: [],
+      containHistoryKeys: false,
+    });
+    try {
+      await web.document.open(NOTES);
+      await editor.ready;
+      await drawn(editor, root);
+      await expectView(editor, fittedNotes(editor));
+      await realClick(centreOf(one(root, '[data-zoom="in"]')));
+      await expect.poll(() => readout(root), WAIT).toBe("100%");
+    } finally {
+      await editor.destroy();
+      root.remove();
+    }
   });
 });
 
@@ -1040,6 +1199,98 @@ describe("a model of the repository under the shell", () => {
     },
     FLOW_MS,
   );
+});
+
+describe("a picture of the repository whose file moves", () => {
+  const SKETCH = {
+    bytes: new TextEncoder().encode(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30"/></svg>',
+    ),
+    mime: "image/svg+xml",
+  };
+  const OLD_PATH = "assets/sketch.svg";
+  const WITH_PICTURE = encodeBoard({
+    meta: { title: "A picture under the shell", version: 1 },
+    elements: {
+      n_picture: {
+        kind: "node",
+        type: "image",
+        file: OLD_PATH,
+        x: 0,
+        y: 0,
+        width: 400,
+        height: 300,
+        z: "a",
+      },
+      n_note: note("A note beside the picture.", 480, "b"),
+    },
+  });
+  const pictureFile = (editor: BoardEditor): unknown =>
+    editor.modeler.board.store.getSnapshot().nodes.find((node) => node.id === "n_picture")?.attrs
+      .file;
+  const drawnPictures = (root: HTMLElement): number =>
+    [...root.querySelectorAll<HTMLImageElement>('.board-image[data-missing="false"] img')].filter(
+      (picture) => picture.naturalWidth > 0,
+    ).length;
+  const mountWithPicture = (options: MountOptions = {}): Promise<Mounted> =>
+    mount({ ...options, text: WITH_PICTURE, files: { [OLD_PATH]: SKETCH } });
+
+  it("follows the file: its node has the new path, the board file gets one edit, and no undo takes it back", async () => {
+    const { editor, root, host, files } = await mountWithPicture({ canvasOwnsHistory: true });
+    if (!files) throw new Error("the test has no files");
+    await expect.poll(() => drawnPictures(root), WAIT).toBe(1);
+    // a gesture of the person's before the move: what an undo afterwards takes back
+    await realClick(centreOf(toolbarButton(root, "Group")));
+    await expect.poll(() => host.document.edits.length, WAIT).toBe(1);
+
+    files.backend.move(OLD_PATH, "pictures/plan.svg");
+
+    await expect.poll(() => pictureFile(editor), WAIT).toBe("pictures/plan.svg");
+    await expect.poll(() => host.document.edits.length, WAIT).toBe(2);
+    // one line of the board file differs: the picture's
+    const [before, after] = [host.document.edits[0] ?? "", host.document.edits[1] ?? ""];
+    const changed = after.split("\n").filter((line) => !before.split("\n").includes(line));
+    expect(
+      changed.map((line) => (JSON.parse(line) as { id?: string; file?: string }).file),
+    ).toEqual(["pictures/plan.svg"]);
+    // the picture is drawn from where its file is now
+    await expect.poll(() => drawnPictures(root), WAIT).toBe(1);
+
+    // the move is nobody's gesture: an undo takes back the group, and leaves the new path
+    editor.modeler.board.undo();
+    await expect.poll(() => root.querySelectorAll(".board-group").length, WAIT).toBe(0);
+    expect(pictureFile(editor)).toBe("pictures/plan.svg");
+    expect(host.document.edits.at(-1)).toContain('"file":"pictures/plan.svg"');
+  });
+
+  it("follows a folder that moves, and leaves a picture alone whose file did not", async () => {
+    const { editor, host, files } = await mountWithPicture();
+    if (!files) throw new Error("the test has no files");
+
+    // another file of the repository: no node of this board shows it
+    files.backend.outside("models/other.owm", "title Other\n");
+    files.backend.move("models/other.owm", "models/renamed.owm");
+    await settle();
+    expect(pictureFile(editor)).toBe(OLD_PATH);
+    expect(host.document.edits).toEqual([]);
+
+    files.backend.move("assets", "pictures");
+    await expect.poll(() => pictureFile(editor), WAIT).toBe("pictures/sketch.svg");
+    expect(host.document.edits).toHaveLength(1);
+  });
+
+  it("listens for moves while the board stands, and no longer once it went", async () => {
+    const { files } = await mountWithPicture();
+    if (!files) throw new Error("the test has no files");
+    // this board has no model node, whose editor would listen as well
+    expect(files.movedListeners()).toBe(1);
+
+    await mounted?.editor.destroy();
+    expect(files.movedListeners()).toBe(0);
+    // a move that comes now reaches nobody, and throws nothing
+    files.backend.move(OLD_PATH, "pictures/late.svg");
+    await settle();
+  });
 });
 
 describe("a model its editor refuses", () => {

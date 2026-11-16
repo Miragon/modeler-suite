@@ -2,6 +2,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { WEBVIEW_STATE_KEY } from "../../../webview/kept-state.js";
+
+export { dragFile, panePoint, SHIFT, type FileDrag } from "../../support/input.js";
 
 /**
  * The webview test page as a test drives it: `webview/webview-test.html`, which runs the
@@ -232,16 +235,44 @@ export async function arm(page: Page, nodeId: string): Promise<Locator> {
   return engine;
 }
 
-/** A point that shows the board's bare pane: beside every node and under no chrome. */
-export function panePoint(page: Page): Promise<{ x: number; y: number }> {
-  return page.evaluate(() => {
-    for (let y = window.innerHeight - 120; y > 80; y -= 40) {
-      for (let x = 120; x < window.innerWidth - 240; x += 40) {
-        if (document.elementFromPoint(x, y)?.classList.contains("react-flow__pane")) {
-          return { x, y };
-        }
-      }
-    }
-    throw new Error("no point of the board shows its pane");
+/** A board's view: where its origin stands in the window, in px, and the scale. */
+export interface BoardView {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+/** The view the board shows now. */
+export const boardView = (page: Page): Promise<BoardView> =>
+  page.evaluate(() => {
+    if (!window.editor) throw new Error("the editor is not mounted");
+    return window.editor.modeler.getViewState() as { x: number; y: number; zoom: number };
+  });
+
+/**
+ * The view once the first one stands, fitted or restored: the app sets it in the frame after
+ * the first text, and until then the board is at its origin, at 100 %.
+ */
+export async function firstView(page: Page): Promise<BoardView> {
+  await expect.poll(() => boardView(page)).not.toEqual({ x: 0, y: 0, zoom: 1 });
+  return boardView(page);
+}
+
+/** Every state this page handed to VS Code's `setState`, in order. */
+export const stateWrites = (page: Page): Promise<Array<Record<string, unknown>>> =>
+  page.evaluate(() => (window.webviewStateWrites ?? []) as Array<Record<string, unknown>>);
+
+/** Puts a state in the place the next page of this tab finds it, as VS Code keeps a webview's. */
+export const seedWebviewState = (page: Page, state: unknown): Promise<void> =>
+  page.evaluate(([key, text]) => sessionStorage.setItem(key, text), [
+    WEBVIEW_STATE_KEY,
+    JSON.stringify(state),
+  ] as const);
+
+/** A reload of the page is a reload of the webview: resolves once its first text has settled. */
+export async function reloadWebview(page: Page): Promise<void> {
+  await page.reload();
+  await page.waitForFunction(() => window.webviewReady === true, undefined, {
+    timeout: MODELS_READY_MS,
   });
 }

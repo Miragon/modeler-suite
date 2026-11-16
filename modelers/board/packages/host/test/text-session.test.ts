@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { bindTextSession, type EditorState } from "../src/index.js";
+import {
+  bindTextSession,
+  type EditorNotice,
+  type EditorState,
+  type TextBinding,
+} from "../src/index.js";
 import { fakeSession, settled, type FakeSession } from "./support/fake-files.js";
 import {
   createStandInModeler,
@@ -15,6 +20,9 @@ interface Bound {
   modeler: StandInModeler;
   session: FakeSession;
   states: EditorState[];
+  /** what the binding said once, in order */
+  notices: EditorNotice[];
+  binding: TextBinding;
   ready: Promise<void>;
   unbind(): void;
 }
@@ -23,11 +31,21 @@ function bind(text = TEXT, options: { rules?: boolean; readOnly?: boolean } = {}
   const modeler = createStandInModeler({ fitOnImport: false });
   const session = fakeSession("plans/plan.items", text, options.readOnly);
   const states: EditorState[] = [];
+  const notices: EditorNotice[] = [];
   const binding = bindTextSession(session, options.rules === false ? undefined : standInRules)(
     modeler,
     (state) => states.push(state),
+    (notice) => notices.push(notice),
   );
-  return { modeler, session, states, ready: binding.ready, unbind: () => binding.unbind() };
+  return {
+    modeler,
+    session,
+    states,
+    notices,
+    binding,
+    ready: binding.ready,
+    unbind: () => binding.unbind(),
+  };
 }
 
 afterEach(() => {
@@ -437,6 +455,319 @@ describe("a gesture the person holds", () => {
     modeler.gesture.cancel();
     await settled();
 
+    expect(modeler.record.imports).toEqual([TEXT]);
+  });
+});
+
+describe("what the binding says once", () => {
+  it("says before every write that the person changed the canvas, and nothing for a change that writes nothing", async () => {
+    const { modeler, session, notices, ready } = bind();
+    await ready;
+
+    modeler.commands.move("b", 40, 10);
+    modeler.commands.touch();
+    modeler.commands.move("a", 5, 5);
+
+    expect(session.writes).toHaveLength(2);
+    expect(notices).toEqual([{ kind: "edited" }, { kind: "edited" }]);
+  });
+
+  it("says that a change was dropped, with the reason the session gives", async () => {
+    const { modeler, session, notices, ready } = bind();
+    await ready;
+    modeler.commands.move("b", 40, 10);
+    notices.length = 0;
+
+    // the host's word of the edit that was posted last
+    session.drop("too-large");
+    session.drop("refused");
+
+    expect(notices).toEqual([
+      { kind: "dropped", reason: "too-large" },
+      { kind: "dropped", reason: "refused" },
+    ]);
+  });
+
+  it("says a drop the session makes itself after the change it is about, so that the word stays", async () => {
+    const { modeler, session, notices, ready } = bind();
+    await ready;
+    modeler.gesture.start();
+    session.replace(TEXT.replace("Alpha", "Outside"));
+    await settled();
+
+    // the drop is made on the text before the outside's change: the session drops it at once
+    modeler.gesture.drop("b", 40, 10);
+
+    expect(session.dropped).toHaveLength(1);
+    expect(notices).toEqual([{ kind: "edited" }, { kind: "dropped", reason: "crossed" }]);
+  });
+
+  it("says nothing where no one listens, and binds a session that has no word for a drop", async () => {
+    const modeler = createStandInModeler({ fitOnImport: false });
+    const session = fakeSession("plans/plan.items", TEXT);
+    const silent = { ...session, onDropped: undefined };
+    const binding = bindTextSession(silent, standInRules)(modeler, () => undefined);
+    await binding.ready;
+
+    modeler.commands.move("b", 40, 10);
+    session.drop("crossed");
+
+    expect(session.writes).toHaveLength(1);
+    binding.unbind();
+  });
+
+  it("says nothing more once it is unbound", async () => {
+    const { session, notices, ready, unbind } = bind();
+    await ready;
+    unbind();
+
+    session.drop("crossed");
+
+    expect(notices).toEqual([]);
+    expect(session.listening()).toBe(0);
+  });
+});
+
+describe("a file that moves", () => {
+  const MOVED = "archive/plan.items";
+
+  it("goes on with the session of its new path: nothing is imported, and the next change is written there", async () => {
+    const { modeler, session, states, binding, ready } = bind();
+    await ready;
+    modeler.commands.move("b", 40, 10);
+    const written = session.writes[0] as string;
+    const next = fakeSession(MOVED, written);
+
+    binding.follow(undefined);
+    binding.follow(next);
+    await settled();
+
+    // the same text under another path draws what the canvas shows: the editor keeps its history
+    expect(modeler.record.imports).toEqual([TEXT]);
+    expect(states).toEqual([{ kind: "ok" }]);
+    expect(session.listening()).toBe(0);
+
+    modeler.commands.undo();
+    expect(next.writes).toEqual([TEXT]);
+    expect(session.writes).toEqual([written]);
+    // every write still says which text it was made from
+    expect(next.dropped).toEqual([]);
+  });
+
+  it("hears nothing of the path it left, and writes nothing while it is between two paths", async () => {
+    const { modeler, session, states, notices, binding, ready } = bind();
+    await ready;
+
+    binding.follow(undefined);
+    // what the old path says once its file is gone
+    session.setAvailable(false);
+    session.replace("c 0 0 Gamma\n");
+    session.drop("crossed");
+    modeler.commands.move("b", 40, 10);
+    await settled();
+
+    expect(states).toEqual([{ kind: "ok" }]);
+    expect(notices).toEqual([]);
+    expect(modeler.record.imports).toEqual([TEXT]);
+    expect(session.writes).toEqual([]);
+  });
+
+  it("writes what the person changed between the two paths into the file once it has its new path", async () => {
+    const { modeler, notices, binding, ready } = bind();
+    await ready;
+    binding.follow(undefined);
+    modeler.commands.move("b", 40, 10);
+    expect(notices).toEqual([]);
+    const next = fakeSession(MOVED, TEXT);
+
+    binding.follow(next);
+    await settled();
+
+    // nothing is imported over the change, and it is in the file, written on the file's text
+    expect(modeler.record.imports).toEqual([TEXT]);
+    expect(next.writes).toEqual(["# the plan\na 0 0 Alpha\n\n# later\nb 240 10 Beta\n"]);
+    expect(next.dropped).toEqual([]);
+    expect(notices).toEqual([{ kind: "edited" }]);
+    // once: the next text of the file is not answered with another write
+    next.replace(next.text());
+    await settled();
+    expect(next.writes).toHaveLength(1);
+    // and a later change from outside is a change from outside, with no word of a dropped edit
+    next.replace(TEXT.replace("Alpha", "Later"));
+    await settled();
+    expect(modeler.record.imports).toHaveLength(2);
+    expect(notices).toEqual([{ kind: "edited" }]);
+  });
+
+  it("drops what the person changed between the two paths where the new path has another text, and says so", async () => {
+    const { modeler, notices, binding, ready } = bind();
+    await ready;
+    binding.follow(undefined);
+    modeler.commands.move("b", 40, 10);
+    const other = TEXT.replace("Alpha", "Elsewhere");
+    const next = fakeSession(MOVED, other);
+
+    binding.follow(next);
+    await settled();
+
+    // the change has no text to be written on: the canvas shows the file, with the view kept
+    expect(modeler.record.imports).toEqual([TEXT, other]);
+    expect(modeler.exportText()).toBe("a 0 0 Elsewhere\nb 200 0 Beta\n");
+    expect(next.writes).toEqual([]);
+    expect(notices).toEqual([{ kind: "dropped", reason: "crossed" }]);
+    expect(modeler.record.viewStates).toHaveLength(1);
+  });
+
+  it("says that a write was dropped which was on its way to the old path when the file left it", async () => {
+    const { modeler, session, notices, binding, ready } = bind();
+    await ready;
+    // handed to the session of the old path; the place never took it, and the old path says so to nobody
+    modeler.commands.move("b", 40, 10);
+    expect(session.writes).toHaveLength(1);
+    const next = fakeSession(MOVED, TEXT);
+
+    binding.follow(undefined);
+    binding.follow(next);
+    await settled();
+
+    // the canvas ends on the file's text, and the person is told that their change went
+    expect(modeler.record.imports).toEqual([TEXT, TEXT]);
+    expect(modeler.exportText()).toBe(CANONICAL);
+    expect(notices).toEqual([{ kind: "edited" }, { kind: "dropped", reason: "crossed" }]);
+    expect(next.writes).toEqual([]);
+    // once: a later change from outside is a change from outside
+    next.replace(TEXT.replace("Alpha", "Later"));
+    await settled();
+    expect(notices).toHaveLength(2);
+  });
+
+  it("says the same where the binding goes from one session to the next in one step", async () => {
+    const { modeler, notices, binding, ready } = bind();
+    await ready;
+    modeler.commands.move("b", 40, 10);
+
+    binding.follow(fakeSession(MOVED, TEXT));
+    await settled();
+
+    expect(notices).toEqual([{ kind: "edited" }, { kind: "dropped", reason: "crossed" }]);
+    expect(modeler.exportText()).toBe(CANONICAL);
+  });
+
+  it("says nothing of a write the new path has: the text there draws what the canvas shows", async () => {
+    const { modeler, session, notices, binding, ready } = bind();
+    await ready;
+    modeler.commands.move("b", 40, 10);
+    const next = fakeSession(MOVED, session.writes[0] as string);
+
+    binding.follow(undefined);
+    binding.follow(next);
+    await settled();
+
+    expect(notices).toEqual([{ kind: "edited" }]);
+    expect(modeler.record.imports).toEqual([TEXT]);
+    // and nothing is written for it a second time
+    expect(next.writes).toEqual([]);
+  });
+
+  it("says nothing of a write the file answered with a text of its own before it moved", async () => {
+    const { modeler, session, notices, binding, ready } = bind();
+    await ready;
+    modeler.commands.move("b", 40, 10);
+    // the old path told a text after the write: what it dropped of the write, it said itself
+    const told = TEXT.replace("Alpha", "Told");
+    session.replace(told);
+    await settled();
+    const other = TEXT.replace("Beta", "Better");
+
+    binding.follow(undefined);
+    binding.follow(fakeSession(MOVED, other));
+    await settled();
+
+    expect(modeler.record.imports).toEqual([TEXT, told, other]);
+    expect(notices).toEqual([{ kind: "edited" }]);
+  });
+
+  it("imports a text that is another one under the new path, as a change from outside", async () => {
+    const { modeler, binding, states, ready } = bind();
+    await ready;
+    const other = TEXT.replace("Beta", "Better");
+    const next = fakeSession(MOVED, other);
+
+    binding.follow(next);
+    await settled();
+
+    expect(modeler.record.imports).toEqual([TEXT, other]);
+    expect(states).toEqual([{ kind: "ok" }, { kind: "ok" }]);
+    // and it listens to the new path from now on
+    next.replace(TEXT);
+    await settled();
+    expect(modeler.record.imports).toEqual([TEXT, other, TEXT]);
+    next.setAvailable(false);
+    expect(states.at(-1)).toEqual({ kind: "gone" });
+    next.drop("crossed");
+  });
+
+  it("is shown again where its old path had said that it is gone", async () => {
+    const { session, binding, states, ready } = bind();
+    await ready;
+    session.setAvailable(false);
+    expect(states.at(-1)).toEqual({ kind: "gone" });
+
+    binding.follow(fakeSession(MOVED, TEXT));
+
+    expect(states.at(-1)).toEqual({ kind: "ok" });
+  });
+
+  it("waits with another text of the new path for the end of a gesture the person holds", async () => {
+    const { modeler, binding, ready } = bind();
+    await ready;
+    const other = TEXT.replace("Alpha", "Moved");
+    const next = fakeSession(MOVED, other);
+
+    modeler.gesture.start();
+    binding.follow(next);
+    await settled();
+    expect(modeler.record.imports).toEqual([TEXT]);
+
+    modeler.gesture.cancel();
+    await settled();
+    expect(modeler.record.imports).toEqual([TEXT, other]);
+  });
+
+  it("says a drop of the new path, and none of the old one", async () => {
+    const { session, notices, binding, ready } = bind();
+    await ready;
+    const next = fakeSession(MOVED, TEXT);
+    binding.follow(next);
+
+    session.drop("refused");
+    next.drop("too-large");
+
+    expect(notices).toEqual([{ kind: "dropped", reason: "too-large" }]);
+  });
+
+  it("closes no session: that is whoever opened it", async () => {
+    const { session, binding, ready, unbind } = bind();
+    await ready;
+    const next = fakeSession(MOVED, TEXT);
+
+    binding.follow(next);
+    unbind();
+
+    expect([session.closed, next.closed]).toEqual([0, 0]);
+    expect(next.listening()).toBe(0);
+  });
+
+  it("does not follow once it is unbound", async () => {
+    const { modeler, binding, ready, unbind } = bind();
+    await ready;
+    unbind();
+    const next = fakeSession(MOVED, TEXT.replace("Beta", "Better"));
+
+    binding.follow(next);
+    await settled();
+
+    expect(next.listening()).toBe(0);
     expect(modeler.record.imports).toEqual([TEXT]);
   });
 });

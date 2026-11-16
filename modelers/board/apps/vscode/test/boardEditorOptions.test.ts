@@ -86,8 +86,10 @@ describe("the board editor's options", () => {
     // nothing of the files before the page's hello
     expect(board()).toEqual([]);
     await panel.receive({ type: "board.hello", protocol: PROTOCOL });
-    // the page is told what a board reaches: no other file, and none in a dot folder
+    // The page is told what a board reaches: no other file, and none in a dot folder. A
+    // repository in memory has no editor to show a file in, and the welcome says so.
     expect(board()).toEqual([
+      { type: "board.welcome", shows: false },
       { type: "board.paths", paths: ["assets/logo.svg", "models/tea.owm"] },
     ]);
     await panel.receive({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
@@ -140,7 +142,7 @@ describe("the board editor's options", () => {
     const second = await open("/repo/boards/b.board");
     expect(backends).toHaveLength(2);
     await second.panel.receive({ type: "board.hello", protocol: PROTOCOL });
-    expect(second.board()).toHaveLength(1);
+    expect(second.board().map((message) => message.type)).toEqual(["board.welcome", "board.paths"]);
     expect(first.board()).toEqual([]);
     await first.panel.receive({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     expect(first.board()).toEqual([
@@ -190,11 +192,14 @@ describe("the board editor's options", () => {
       mime: "image/png",
     });
     await settled();
+    await panel.receive({ type: "board.file.show", requestId: 4, path: "readme.md" });
     expect(board()).toEqual([
+      { type: "board.welcome", shows: false },
       { type: "board.paths", paths: [] },
       { type: "board.failed", requestId: 1, message: "this board has no files" },
       { type: "board.bytes", requestId: 2, path: "assets/logo.svg", base64: null, mime: "" },
       { type: "board.failed", requestId: 3, message: "this board has no files" },
+      { type: "board.failed", requestId: 4, message: "this host cannot show a file" },
     ]);
   });
 

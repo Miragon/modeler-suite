@@ -136,10 +136,11 @@ describe("describe", () => {
 });
 
 describe("open", () => {
-  it("answers undefined for a file no editor is registered for, a board among them", () => {
+  it("makes something in the element for a file no editor is registered for, a board among them", () => {
     const models = modelsFrom({ files: fakeFiles(["boards/main.board"]), editors: EDITORS });
 
-    expect(models.open(contextFor("boards/main.board"))).toBeUndefined();
-    expect(models.open(contextFor("notes/readme.md"))).toBeUndefined();
+    // a card, which the browser tests hold: here only that the board is not left with nothing
+    expect(() => models.open(contextFor("boards/main.board"))).toThrow("the element was read");
+    expect(() => models.open(contextFor("notes/readme.md"))).toThrow("the element was read");
   });
 });

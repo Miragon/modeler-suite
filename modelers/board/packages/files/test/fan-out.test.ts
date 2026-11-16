@@ -3,7 +3,13 @@
  * and what each of them hears of a write, of the outside, of a file that goes and of a move.
  */
 import { describe, expect, test } from "vitest";
-import { createFilesClient, serveFiles, type BoardFiles, type TextSession } from "../src/index.js";
+import {
+  createFilesClient,
+  serveFiles,
+  WriteRefusal,
+  type BoardFiles,
+  type TextSession,
+} from "../src/index.js";
 import {
   createCountingBackend,
   createWire,
@@ -41,6 +47,13 @@ function ears(session: TextSession): string[] {
   const heard: string[] = [];
   session.onReplace((text) => heard.push(`replace ${text}`));
   session.onAvailable((available) => heard.push(available ? "back" : "gone"));
+  return heard;
+}
+
+/** why the writes of a session were dropped, in order */
+function drops(session: TextSession): string[] {
+  const heard: string[] = [];
+  session.onDropped?.((reason) => heard.push(reason));
   return heard;
 }
 
@@ -378,6 +391,61 @@ describe("an edit and a change from outside that cross", () => {
     await settled();
     expect(backend.textOf(PATH)).toBe("title Made on the new text\n");
     expect(heardByTwo).toEqual(["replace title Made on the new text\n"]);
+  });
+});
+
+describe("the words for an edit that is not in the file", () => {
+  test("a write that crossed a change from outside is said to its writer once, and not to the other reader", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const two = await files.openText(PATH);
+    const [byOne, byTwo] = [drops(one), drops(two)];
+    backend.outside(PATH, "title Outside\n");
+    one.write("title Mine\n");
+    one.write("title Mine again\n");
+    await settled();
+    expect(one.text()).toBe("title Outside\n");
+    expect(byOne).toEqual(["crossed"]);
+    expect(byTwo).toEqual([]);
+  });
+
+  test("a write the place calls too large is said so, and the writer has the file's text again", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const byOne = drops(one);
+    const heard = ears(one);
+    backend.onWrite = () => Promise.reject(new WriteRefusal("too-large"));
+    one.write("title Far too long\n");
+    await settled();
+    expect(byOne).toEqual(["too-large"]);
+    // the text first, then the word: whoever says it shows the file by then
+    expect(heard).toEqual([`replace ${TEA}`]);
+    expect(one.text()).toBe(TEA);
+    expect(backend.textOf(PATH)).toBe(TEA);
+  });
+
+  test("a write that is taken is no word, and neither is a change from outside", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const byOne = drops(one);
+    one.write("title Mine\n");
+    await settled();
+    backend.outside(PATH, "title Outside\n");
+    await settled();
+    expect(byOne).toEqual([]);
+  });
+
+  test("the reader that wrote last hears it, whoever wrote before", async () => {
+    const { backend, files } = await bench();
+    const one = await files.openText(PATH);
+    const two = await files.openText(PATH);
+    const [byOne, byTwo] = [drops(one), drops(two)];
+    backend.onWrite = async () => false;
+    one.write("title One\n");
+    two.write("title Two\n");
+    await settled();
+    expect([byOne, byTwo]).toEqual([[], ["crossed"]]);
+    expect([one.text(), two.text()]).toEqual([TEA, TEA]);
   });
 });
 

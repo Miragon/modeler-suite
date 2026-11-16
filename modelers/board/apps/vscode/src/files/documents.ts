@@ -7,7 +7,7 @@
  * it was opened, and the object is dead from then on: none is kept across its close event, and
  * the next write opens the document anew. Nothing here saves.
  */
-import type { BackendText } from "@miragon/board-files";
+import { WriteRefusal, type BackendText } from "@miragon/board-files";
 import {
   createDocumentWriter,
   type DisposableLike,
@@ -126,6 +126,8 @@ interface Held<Uri> {
   loading: Promise<TextDocumentLike> | undefined;
   readonly change: Set<(text: string) => void>;
   readonly went: Set<() => void>;
+  /** told every document a write of this text landed in, which is unsaved from then on */
+  readonly wrote: ((document: TextDocumentLike) => void) | undefined;
 }
 
 function adopt<Uri extends BoardUriLike>(
@@ -208,11 +210,12 @@ async function write<Uri extends BoardUriLike>(
 ): Promise<boolean> {
   if (held.closed || held.gone) return false;
   // A board opens no model above the limit, so it writes none: saved, the file would open on no
-  // board again. Refused like any write, and the page is then told the text the document has.
-  if (exceedsBytes(text, TEXT_LIMIT_BYTES)) return false;
+  // board again. VS Code is handed no edit, and the page is told why its edit is not there.
+  if (exceedsBytes(text, TEXT_LIMIT_BYTES)) throw new WriteRefusal("too-large");
   const document = held.document ?? (await load(vscode, path, held).catch(() => undefined));
   const { writer } = held;
-  if (!document || !writer || held.document !== document) return false;
+  // no document to write into: the file is not one a board opens any more
+  if (!document || !writer || held.document !== document) throw new WriteRefusal("refused");
   // Asked in the task that hands VS Code the edit: a document that has another text than the one
   // this write was made on holds a change nobody was told of, and the write would replace it.
   let made = true;
@@ -223,9 +226,17 @@ async function write<Uri extends BoardUriLike>(
     },
     { suppressEcho: true },
   );
-  if (!made || !applied) return false;
+  if (!made) return false;
+  if (!applied) {
+    // VS Code took nothing of the edit. With another text in the document by now, a change came
+    // while the edit was on its way, and the edit crossed it as one made on another text does.
+    // With the same text VS Code had a reason of its own: a file that may not be written.
+    if (document.getText() !== base) return false;
+    throw new WriteRefusal("refused");
+  }
   // the page has this text now: it wrote it
   held.told = held.document === document ? document.getText() : held.last;
+  held.wrote?.(document);
   return true;
 }
 
@@ -257,11 +268,13 @@ function listen<Uri extends BoardUriLike>(
 /**
  * Opens the text of `path`, the file at `uri`. Rejects with a message a node can show for a
  * file that is behind a link or is one, is not there, is no file, is too large or is no text.
+ * `wrote` is told the document of every write that landed: it has unsaved text of this reader.
  */
 export async function openDocumentText<Uri extends BoardUriLike>(
   vscode: DocumentsVsCodeLike<Uri>,
   path: string,
   uri: Uri,
+  wrote?: ((document: TextDocumentLike) => void) | undefined,
 ): Promise<DocumentText<Uri>> {
   const first = await openChecked(vscode, path, uri);
   const text = first.document.getText();
@@ -278,6 +291,7 @@ export async function openDocumentText<Uri extends BoardUriLike>(
     loading: undefined,
     change: new Set(),
     went: new Set(),
+    wrote,
   };
   adopt(vscode, held, first.document);
   const subscriptions = listen(vscode, held);

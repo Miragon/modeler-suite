@@ -77,6 +77,36 @@ describe("the rows of the board's shortcuts dialog", () => {
     expect(file?.rows.map((row) => row.keys)).toEqual([["⌘O"], ["⌘S"]]);
   });
 
+  it("name a pasted and a dropped picture only for a board that keeps pictures", () => {
+    const chrome = { platform: "other" as const, messages: defaultMessages };
+    const picture = (options?: Parameters<typeof boardShortcuts>[1]) =>
+      boardShortcuts(chrome, options)
+        .flatMap((group) => group.rows)
+        .filter((row) => row.action === "Add a picture");
+
+    expect(picture()).toEqual([]);
+    expect(picture({ pictures: undefined })).toEqual([]);
+    // a browser hands the page every dropped file
+    expect(picture({ pictures: "drop" })).toEqual([
+      { action: "Add a picture", keys: ["Ctrl+V", "Drop"] },
+    ]);
+    // the row is the last of the board's own, behind the file keys of a web app
+    const groups = boardShortcuts(chrome, { fileKeys: true, pictures: "drop" });
+    expect(groups.map((group) => group.title)).toEqual(["File", "Edit"]);
+    expect(groups[1]?.rows.at(-1)?.action).toBe("Add a picture");
+  });
+
+  it("name the drop with Shift where the host takes any other one for itself, as VS Code does", () => {
+    const rows = (platform: "mac" | "other") =>
+      boardShortcuts(
+        { platform, messages: defaultMessages },
+        { pictures: "shift-drop" },
+      )[0]?.rows.find((row) => row.action === "Add a picture");
+
+    expect(rows("other")?.keys).toEqual(["Ctrl+V", "Shift+drop"]);
+    expect(rows("mac")?.keys).toEqual(["⌘V", "⇧ drop"]);
+  });
+
   it("leave the zoom and fit keys to the shell, which adds them itself", () => {
     const chrome = chromeShortcutRows({ platform: "other", lang: "en", messages: defaultMessages });
     const own = Object.keys(rowsFor("other"));

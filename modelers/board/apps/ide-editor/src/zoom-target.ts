@@ -36,6 +36,7 @@ export type ViewBox = Pick<HTMLElement, "clientWidth" | "clientHeight">;
 
 /** The board holds its zoom between 10 % and 400 % and takes any other one for the nearer end. */
 export const BOARD_MIN_ZOOM = 0.1;
+export const BOARD_MAX_ZOOM = 4;
 
 const isNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -49,6 +50,9 @@ export function viewOf(board: Pick<ViewedBoard, "getViewState">): BoardView {
   }
   return { x: 0, y: 0, zoom: 1 };
 }
+
+export const sameView = (a: BoardView, b: BoardView): boolean =>
+  a.x === b.x && a.y === b.y && a.zoom === b.zoom;
 
 export const sizeOf = (box: ViewBox): Size => ({
   width: box.clientWidth,

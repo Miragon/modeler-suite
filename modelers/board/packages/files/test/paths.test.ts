@@ -17,6 +17,11 @@ describe("repoPath", () => {
     // what only reads like a way out: no place decodes a path, and none of these is one
     "%2e%2e/secret.owm",
     "models/tea.owm.",
+    // names that only look like the short name Windows has for Git's folder
+    "git/config",
+    "git~/config",
+    "models/git~1.owm",
+    "legit~1/config",
   ])("takes %j as it is", (path) => {
     expect(repoPath(path)).toBe(path);
   });
@@ -56,6 +61,11 @@ describe("repoPath", () => {
     ["a dot folder at the depth of five", "a/b/c/d/.e/tea.owm"],
     ["a dot file at the end", "models/.tea.owm"],
     ["a dot file below assets", "assets/.logo.png"],
+    // on NTFS `.git` usually has a short name, which opens Git's folder without a dot
+    ["the short name Windows has for Git's folder", "GIT~1/config"],
+    ["that name in lower case", "git~1/hooks/pre-commit"],
+    ["that name with another number", "sub/Git~12/config"],
+    ["that name alone", "GIT~1"],
     ["two dots and a percent sign", "..%2fsecret.owm"],
     ["two dots and a space", "models/.. /secret.owm"],
     ["three dots", "models/.../tea.owm"],

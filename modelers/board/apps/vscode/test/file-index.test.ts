@@ -6,6 +6,7 @@ import {
   createIndexPool,
   FOLDER_LOOKS,
   LIST_REST_MS,
+  MOVE_MEMORY_MS,
   type FileEvent,
   type FileIndex,
 } from "../src/files/file-index.js";
@@ -292,15 +293,15 @@ describe("the file index of a repository root", () => {
   test("follows a folder another program moves: its files go at the folder's word, and a search finds them under the new name", async () => {
     const { index, memory, told, events } = await indexed();
     memory.disk.move("/repo/models", "/repo/maps");
-    // The watcher names the two folders and none of the files: the old one empties the list
-    // of everything below it at once.
+    // The watcher names the two folders, the new one first, and none of the files: the old
+    // one empties the list of everything below it at once.
     expect(events).toEqual([
       ["models/tea.owm", "deleted"],
       ["models/teams/sample.ttm.json", "deleted"],
     ]);
     expect(index.list()).toEqual(["assets/deep/photo.png", "assets/logo.svg"]);
     // the new one is asked what it is, and searched because it is a folder
-    await vi.advanceTimersByTimeAsync(2 * LIST_REST_MS);
+    await vi.advanceTimersByTimeAsync(3 * LIST_REST_MS);
     expect(memory.calls.stat).toEqual(["/repo/maps"]);
     expect(index.list()).toEqual(
       [
@@ -314,7 +315,8 @@ describe("the file index of a repository root", () => {
       ["maps/tea.owm", "created"],
       ["maps/teams/sample.ttm.json", "created"],
     ]);
-    expect(told()).toBe(2);
+    // one word for the list: the search of the new folder ended before the old one's rest did
+    expect(told()).toBe(1);
   });
 
   test("loses every file of a folder another program removes, at the one word VS Code has for it", async () => {
@@ -465,6 +467,173 @@ describe("the file index of a repository root", () => {
     expect(told()).toBe(0);
     expect(events).toEqual([]);
     expect(memory.calls.findFiles).toHaveLength(2);
+  });
+});
+
+describe("the moves the index tells", () => {
+  /** an index with a log of what it told, the moves and the file events in one order */
+  async function logged(files: Record<string, string> = FILES) {
+    const all = await indexed(files);
+    const log: string[] = [];
+    all.index.onMoved((moves) =>
+      log.push(`moved ${moves.map(({ from, to }) => `${from} > ${to}`).join(", ")}`),
+    );
+    all.index.onFile((path, event) => log.push(`${event} ${path}`));
+    return { ...all, log };
+  }
+
+  test("are one per file for a file a person renames in VS Code, told before the file is said to have gone", async () => {
+    const { memory, log } = await logged();
+    memory.explorer.rename("/repo/models/tea.owm", "/repo/models/green-tea.owm");
+    expect(log).toEqual([
+      "moved models/tea.owm > models/green-tea.owm",
+      "deleted models/tea.owm",
+      "created models/green-tea.owm",
+      // the watcher's later word of the old name: a text that is gone is not told twice
+      "deleted models/tea.owm",
+    ]);
+  });
+
+  test("are every listed file below a folder that is renamed, each at the same place below the new name, as one word", async () => {
+    const { memory, log } = await logged();
+    memory.explorer.rename("/repo/models", "/repo/maps");
+    expect(log[0]).toBe(
+      "moved models/tea.owm > maps/tea.owm, models/teams/sample.ttm.json > maps/teams/sample.ttm.json",
+    );
+    // no file below the folder that the list does not hold: its notes are no file of a board
+    expect(log.filter((line) => line.startsWith("moved"))).toHaveLength(1);
+    expect(log.slice(1, 3)).toEqual([
+      "deleted models/tea.owm",
+      "deleted models/teams/sample.ttm.json",
+    ]);
+  });
+
+  test("are one word for everything a person moves in one gesture, files and folders alike", async () => {
+    const { memory, log } = await logged();
+    memory.explorer.move([
+      ["/repo/models/tea.owm", "/repo/archive/tea.owm"],
+      ["/repo/assets/deep", "/repo/assets/photos"],
+    ]);
+    expect(log[0]).toBe(
+      "moved models/tea.owm > archive/tea.owm, assets/deep/photo.png > assets/photos/photo.png",
+    );
+    expect(log.filter((line) => line.startsWith("moved"))).toHaveLength(1);
+  });
+
+  test("name a file the list does not hold where VS Code names the file itself: a model in node_modules, a picture outside assets", async () => {
+    const { memory, log } = await logged();
+    memory.explorer.rename(
+      "/repo/node_modules/pkg/example.owm",
+      "/repo/node_modules/pkg/sample.owm",
+    );
+    memory.explorer.rename("/repo/docs/figure.png", "/repo/docs/drawing.png");
+    expect(log.filter((line) => line.startsWith("moved"))).toEqual([
+      "moved node_modules/pkg/example.owm > node_modules/pkg/sample.owm",
+      "moved docs/figure.png > docs/drawing.png",
+    ]);
+  });
+
+  test("name no file of another kind, and none below a renamed folder that the list does not hold", async () => {
+    const { memory, log } = await logged();
+    memory.explorer.rename("/repo/models/notes.md", "/repo/models/readme.md");
+    memory.explorer.rename("/repo/docs", "/repo/documents");
+    expect(log.filter((line) => line.startsWith("moved"))).toEqual([]);
+  });
+
+  test("are none for what leaves the root, comes from outside it or is the root itself: such a file went, or came", async () => {
+    const { memory, log } = await logged({ ...FILES, "/elsewhere/maps/one.owm": TEA });
+    memory.explorer.rename("/repo/models/tea.owm", "/elsewhere/tea.owm");
+    memory.explorer.rename("/elsewhere/maps", "/repo/moved-in");
+    // gone at VS Code's word and again at the watcher's, and no move at either
+    expect([...log]).toEqual(["deleted models/tea.owm", "deleted models/tea.owm"]);
+    memory.explorer.rename("/repo", "/repository");
+    expect(log.filter((line) => line.startsWith("moved"))).toEqual([]);
+    // and the folder that came is still searched for: nothing went wrong on the way
+    expect(memory.errors).toEqual([]);
+  });
+
+  test("are none for a file another program moves: the watcher names an end at a time", async () => {
+    const { memory, log } = await logged();
+    memory.disk.move("/repo/models/tea.owm", "/repo/models/green-tea.owm");
+    await vi.advanceTimersByTimeAsync(10 * LIST_REST_MS);
+    expect(log).toEqual(["created models/green-tea.owm", "deleted models/tea.owm"]);
+  });
+
+  test("are one word for the files a person drags together, though the watcher named the earlier ones as gone before VS Code said that they moved", async () => {
+    const { memory, log } = await logged({ ...FILES, "/repo/models/b.owm": TEA });
+    memory.explorer.drag([
+      ["/repo/models/tea.owm", "/repo/archive/tea.owm"],
+      ["/repo/models/b.owm", "/repo/archive/b.owm"],
+    ]);
+    expect(log.slice(0, 3)).toEqual([
+      // the watcher's words of the first file, before VS Code's of the gesture
+      "created archive/tea.owm",
+      "deleted models/tea.owm",
+      "moved models/tea.owm > archive/tea.owm, models/b.owm > archive/b.owm",
+    ]);
+    expect(log.filter((line) => line.startsWith("moved"))).toHaveLength(1);
+  });
+
+  test("name the files of a folder that is dragged with others, though the watcher's word of the folder took them off the list first", async () => {
+    const { index, memory, log } = await logged();
+    memory.explorer.drag([
+      ["/repo/models", "/repo/archive/models"],
+      ["/repo/assets/deep", "/repo/assets/photos"],
+    ]);
+    expect(log.filter((line) => line.startsWith("moved"))).toEqual([
+      "moved models/tea.owm > archive/models/tea.owm, models/teams/sample.ttm.json > archive/models/teams/sample.ttm.json, assets/deep/photo.png > assets/photos/photo.png",
+    ]);
+    // told gone at the watcher's word, and a move all the same
+    expect(log.indexOf("deleted models/tea.owm")).toBeLessThan(
+      log.findIndex((line) => line.startsWith("moved")),
+    );
+    await vi.advanceTimersByTimeAsync(10 * LIST_REST_MS);
+    expect(index.list()).toEqual(
+      [
+        "archive/models/tea.owm",
+        "archive/models/teams/sample.ttm.json",
+        "assets/logo.svg",
+        "assets/photos/photo.png",
+      ].sort(),
+    );
+  });
+
+  test("remember what the watcher took off the list for a moment only: a folder another program moved away is no move when VS Code names that path later", async () => {
+    const soon = await logged();
+    soon.memory.disk.move("/repo/models", "/elsewhere/models");
+    await vi.advanceTimersByTimeAsync(MOVE_MEMORY_MS - 1);
+    soon.memory.explorer.rename("/repo/models", "/repo/maps");
+    expect(soon.log.filter((line) => line.startsWith("moved"))).toEqual([
+      "moved models/tea.owm > maps/tea.owm, models/teams/sample.ttm.json > maps/teams/sample.ttm.json",
+    ]);
+
+    const late = await logged();
+    late.memory.disk.move("/repo/models", "/elsewhere/models");
+    await vi.advanceTimersByTimeAsync(MOVE_MEMORY_MS);
+    late.memory.explorer.rename("/repo/models", "/repo/maps");
+    expect(late.log.filter((line) => line.startsWith("moved"))).toEqual([]);
+  });
+
+  test("ask the watcher's memory once: a second rename of the same path moves nothing more", async () => {
+    const { memory, log } = await logged();
+    memory.disk.move("/repo/models", "/elsewhere/models");
+    memory.explorer.rename("/repo/models", "/repo/maps");
+    memory.explorer.rename("/repo/models", "/repo/charts");
+    expect(log.filter((line) => line.startsWith("moved"))).toHaveLength(1);
+  });
+
+  test("reach nobody who stopped listening, and nobody once the index is disposed", async () => {
+    const { index, memory } = await indexed();
+    const heard: number[] = [];
+    const stop = index.onMoved((moves) => heard.push(moves.length));
+    const other = index.onMoved((moves) => heard.push(10 * moves.length));
+    stop();
+    memory.explorer.rename("/repo/models/tea.owm", "/repo/models/green-tea.owm");
+    expect(heard).toEqual([10]);
+    index.dispose();
+    memory.explorer.rename("/repo/models/green-tea.owm", "/repo/models/tea.owm");
+    expect(heard).toEqual([10]);
+    other();
   });
 });
 

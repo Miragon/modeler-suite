@@ -9,6 +9,7 @@ import {
   createMemoryBackend,
   PICTURE_SUFFIXES,
   suffixRule,
+  type BoardFiles,
   type MemoryBackend,
 } from "@miragon/board-files";
 import {
@@ -75,6 +76,8 @@ export function boardTextOf(nodes: readonly ModelNode[]): string {
 export interface MountedBoard {
   readonly board: CollaborativeBoard;
   readonly backend: MemoryBackend;
+  /** the port the board's host stands on: `settled()` is a round trip behind what was asked so far */
+  readonly files: BoardFiles;
   /** the element the board is attached to: the whole window */
   readonly element: HTMLElement;
   readonly nodes: readonly ModelNode[];
@@ -196,8 +199,16 @@ export async function mountBoard(options: MountOptions): Promise<MountedBoard> {
   }
 
   const engine = (nodeId: string): HTMLElement => {
-    const found = engines.get(nodeId);
-    if (!found) throw new Error(`the board has no model node ${nodeId}`);
+    const known = engines.get(nodeId);
+    if (!known) throw new Error(`the board has no model node ${nodeId}`);
+    if (known.isConnected) return known;
+    // The board made a new element for a node whose file moved: it stands in the node, or,
+    // where the node was armed, in the layer, which holds one engine at a time.
+    const found =
+      engineIn(nodeId) ??
+      element.querySelector<HTMLElement>(".board-overlay-layer > .board-engine");
+    if (!found) throw new Error(`the model node ${nodeId} has no engine`);
+    engines.set(nodeId, found);
     return found;
   };
   const madeIn = (nodeId: string): Made => {
@@ -211,6 +222,7 @@ export async function mountBoard(options: MountOptions): Promise<MountedBoard> {
   return {
     board,
     backend,
+    files,
     element,
     nodes: options.nodes,
     text,

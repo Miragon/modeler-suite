@@ -4,22 +4,30 @@
  * so on) and collide with none. The VS Code host is written against these names and shapes: a
  * change to one is a new `PROTOCOL`.
  *
- * The rules both sides keep: nothing is pushed before the hello; whatever the page awaits carries
- * a `requestId` and ends in its answer or in `board.failed`; the page never gets its own edit
- * back; a write the host refused is answered with the text as the host has it; there is one
- * subscription per path however many readers the page has on it. A hello starts the life of a
- * page: what the page before it had open is closed, and a hello of another protocol is none.
+ * The rules both sides keep: nothing is pushed before the hello, which is answered with the
+ * welcome and then the list; whatever the page awaits carries a `requestId` and ends in its
+ * answer or in `board.failed`; the page never gets its own edit back; a write the host refused
+ * is answered with the text as the host has it; there is one subscription per path however many
+ * readers the page has on it. A hello starts the life of a page: what the page before it had
+ * open is closed, and a hello of another protocol is none.
  *
  * A text has a version, which the host counts and the page only repeats: 1 with
  * `board.text.opened`, one more with every `board.text.update` of that open text. The page's own
  * edits do not count. An edit carries the last version the page heard, and the host takes it
  * only while that is still the last it told: an edit made on an older version crossed a text the
  * page had not heard of yet, so it is dropped, and the update that is on its way to the page
- * puts the host's text in its place there.
+ * puts the host's text in its place there. An edit that is not in the place and never will be is
+ * told with its reason, `board.text.dropped`: a word about the page's edit and no version.
+ *
+ * What a page asks is bounded by the host. Reads of one path that are on their way are answered
+ * together, by one `board.bytes` that names every request it is for; only a few reads run at
+ * once; new files are stored and files are shown one at a time, with one file to be shown
+ * waiting; a request that comes while too many wait is failed at once; and an edit that comes
+ * while too many edits wait is not kept, and is told as one the place did not take.
  */
-import type { FileMove } from "./port.js";
+import type { DropReason, FileMove } from "./port.js";
 
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 /** page to host */
 export type ClientMessage =
@@ -30,10 +38,17 @@ export type ClientMessage =
   /** answered with `board.done` once every edit that came before it is dealt with */
   | { type: "board.text.settle"; requestId: number }
   | { type: "board.bytes.read"; requestId: number; path: string }
-  | { type: "board.file.create"; requestId: number; path: string; base64: string; mime: string };
+  | { type: "board.file.create"; requestId: number; path: string; base64: string; mime: string }
+  /** the host shows the file in an editor of its own; answered with `board.done` */
+  | { type: "board.file.show"; requestId: number; path: string };
 
-/** host to page; `board.paths` is the whole list, after the hello and after every change */
+/**
+ * host to page; `board.welcome` answers the hello, and `board.paths` is the whole list, after
+ * the welcome and after every change
+ */
 export type HostMessage =
+  /** `shows`: the host can show a file in an editor of its own (`board.file.show`) */
+  | { type: "board.welcome"; shows: boolean }
   | { type: "board.paths"; paths: string[] }
   | {
       type: "board.text.opened";
@@ -44,9 +59,19 @@ export type HostMessage =
       version: number;
     }
   | { type: "board.text.update"; path: string; text: string; version: number }
+  /** the edit the page posted last for this path is not in the place, and why */
+  | { type: "board.text.dropped"; path: string; reason: DropReason }
   | { type: "board.text.gone"; path: string }
   | { type: "board.moved"; moves: FileMove[] }
-  | { type: "board.bytes"; requestId: number; path: string; base64: string | null; mime: string }
+  | {
+      type: "board.bytes";
+      requestId: number;
+      path: string;
+      base64: string | null;
+      mime: string;
+      /** the other reads of this path that this one answer is for; absent where there is none */
+      alsoFor?: number[] | undefined;
+    }
   | { type: "board.bytes.changed"; paths: string[] }
   | { type: "board.done"; requestId: number }
   | { type: "board.failed"; requestId: number; message: string };

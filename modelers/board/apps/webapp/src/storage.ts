@@ -60,11 +60,21 @@ export interface OpenStorage {
   keep(document: OpenDocument): boolean;
   /** nothing is open: the next start shows the start screen */
   forget(): boolean;
+  /**
+   * What the editor of the open document keeps for the next visit, by the editor's own keys:
+   * the view a person left the board at. It is the open document's and no other one's, so
+   * whoever opens another document forgets it first.
+   */
+  state(key: string): unknown;
+  /** answers whether the browser took it */
+  keepState(key: string, value: unknown): boolean;
+  forgetState(): boolean;
 }
 
 const PREFIX = "miragon-board-example:";
 // Outside the example's prefix: the reset forgets the example's changes, not what is open.
 const OPEN_KEY = "miragon-board:open";
+const STATE_KEY = "miragon-board:open-state";
 const BOARD_KEY = `${PREFIX}board`;
 const TEXT_PREFIX = `${PREFIX}text:`;
 const BYTES_PREFIX = `${PREFIX}bytes:`;
@@ -214,9 +224,40 @@ function openDocumentOf(value: string | null): OpenDocument | undefined {
   return { kind, text, ...(typeof name === "string" ? { name } : {}) };
 }
 
-/** Which document is open, kept under one key of its own beside the example's. */
+/** What an editor kept by its keys; nothing for a value another program left there. */
+function editorStateOf(value: string | null): Record<string, unknown> {
+  if (value === null) return {};
+  try {
+    const parsed: unknown = JSON.parse(value);
+    const isRecord = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+    return isRecord ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Which document is open, kept under one key of its own beside the example's, and under a
+ * second one what its editor keeps of it.
+ */
 export function createOpenStorage(store: KeyValueStore): OpenStorage {
+  const editorState = (): Record<string, unknown> => editorStateOf(store.getItem(STATE_KEY));
   return {
+    state: (key) =>
+      guarded(() => {
+        const kept = editorState();
+        return Object.hasOwn(kept, key) ? kept[key] : undefined;
+      }, undefined),
+    keepState: (key, value) =>
+      guarded(() => {
+        store.setItem(STATE_KEY, JSON.stringify({ ...editorState(), [key]: value }));
+        return true;
+      }, false),
+    forgetState: () =>
+      guarded(() => {
+        store.removeItem(STATE_KEY);
+        return true;
+      }, false),
     read: () => guarded(() => openDocumentOf(store.getItem(OPEN_KEY)), undefined),
     keep: (document) =>
       guarded(() => {

@@ -9,9 +9,11 @@ modeler. AI agents: start with [`CLAUDE.md`](CLAUDE.md).
 **Work in progress, unpublished.** Four packages, the board inside the suite's shell, the web app
 (a start screen, a board of your own, and an example repository, `example/`), a VS Code extension
 that packs into a VSIX, and two `e2e` projects are here, and the extension's smoke runs in a real
-VS Code; the Orca plugin and `docs/` are still to come.
-[`CLAUDE.md`](CLAUDE.md) says what is in the tree, what was run on it and where the board deviates
-from the suite's rules.
+VS Code; the Orca plugin and a demo and screenshots under `docs/` are still to come.
+[`CLAUDE.md`](CLAUDE.md) says what is in the tree and names the document of each part under
+[`docs/`](docs/). [`docs/state.md`](docs/state.md) says what was run on the tree, and where the
+board deviates from the suite's rules is under Tests in `CLAUDE.md` (the kit's pinned skips) and in
+[`docs/ide-editor.md`](docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end).
 
 ## Packages
 
@@ -91,11 +93,24 @@ opens that bundle under the extension's content security policy. The file a boar
 text document, never goes through the files port: a new host keeps that.
 `npm run board test:vscode` and `test:vscode:docker` run the smoke `apps/vscode/test-smoke`: the
 packed extension in a real VS Code, on the example folder, with a click on Group, a save, an undo,
-VS Code's four themes, and three checks of its own (the models drawn, the picker following the
-folder, an edit in place that leaves the model a dirty document). Run it after a change of the
-extension, in the Docker runner where no VS Code window may open. [`CLAUDE.md`](CLAUDE.md) lists
-what the code takes for granted about VS Code and what a real one showed of it: a change that
-rests on one of those items wants a look there first.
+VS Code's four themes, and seven checks of its own (the models drawn, the picker following the
+folder, an edit in place that leaves the model a dirty document, the undo key that stays inside
+an armed model, the model saved in its own tab, a rename in the Explorer that moves the node's
+path, and the saved text read again by its notation). Run it after a change of the
+extension, in the Docker runner where no VS Code window may open.
+[`docs/vscode.md`](docs/vscode.md#taken-for-granted-about-vs-code) lists what the code takes for
+granted about VS Code and what a real one showed of it: a change that rests on one of those items
+wants a look there first.
+
+A behaviour of VS Code that new host code depends on is built into the fake, held by a sentence in
+`apps/vscode/test/memory-vscode.test.ts`, and listed in `docs/vscode.md` as taken for granted
+until a real VS Code showed it
+([the list for daily use](docs/vscode.md#taken-for-granted-for-daily-use-as-seen-in-a-real-vs-code)
+is such a list, with how each item ended, and
+[the runner's section](docs/vscode.md#a-real-vs-code-in-the-docker-runner) says how a walk is
+run). Where VS Code does something else, the fake is changed to what was seen. A file added to
+`example/` is also named in `apps/vscode/src/example-files.ts`: the extension carries the example
+for New Board from Example, and `apps/vscode/test/example.test.ts` fails until the file is named.
 
 ## Third-party notices and the icon
 
@@ -128,7 +143,21 @@ app's `check:build`, and `package:vscode`. Scope `board`, e.g.
 A change under another modeler's `packages/` or `example/`, or to its `apps/vscode/package.json`,
 runs the board's CI jobs as well, because the board bundles those packages and reads those files.
 The board has eight release components (`board-schema-model`, `-renderer`, `-files`, `-host`,
-`-editors`, `-ide-editor`, `-vscode`, `-webapp`); nothing goes to npm, and the extension is the one
-thing a release publishes. Never bump a version or write a `CHANGELOG.md` by hand: the extension's
-has one entry from before its first release, and release-please writes above it.
-[`CLAUDE.md`](CLAUDE.md) says what a merge to `main` would publish.
+`-editors`, `-ide-editor`, `-vscode`, `-webapp`); a release tags them and publishes nothing of
+them: nothing goes to npm, and the extension stays off both marketplaces while the board is held
+back (`HELD_BACK` in `.github/scripts/release-plan.mjs`,
+[CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)). Never edit that
+list in passing: taking the board off it is the owner's decision to publish. Never bump a version
+or write a `CHANGELOG.md` by hand: the extension's has one entry from before its first release,
+and release-please writes above it.
+[`docs/state.md`](docs/state.md#ci-and-what-a-merge-publishes) says what a merge to `main`
+publishes and what holds the board back.
+
+## Documents
+
+[`CLAUDE.md`](CLAUDE.md) keeps what every change needs: the state, the packages, the format, the
+rules, the tests and the commands in short. Each part has a document of its own under
+[`docs/`](docs/), and `CLAUDE.md` lists them. Write a part's facts into its document; `CLAUDE.md`
+gets the state, the counts and a pointer. Markdown under `docs/` runs no job of CI and goes into no
+build. `apps/vscode/README.md` is the extension's README for a person who installs it, and the VSIX
+carries it: nothing for a developer goes there.

@@ -1,5 +1,7 @@
+import { writeFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { dragFile, panePoint } from "../support/input.js";
 
 /**
  * The web app as a page: the start screen of the shell's web column, the example repository on
@@ -75,6 +77,32 @@ const boardText = (page: Page): Promise<string> =>
       .editor()
       .modeler.exportText(),
   );
+
+interface BoardView {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+/** the open board's view; undefined in the moment between two documents */
+const boardView = (page: Page): Promise<BoardView | undefined> =>
+  page.evaluate(() => {
+    const { __boardApp: app } = globalThis as unknown as {
+      __boardApp: { editor(): { modeler: { getViewState(): unknown } } };
+    };
+    try {
+      return app.editor().modeler.getViewState() as { x: number; y: number; zoom: number };
+    } catch {
+      return undefined;
+    }
+  });
+
+/** what the page keeps of the open document's view in the browser's storage */
+const keptView = (page: Page): Promise<unknown> =>
+  page.evaluate(() => {
+    const kept = window.localStorage.getItem("miragon-board:open-state");
+    return kept === null ? undefined : (JSON.parse(kept) as { boardView?: unknown }).boardView;
+  });
 
 async function addNote(page: Page, text: string): Promise<void> {
   const notes = page.locator(".board-text");
@@ -332,6 +360,75 @@ test("the download's bytes are the board's text, from the menu and by the key", 
   const third = await ofTheExample;
   expect(third.suggestedFilename()).toBe("example.board");
   expect((await readFile(await third.path())).toString("utf8")).toBe(await boardText(page));
+  expect(problems).toEqual([]);
+});
+
+test("a reload comes back to the view the board was left at, and the example as it was starts fitted", async ({
+  page,
+}) => {
+  const problems = problemsOf(page);
+  await showExample(page);
+  // the first view is the fit: the example does not fit at 100 %
+  await expect.poll(async () => (await boardView(page))?.zoom).toBeLessThan(1);
+  const fitted = await boardView(page);
+  expect(await keptView(page)).toBeUndefined();
+
+  await page.locator('[data-zoom="actual"]').click();
+  await expect.poll(async () => (await boardView(page))?.zoom).toBe(1);
+  const left = await boardView(page);
+  // kept with the board in the browser once it rested
+  await expect.poll(() => keptView(page)).toEqual(left);
+
+  await page.reload();
+  await modelsReady(page);
+
+  await expect.poll(() => boardView(page)).toEqual(left);
+  await expect(page.locator('[data-zoom="actual"]')).toHaveText("100%");
+  expect(await keptView(page)).toEqual(left);
+
+  // the example as it was is another document: it starts fitted, and nothing is kept of a view
+  await chooseFromMenu(page, "Reset the example");
+  await modelsReady(page);
+  await expect.poll(() => boardView(page)).toEqual(fitted);
+  expect(await keptView(page)).toBeUndefined();
+  expect(problems).toEqual([]);
+});
+
+test("a picture dropped onto the example is a file of its repository, and is there after a reload", async ({
+  page,
+}, testInfo) => {
+  const problems = problemsOf(page);
+  const sketch = testInfo.outputPath("sketch.svg");
+  writeFileSync(
+    sketch,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="30"><rect width="40" height="30"/></svg>',
+  );
+  await showExample(page);
+  const pictures = page.locator('.board-image[data-missing="false"] img');
+  await expect(pictures).toHaveCount(1);
+  const at = await panePoint(page);
+  // a real drag of a file of the disk, with no key held: a browser hands the page every drop
+  const drag = await dragFile(page, sketch);
+
+  await drag.enter(at);
+  await drag.over(at);
+  await expect(page.locator(".board-drop-hint")).toContainText("Drop to add an image");
+  await drag.drop(at);
+
+  await expect(pictures).toHaveCount(2);
+  await expect(page.locator(".board-drop-hint")).toHaveCount(0);
+  await expect(page.locator(".board-notice", { hasText: "assets/sketch.svg" })).toHaveCount(1);
+  // still the app: the browser did not leave the page for the dropped file
+  await expect(page).toHaveTitle("example.board · Board Modeler");
+
+  await page.reload();
+  await modelsReady(page);
+  await expect(pictures).toHaveCount(2);
+  await expect
+    .poll(() =>
+      pictures.evaluateAll((all) => all.every((img) => (img as HTMLImageElement).naturalWidth > 0)),
+    )
+    .toBe(true);
   expect(problems).toEqual([]);
 });
 

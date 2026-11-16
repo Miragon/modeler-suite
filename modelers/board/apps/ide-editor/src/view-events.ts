@@ -3,7 +3,7 @@
  * pane, a pan and the move to a model that is armed happen inside it, and the shell's zoom
  * readout has to follow them all the same.
  */
-import { viewOf, type BoardView, type ViewedBoard } from "./zoom-target.js";
+import { sameView, viewOf, type BoardView, type ViewedBoard } from "./zoom-target.js";
 
 export type ViewSubscription = (listener: () => void) => () => void;
 
@@ -32,9 +32,6 @@ function viewEventOf(modeler: object): ViewSubscription | undefined {
   if (typeof offered !== "function") return undefined;
   return (listener) => (offered as ViewSubscription).call(handle, () => listener());
 }
-
-const sameView = (a: BoardView, b: BoardView): boolean =>
-  a.x === b.x && a.y === b.y && a.zoom === b.zoom;
 
 /**
  * One look at the view per animation frame, and only while somebody listens and the page is

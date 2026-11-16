@@ -1,13 +1,14 @@
 /**
  * VS Code's workspace in memory, as far as the files backend uses it: a disk with folders and
  * links, text documents with VS Code's life (opened on demand, dirty after an edit, let go of
- * while clean), workspace edits that carry the version they were made on, a search, watchers,
- * VS Code's own file gestures and the workspace folders. It stands where `vscode` stands in the
- * unit tests and in a test page, and imports nothing of Node or of a page.
+ * while clean, saved by a person, by auto save or by an extension), workspace edits that carry
+ * the version they were made on, a search, watchers, VS Code's own file gestures, the workspace
+ * folders, the commands and the diagnostics of the Problems view. It stands where `vscode`
+ * stands in the unit tests and in a test page, and imports nothing of Node or of a page.
  *
- * Every behaviour here is one the backend depends on and that was read from VS Code's typings
- * and source, not seen in a run: `test/memory-vscode.test.ts` holds each as a sentence, and the
- * board's guide lists them as what a real VS Code has to confirm.
+ * Every behaviour here is one the backend depends on. Each was read from VS Code's typings and
+ * source first: `test/memory-vscode.test.ts` holds each as a sentence, and the board's guide
+ * says how a real VS Code then showed it. Where one differed, the fake says what was seen.
  */
 import type {
   DisposableLike,
@@ -20,6 +21,7 @@ import type {
 import {
   DIRECTORY,
   FILE,
+  MANUAL_SAVE,
   READONLY,
   SYMBOLIC_LINK,
   type BoardVsCodeLike,
@@ -27,7 +29,11 @@ import {
   type FileWatcherLike,
   type GlobLike,
   type RelativePatternLike,
+  type WillSaveEventLike,
 } from "./vscode-like.js";
+
+/** `vscode.TextDocumentSaveReason.AfterDelay`: auto save */
+export const AFTER_DELAY_SAVE = 2;
 
 export class MemoryUri {
   private constructor(
@@ -107,6 +113,65 @@ export class MemoryRelativePattern implements RelativePatternLike {
   ) {}
 }
 
+/** `vscode.DiagnosticSeverity` */
+export enum MemoryDiagnosticSeverity {
+  Error = 0,
+  Warning = 1,
+  Information = 2,
+  Hint = 3,
+}
+
+/** `vscode.Diagnostic`: an entry of the Problems view */
+export class MemoryDiagnostic {
+  source?: string;
+
+  constructor(
+    readonly range: RangeLike,
+    readonly message: string,
+    readonly severity: MemoryDiagnosticSeverity = MemoryDiagnosticSeverity.Error,
+  ) {}
+}
+
+/** `vscode.DiagnosticCollection`: what one owner tells the Problems view, by document */
+export class MemoryDiagnosticCollection {
+  private readonly entries = new Map<string, readonly MemoryDiagnostic[]>();
+  disposed = false;
+
+  constructor(readonly name: string) {}
+
+  /** an empty list takes the document's entry away, as VS Code does it */
+  set(uri: MemoryUri, diagnostics: readonly MemoryDiagnostic[]): void {
+    if (diagnostics.length === 0) this.entries.delete(uri.toString());
+    else this.entries.set(uri.toString(), [...diagnostics]);
+  }
+
+  get(uri: MemoryUri): readonly MemoryDiagnostic[] | undefined {
+    return this.entries.get(uri.toString());
+  }
+
+  has(uri: MemoryUri): boolean {
+    return this.entries.has(uri.toString());
+  }
+
+  delete(uri: MemoryUri): void {
+    this.entries.delete(uri.toString());
+  }
+
+  clear(): void {
+    this.entries.clear();
+  }
+
+  /** the documents with an entry, as their URIs print */
+  get documents(): string[] {
+    return [...this.entries.keys()];
+  }
+
+  dispose(): void {
+    this.disposed = true;
+    this.entries.clear();
+  }
+}
+
 /** a text document as VS Code hands it out; `text` and the flags are the fake's to move */
 export interface MemoryDocument extends TextDocumentLike {
   readonly uri: MemoryUri;
@@ -115,15 +180,22 @@ export interface MemoryDocument extends TextDocumentLike {
   readonly isDirty: boolean;
   /** true from the close event on: the object is dead, the next open makes another */
   readonly isClosed: boolean;
+  /**
+   * An extension saves the document: VS Code's own save, with the reason Manual. False where
+   * the file on disk is newer than the document, and VS Code then says so in a notification.
+   */
+  save(): Promise<boolean>;
 }
 
 interface DocumentState {
   readonly document: MemoryDocument;
-  readonly eol: "\n" | "\r\n";
+  eol: "\n" | "\r\n";
   text: string;
   version: number;
   dirty: boolean;
   closed: boolean;
+  /** another program wrote the file while the document had unsaved text */
+  newerOnDisk: boolean;
   readonly undo: string[];
 }
 
@@ -186,7 +258,19 @@ interface State {
   readonly applied: MemoryTextEdit[];
   readonly errors: unknown[];
   readonly changed: Emitter<TextDocumentChangeEventLike>;
+  readonly opened: Emitter<TextDocumentLike>;
   readonly closed: Emitter<TextDocumentLike>;
+  readonly willSave: Emitter<WillSaveEventLike>;
+  readonly saved: Emitter<TextDocumentLike>;
+  /** the commands an extension registered, by name */
+  readonly commands: Map<string, (...rest: unknown[]) => unknown>;
+  /** every command that was asked for, as `[command, ...arguments]` */
+  readonly executed: unknown[][];
+  /** the commands a test makes fail, each with what VS Code rejects with */
+  readonly failing: Map<string, unknown>;
+  /** the notifications VS Code showed of its own accord */
+  readonly notices: string[];
+  readonly collections: MemoryDiagnosticCollection[];
   readonly created: Emitter<{ readonly files: readonly MemoryUri[] }>;
   readonly deleted: Emitter<{ readonly files: readonly MemoryUri[] }>;
   readonly renamed: Emitter<{
@@ -305,7 +389,38 @@ function watch(state: State, event: WatchEvent, path: string): void {
   }
 }
 
-function documentOf(state: State, path: string, text: string): DocumentState {
+/**
+ * The line break of a document VS Code reads: a carriage return with a line feed where more
+ * than half of the text's line breaks carry a carriage return, with or without its line feed,
+ * else a line feed alone, which is also what a text without a line break gets on Linux.
+ */
+function lineBreakOf(text: string): "\n" | "\r\n" {
+  const breaks = text.match(/\r\n|\r|\n/g) ?? [];
+  const withReturn = breaks.filter((one) => one !== "\n").length;
+  return withReturn > breaks.length / 2 ? "\r\n" : "\n";
+}
+
+/**
+ * A text as a document of VS Code holds it: every line break is the document's one, a carriage
+ * return that stands alone included. So the text of a document is not always the text of its
+ * file, and no document ever holds a lone carriage return (seen in VS Code 1.146 and 1.96).
+ */
+const withLineBreak = (text: string, eol: string): string => text.replace(/\r\n|\r|\n/g, eol);
+
+/** the text of a file as the document VS Code opens on it has it */
+const asDocument = (text: string): string => withLineBreak(text, lineBreakOf(text));
+
+/**
+ * What the watchers hear of entries that moved, as one batch: the new names came, then the old
+ * ones went. VS Code hands an extension the created entries of a batch before the deleted ones.
+ */
+function watchMoves(state: State, moves: ReadonlyArray<readonly [from: string, to: string]>): void {
+  for (const [, to] of moves) watch(state, "created", to);
+  for (const [from] of moves) watch(state, "deleted", from);
+}
+
+function documentOf(state: State, path: string, onDisk: string): DocumentState {
+  const text = asDocument(onDisk);
   const lines = (): string[] => held.text.split(/\r\n|\n/);
   const document: MemoryDocument = {
     uri: MemoryUri.file(path),
@@ -327,17 +442,22 @@ function documentOf(state: State, path: string, text: string): DocumentState {
       return { text: found };
     },
     getText: () => held.text,
+    save: () =>
+      // VS Code saves in another process: the answer is never in the task that asked
+      Promise.resolve().then(() => !held.closed && saveNow(state, held, MANUAL_SAVE)),
   };
   const held: DocumentState = {
     document,
-    eol: text.includes("\r\n") ? "\r\n" : "\n",
+    eol: lineBreakOf(onDisk),
     text,
     version: 1,
     dirty: false,
     closed: false,
+    newerOnDisk: false,
     undo: [],
   };
   state.documents.set(keyOf(path), held);
+  state.opened.fire(document);
   return held;
 }
 
@@ -346,18 +466,57 @@ function textOnDisk(state: State, path: string): string | undefined {
   return found?.entry.kind === "file" ? decoder.decode(found.entry.bytes) : undefined;
 }
 
-/** a text of the document that VS Code or a person made: one more version, and the event */
+/**
+ * A text of the document that VS Code or a person made: one more version, and the event. A
+ * clean document that turns unsaved says so apart: its change is told while it still calls
+ * itself clean, and a second event without a content change follows once it is unsaved (seen in
+ * VS Code 1.146 and 1.96).
+ */
 function setText(state: State, held: DocumentState, text: string, change: unknown): void {
+  const wasClean = !held.dirty;
   held.text = text;
   held.version += 1;
-  held.dirty = text !== textOnDisk(state, held.document.uri.path);
+  const onDisk = textOnDisk(state, held.document.uri.path);
+  const dirty = onDisk === undefined || text !== asDocument(onDisk);
+  // the text of the file again, as after a revert: nothing on the disk is newer than that
+  if (!dirty) held.newerOnDisk = false;
+  held.dirty = dirty && !wasClean;
   state.changed.fire({ document: held.document, contentChanges: [change] });
+  if (held.dirty === dirty) return;
+  held.dirty = dirty;
+  state.changed.fire({ document: held.document, contentChanges: [] });
 }
 
 function closeDocument(state: State, held: DocumentState): void {
   state.documents.delete(held.document.uri.toString());
   held.closed = true;
   state.closed.fire(held.document);
+}
+
+const nameOf = (path: string): string => path.slice(path.lastIndexOf("/") + 1);
+
+/**
+ * VS Code's save, whoever asked for it. The listeners of will-save hear it first, with the
+ * reason. VS Code looks at the disk only when it writes: a file that is newer there than the
+ * document keeps its bytes, the document stays dirty, no did-save follows, and VS Code says so
+ * itself. A save that went through fires the change event without a content change, for the
+ * dirty state, and then did-save.
+ */
+function saveNow(state: State, held: DocumentState, reason: number): boolean {
+  const { path } = held.document.uri;
+  state.willSave.fire({ document: held.document, reason });
+  if (held.newerOnDisk) {
+    state.notices.push(`Failed to save '${nameOf(path)}': The content of the file is newer.`);
+    return false;
+  }
+  const existed = state.entries.has(path);
+  makeFolders(state, parentOf(path));
+  state.entries.set(path, { kind: "file", bytes: encoder.encode(held.text), readOnly: false });
+  held.dirty = false;
+  state.changed.fire({ document: held.document, contentChanges: [] });
+  state.saved.fire(held.document);
+  watch(state, existed ? "changed" : "created", path);
+  return true;
 }
 
 /** the file's bytes are other ones: watchers hear it, and a clean open document reads them */
@@ -373,9 +532,13 @@ function writeDisk(state: State, path: string, bytes: Uint8Array): void {
   });
   watch(state, fresh ? "created" : "changed", path);
   const held = state.documents.get(keyOf(path));
-  const text = decoder.decode(bytes);
+  const onDisk = decoder.decode(bytes);
+  const text = asDocument(onDisk);
   // VS Code reads a clean document again when its file changes and leaves a dirty one alone.
-  if (held && !held.dirty && held.text !== text) setText(state, held, text, { text });
+  if (held && !held.dirty && held.text !== text) {
+    held.eol = lineBreakOf(onDisk);
+    setText(state, held, text, { text });
+  } else if (held?.dirty && held.text !== text) held.newerOnDisk = true;
 }
 
 /**
@@ -404,6 +567,53 @@ function closeClean(state: State, files: readonly string[]): void {
   for (const file of files) {
     const held = state.documents.get(keyOf(file));
     if (held && !held.dirty) closeDocument(state, held);
+  }
+}
+
+/**
+ * The documents of files a person renamed in the Explorer, `from` and all below it. VS Code
+ * moves a file's document with it: there is a document at the new path before the rename is
+ * told, and the one of the old path is let go of. In the order VS Code tells it (seen in VS
+ * Code 1.146 and 1.96). An unsaved document says that it is clean and closes, the new one opens
+ * and then says that it is unsaved, with the unsaved text, all before the rename event. For a
+ * clean document the new one opens before the event and the old one closes after it: those are
+ * answered, for whoever tells the event to close them afterwards.
+ */
+function moveDocuments(
+  state: State,
+  files: readonly string[],
+  from: string,
+  to: string,
+): DocumentState[] {
+  const closedLater: DocumentState[] = [];
+  for (const file of files) {
+    const held = state.documents.get(keyOf(file));
+    if (!held) continue;
+    const target = to + file.slice(from.length);
+    if (!held.dirty) {
+      // the entry was moved already: the new document reads the file where it is now
+      documentOf(state, target, textOnDisk(state, target) ?? held.text);
+      closedLater.push(held);
+      continue;
+    }
+    held.dirty = false;
+    state.changed.fire({ document: held.document, contentChanges: [] });
+    closeDocument(state, held);
+    const moved = documentOf(state, target, held.text);
+    moved.dirty = true;
+    state.changed.fire({ document: moved.document, contentChanges: [] });
+  }
+  return closedLater;
+}
+
+/** closes the documents of old paths that a rename event left open, where they still are */
+function closeLeft(state: State, left: readonly DocumentState[]): void {
+  for (const held of left) {
+    if (state.documents.get(held.document.uri.toString()) === held) closeDocument(state, held);
+    else if (!held.closed) {
+      held.closed = true;
+      state.closed.fire(held.document);
+    }
   }
 }
 
@@ -444,7 +654,7 @@ function applyNow(
     const end = offsetOf(target.text, target.eol, edit.range.end);
     target.undo.push(target.text);
     state.applied.push(edit);
-    const inserted = edit.text.replace(/\r\n|\n/g, target.eol);
+    const inserted = withLineBreak(edit.text, target.eol);
     setText(state, target, target.text.slice(0, start) + inserted + target.text.slice(end), {
       range: edit.range,
       text: edit.text,
@@ -609,10 +819,48 @@ function workspaceOf(state: State): MemoryVsCodeNamespace["workspace"] {
     onDidDeleteFiles: state.deleted.event,
     onDidRenameFiles: state.renamed.event,
     openTextDocument: (uri) => openTextDocument(state, uri),
+    onDidOpenTextDocument: state.opened.event,
     onDidChangeTextDocument: state.changed.event,
     onDidCloseTextDocument: state.closed.event,
+    get textDocuments() {
+      return [...state.documents.values()].map((held) => held.document);
+    },
+    onWillSaveTextDocument: state.willSave.event,
+    onDidSaveTextDocument: state.saved.event,
     applyEdit: (edit) => applyEdit(state, edit),
     fs: fileSystem(state),
+  };
+}
+
+/** the commands of VS Code's own that the fake takes: each is written down and does nothing */
+const BUILT_IN_COMMANDS: ReadonlySet<string> = new Set([
+  "vscode.open",
+  "vscode.openWith",
+  "revealFileInOS",
+  "workbench.actions.view.problems",
+]);
+
+function commandsOf(state: State): MemoryVsCodeNamespace["commands"] {
+  return {
+    registerCommand(command, callback) {
+      if (state.commands.has(command)) throw new Error(`command '${command}' already exists`);
+      state.commands.set(command, callback);
+      return {
+        dispose: () => {
+          if (state.commands.get(command) === callback) state.commands.delete(command);
+        },
+      };
+    },
+    executeCommand(command, ...rest) {
+      state.executed.push([command, ...rest]);
+      if (state.failing.has(command)) return Promise.reject(state.failing.get(command));
+      const registered = state.commands.get(command);
+      // a registered command runs in a later task, and what it throws rejects the call
+      if (registered) return Promise.resolve().then(() => registered(...rest));
+      return BUILT_IN_COMMANDS.has(command)
+        ? Promise.resolve(undefined)
+        : Promise.reject(new Error(`command '${command}' not found`));
+    },
   };
 }
 
@@ -620,11 +868,23 @@ function workspaceOf(state: State): MemoryVsCodeNamespace["workspace"] {
 export interface MemoryVsCodeNamespace extends BoardVsCodeLike<MemoryUri> {
   readonly workspace: BoardVsCodeLike<MemoryUri>["workspace"] & {
     readonly workspaceFolders: ReadonlyArray<{ readonly uri: MemoryUri }> | undefined;
+    /** VS Code has a document: one it read from a file, or one that moved with its file */
+    onDidOpenTextDocument(listener: (document: TextDocumentLike) => unknown): DisposableLike;
+    readonly textDocuments: readonly MemoryDocument[];
+  };
+  readonly commands: BoardVsCodeLike<MemoryUri>["commands"] & {
+    /** throws for a name that is taken, as VS Code does */
+    registerCommand(command: string, callback: (...rest: unknown[]) => unknown): DisposableLike;
+  };
+  readonly languages: {
+    createDiagnosticCollection(name: string): MemoryDiagnosticCollection;
   };
   readonly Uri: typeof MemoryUri;
   readonly Range: typeof MemoryRange;
   readonly WorkspaceEdit: typeof MemoryWorkspaceEdit;
   readonly RelativePattern: typeof MemoryRelativePattern;
+  readonly Diagnostic: typeof MemoryDiagnostic;
+  readonly DiagnosticSeverity: typeof MemoryDiagnosticSeverity;
 }
 
 /** another program at the disk: Git, a shell, a formatter. Watchers hear of it, VS Code's file events do not */
@@ -662,7 +922,19 @@ export interface MemoryExplorer {
   /** a pasted folder: one created entry, and to the watchers a folder that names none of its files */
   paste(from: string, to: string): void;
   delete(path: string): void;
+  /** a file or a folder gets another name or place: one event that names it at both ends */
   rename(from: string, to: string): void;
+  /**
+   * Several files or folders renamed by one edit (`WorkspaceEdit.renameFile`): one event that
+   * names each of them, and the watchers hear of all of them afterwards.
+   */
+  move(moves: ReadonlyArray<readonly [from: string, to: string]>): void;
+  /**
+   * Several files or folders dragged onto a folder in one gesture. VS Code moves them one after
+   * the other and tells the one event after the last, so by then the watchers have named every
+   * entry but the last as one that went and one that came.
+   */
+  drag(moves: ReadonlyArray<readonly [from: string, to: string]>): void;
 }
 
 export interface MemoryVsCode {
@@ -677,8 +949,12 @@ export interface MemoryVsCode {
   undo(path: string): boolean;
   /** the file's text again, thrown-away changes and all; the document is clean after it */
   revert(path: string): void;
-  /** the person saves: the disk has the text, and the change event carries no content change */
-  save(path: string): void;
+  /**
+   * The person saves, or auto save does (`AFTER_DELAY_SAVE`): the disk has the text, and the
+   * change event carries no content change. A clean document is saved too when a person asks.
+   * False where the file on disk is newer than the document.
+   */
+  save(path: string, reason?: number): boolean;
   /**
    * VS Code lets go of a clean document that no editor shows, as it does about three minutes
    * after the last `openTextDocument`. Throws for a dirty one, which VS Code never lets go of.
@@ -694,6 +970,16 @@ export interface MemoryVsCode {
   readonly calls: MemoryCalls;
   /** what a listener threw, which VS Code logs */
   readonly errors: readonly unknown[];
+  /** every command that was asked for, in order, as `[command, ...arguments]` */
+  readonly executed: readonly unknown[][];
+  /** `command` rejects with `error` from now on: VS Code could not do what it was asked */
+  failCommand(command: string, error: unknown): void;
+  /** the commands that are registered now, in the order they came */
+  registeredCommands(): string[];
+  /** the notifications VS Code showed of its own accord, such as a save that failed */
+  readonly notices: readonly string[];
+  /** the collections `languages.createDiagnosticCollection` handed out, the newest last */
+  readonly diagnostics: readonly MemoryDiagnosticCollection[];
   /** how many listeners and watchers are subscribed now: what a host that ended left behind */
   listening(): { documents: number; files: number; folders: number; watchers: number };
 }
@@ -721,8 +1007,7 @@ function diskOf(state: State): MemoryDisk {
     },
     move(from, to) {
       moveDisk(state, from, to);
-      watch(state, "deleted", from);
-      watch(state, "created", to);
+      watchMoves(state, [[from, to]]);
     },
     unwatched(change) {
       state.quiet = true;
@@ -758,14 +1043,41 @@ function explorerOf(state: State): MemoryExplorer {
       watch(state, "deleted", path);
     },
     rename(from, to) {
-      // VS Code moves a file's document with it: the one of the old path is let go of
-      closeClean(state, moveDisk(state, from, to));
-      state.renamed.fire({ files: [{ oldUri: MemoryUri.file(from), newUri: MemoryUri.file(to) }] });
-      watch(state, "deleted", from);
-      watch(state, "created", to);
+      this.move([[from, to]]);
+    },
+    move(moves) {
+      const left = moves.flatMap(([from, to]) =>
+        moveDocuments(state, moveDisk(state, from, to), from, to),
+      );
+      state.renamed.fire({ files: moves.map(bothEnds) });
+      closeLeft(state, left);
+      watchMoves(state, moves);
+    },
+    drag(moves) {
+      const earlier = moves.slice(0, -1);
+      const left: DocumentState[] = [];
+      for (const [from, to] of earlier) {
+        left.push(...moveDocuments(state, moveDisk(state, from, to), from, to));
+        watchMoves(state, [[from, to]]);
+      }
+      const last = moves.slice(-1);
+      for (const [from, to] of last) {
+        left.push(...moveDocuments(state, moveDisk(state, from, to), from, to));
+      }
+      state.renamed.fire({ files: moves.map(bothEnds) });
+      closeLeft(state, left);
+      watchMoves(state, last);
     },
   };
 }
+
+const bothEnds = ([from, to]: readonly [string, string]): {
+  oldUri: MemoryUri;
+  newUri: MemoryUri;
+} => ({
+  oldUri: MemoryUri.file(from),
+  newUri: MemoryUri.file(to),
+});
 
 function hold(queue: "heldEdits" | "heldSearches", state: State): () => void {
   const waiting: Array<() => void> = [];
@@ -786,8 +1098,9 @@ function documentsOf(
   };
   return {
     document: (path) => state.documents.get(keyOf(path))?.document,
-    type(path, text) {
+    type(path, typed) {
       const found = open(path);
+      const text = withLineBreak(typed, found.eol);
       found.undo.push(found.text);
       setText(state, found, text, { text });
     },
@@ -800,19 +1113,17 @@ function documentsOf(
     },
     revert(path) {
       const found = open(path);
-      const text = textOnDisk(state, path) ?? "";
-      if (found.text !== text) setText(state, found, text, { text });
-    },
-    save(path) {
-      const found = open(path);
-      const bytes = encoder.encode(found.text);
-      const entry = state.entries.get(path);
-      makeFolders(state, parentOf(path));
-      state.entries.set(path, { kind: "file", bytes, readOnly: false });
+      const onDisk = textOnDisk(state, path) ?? "";
+      const text = asDocument(onDisk);
+      found.eol = lineBreakOf(onDisk);
+      if (found.text === text) return;
+      // VS Code calls the document clean before it tells the file's text, and then says once
+      // more that it is clean, without a content change (seen in VS Code 1.146)
       found.dirty = false;
+      setText(state, found, text, { text });
       state.changed.fire({ document: found.document, contentChanges: [] });
-      watch(state, entry ? "changed" : "created", path);
     },
+    save: (path, reason = MANUAL_SAVE) => saveNow(state, open(path), reason),
     closeDocument(path) {
       const found = open(path);
       if (found.dirty) throw new Error(`${path} is dirty: VS Code keeps a dirty document`);
@@ -842,7 +1153,15 @@ export function createMemoryVsCode(
     applied: [],
     errors,
     changed: new Emitter(errors),
+    opened: new Emitter(errors),
     closed: new Emitter(errors),
+    willSave: new Emitter(errors),
+    saved: new Emitter(errors),
+    commands: new Map(),
+    executed: [],
+    failing: new Map(),
+    notices: [],
+    collections: [],
     created: new Emitter(errors),
     deleted: new Emitter(errors),
     renamed: new Emitter(errors),
@@ -860,10 +1179,20 @@ export function createMemoryVsCode(
   return {
     vscode: {
       workspace: workspaceOf(state),
+      commands: commandsOf(state),
+      languages: {
+        createDiagnosticCollection(name) {
+          const collection = new MemoryDiagnosticCollection(name);
+          state.collections.push(collection);
+          return collection;
+        },
+      },
       Uri: MemoryUri,
       Range: MemoryRange,
       WorkspaceEdit: MemoryWorkspaceEdit,
       RelativePattern: MemoryRelativePattern,
+      Diagnostic: MemoryDiagnostic,
+      DiagnosticSeverity: MemoryDiagnosticSeverity,
     },
     disk: diskOf(state),
     explorer: explorerOf(state),
@@ -878,8 +1207,18 @@ export function createMemoryVsCode(
     applied: state.applied,
     calls: state.calls,
     errors,
+    executed: state.executed,
+    failCommand: (command, error) => void state.failing.set(command, error),
+    registeredCommands: () => [...state.commands.keys()],
+    notices: state.notices,
+    diagnostics: state.collections,
     listening: () => ({
-      documents: state.changed.size + state.closed.size,
+      documents:
+        state.changed.size +
+        state.opened.size +
+        state.closed.size +
+        state.willSave.size +
+        state.saved.size,
       files: state.created.size + state.deleted.size + state.renamed.size,
       folders: state.foldersChanged.size,
       watchers: state.watchers.size,

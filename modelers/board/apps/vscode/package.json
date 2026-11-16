@@ -50,6 +50,115 @@
         ],
         "priority": "default"
       }
+    ],
+    "commands": [
+      {
+        "command": "board.newBoard",
+        "title": "New Empty Board",
+        "category": "Board",
+        "shortTitle": "Board"
+      },
+      {
+        "command": "board.newBoardFromExample",
+        "title": "New Board from Example",
+        "category": "Board"
+      },
+      {
+        "command": "board.openSource",
+        "title": "Open Source to the Side",
+        "category": "Board",
+        "icon": "$(go-to-file)"
+      }
+    ],
+    "menus": {
+      "file/newFile": [
+        {
+          "command": "board.newBoard",
+          "group": "board@1"
+        },
+        {
+          "command": "board.newBoardFromExample",
+          "group": "board@2"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "board.openSource",
+          "when": "activeCustomEditorId == board.boardEditor",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "board.openSource",
+          "when": "activeCustomEditorId == board.boardEditor"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Board",
+      "properties": {
+        "miragon.board.saveModelsWithBoard": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "When you save a board, also save the models you edited on it. Off, each model stays unsaved until you save it yourself.\n\nThe models are saved only when you save the board yourself, with **Save** or **Save All**, never by auto save. A model is saved whole: what you changed in its own editor is saved with it. A model whose file changed on disk in the meantime is not saved, and VS Code says why. A model stays unsaved when its file was removed, when you reverted it since the board changed it, or when VS Code was reloaded since: edit it on the board again, or save it yourself."
+        }
+      }
+    },
+    "walkthroughs": [
+      {
+        "id": "getStarted",
+        "title": "Get Started with the Board",
+        "description": "A board is a canvas of your repository's own files: put its models side by side, edit each of them in place, and add notes, pictures, groups and arrows around them. This extension opens plain-text *.board files in VS Code.",
+        "steps": [
+          {
+            "id": "open",
+            "title": "Open a board",
+            "description": "Start from an empty board, or from the example with a model of every notation.\n[Create empty board](command:board.newBoard)\n[Create board from example](command:board.newBoardFromExample)",
+            "media": {
+              "markdown": "media/walkthrough/open.md"
+            },
+            "completionEvents": [
+              "onCommand:board.newBoard",
+              "onCommand:board.newBoardFromExample"
+            ]
+          },
+          {
+            "id": "add",
+            "title": "Add a model from the picker",
+            "description": "Pick a model of your repository from the toolbar's list to put it on the board.",
+            "media": {
+              "markdown": "media/walkthrough/add.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
+          {
+            "id": "edit",
+            "title": "Edit it in place",
+            "description": "Double-click a model to edit it where it sits. Done brings you back to the board.",
+            "media": {
+              "markdown": "media/walkthrough/edit.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          },
+          {
+            "id": "save",
+            "title": "Save",
+            "description": "The board and every model you edited are files of their own. Save each of them, or let the board save its models with it.\n[Open the setting](command:workbench.action.openSettings?%5B%22miragon.board.saveModelsWithBoard%22%5D)",
+            "media": {
+              "markdown": "media/walkthrough/save.md"
+            },
+            "completionEvents": [
+              "onStepSelected"
+            ]
+          }
+        ]
+      }
     ]
   },
   "scripts": {

@@ -9,6 +9,7 @@ import {
   PICTURE_SUFFIXES,
   suffixRule,
   type BoardFiles,
+  type FilesBackend,
   type FilesRule,
   type MemoryBackend,
   type MemoryFile,
@@ -25,7 +26,7 @@ import "../../src/assets/embed.css";
 // the module the entry loaded.
 import { boardRuntimeOf } from "../../../renderer/src/collaborative/internals.js";
 import type { BoardRuntime } from "../../../renderer/src/runtime/board-context.js";
-import { createFilesHost } from "../../src/index.js";
+import { createFilesHost, followMoves } from "../../src/index.js";
 import {
   standInEditors,
   type StandInEditors,
@@ -46,6 +47,8 @@ export interface HostBoard {
   readonly sessions: Array<{ path: string; closes: number }>;
   /** every path the host asked the port to open as a text, in order, opened or refused */
   readonly opens: string[];
+  /** every path the host asked the port to show, in order, shown or refused */
+  readonly shows: string[];
   /** how often the board reported a change of its own file */
   boardChanges(): number;
   /** the React Flow wrapper of a node; throws when there is none */
@@ -70,6 +73,13 @@ export interface HostBoardOptions extends StandInEditorsOptions {
   invalidText?: string | undefined;
   /** what the host lets a board reach; absent: the suffixes of its editors and the board's pictures */
   rule?: FilesRule | undefined;
+  /**
+   * The backend the port is connected to, made of the memory backend: one that shows files, or
+   * one that refuses a write. Absent: the memory backend itself, which shows no file.
+   */
+  serve?: ((memory: MemoryBackend) => FilesBackend) | undefined;
+  /** false: the board is left without `followMoves`, as in an app that does not call it */
+  followMoves?: boolean | undefined;
 }
 
 /** the first run of a file loads every lazy part of the board from the dev server */
@@ -134,11 +144,16 @@ export async function mountHostBoard(
   // what a host passes: the suffixes of the editors it shows, and the pictures a board draws
   const rule =
     options.rule ?? suffixRule({ models: editors.entry.suffixes, pictures: PICTURE_SUFFIXES });
-  const port = connectBackend(backend, rule);
+  const port = connectBackend(options.serve?.(backend) ?? backend, rule);
   const sessions: HostBoard["sessions"] = [];
   const opens: string[] = [];
+  const shows: string[] = [];
   const counted: BoardFiles = {
     ...port,
+    async showFile(path) {
+      shows.push(path);
+      await port.showFile?.(path);
+    },
     async openText(path) {
       opens.push(path);
       const session = await port.openText(path);
@@ -162,6 +177,8 @@ export async function mountHostBoard(
   const size = options.size ?? { width: 1200, height: 720 };
   const element = attachedHost(size.width, size.height);
   const modeler = createCollaborativeModeler({ host });
+  // what an app does with the board it made: the image nodes follow their files
+  const stopMoves = options.followMoves === false ? undefined : followMoves(modeler, counted);
   let changes = 0;
   modeler.onContentChanged(() => void (changes += 1));
   const engines = new Map<string, HTMLElement>();
@@ -175,6 +192,7 @@ export async function mountHostBoard(
     editors,
     sessions,
     opens,
+    shows,
     boardChanges: () => changes,
     node(id) {
       const wrapper = element.querySelector<HTMLElement>(
@@ -184,11 +202,18 @@ export async function mountHostBoard(
       return wrapper;
     },
     engine(id) {
-      // an armed engine is in the layer, outside its node: it is known from when it was inside
+      // An armed engine is in the layer, outside its node: it is known from when it was inside,
+      // and one the board made while its node was armed (its file moved) is the one in the layer.
       const inNode = board.node(id).querySelector<HTMLElement>(".board-engine");
       if (inNode) engines.set(id, inNode);
-      const engine = inNode ?? engines.get(id);
+      const known = inNode ?? engines.get(id);
+      const engine = known?.isConnected
+        ? known
+        : board.runtime.armedId() === id
+          ? element.querySelector<HTMLElement>(".board-overlay-layer > .board-engine")
+          : null;
       if (!engine?.isConnected) throw new Error(`the node ${id} has no engine`);
+      engines.set(id, engine);
       return engine;
     },
     editorOf(id) {
@@ -205,6 +230,7 @@ export async function mountHostBoard(
       await sleep(30);
     },
     async destroy() {
+      stopMoves?.();
       modeler.destroy();
       // the board unmounts its canvas a microtask later; the editors end their sessions then
       const started = performance.now();

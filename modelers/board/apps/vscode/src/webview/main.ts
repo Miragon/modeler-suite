@@ -43,11 +43,15 @@ const host = vsCodeEditorHost({ onMessage: pipe.receive });
 // sync, which hands the files their messages, listens: it is connected in this task, below.
 const files = createFilesClient(pipe.over(host.api));
 // VS Code's document owns the board file's history, so the undo keys of an armed editor stay
-// with that editor.
+// with that editor. The board's view is kept in the webview's state, through the same API:
+// `host.state` reads and writes it, so a reloaded webview and a restored window come back
+// where the person was. VS Code takes a dragged file for itself and opens it unless Shift is
+// held, and it does so outside this page: the board's shortcuts name the drop that reaches it.
 const mounted = mountBoardEditor(host, {
   files,
   editors: SUITE_EDITORS,
   containHistoryKeys: true,
+  pictures: "shift-drop",
 }).catch((error: unknown) => {
   // A page that could not mount its editor keeps no files open; why it could not stays the
   // page's error.

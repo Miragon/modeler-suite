@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { commands } from "vitest/browser";
 import "../../src/base.js";
 import { SUITE_EDITORS } from "../../src/registry.js";
@@ -537,6 +537,135 @@ function openDeepestView(modeler: unknown): void {
   if (!deepest || depth(deepest.key) < 2) throw new Error("the example has no view to drill into");
   expect(views.open(deepest.key, { cause: "navigation" })).toBe(true);
 }
+
+describe("seven model nodes whose folder is renamed", () => {
+  const START = { x: 40, y: 120, zoom: 0.5 };
+  const moved = (path: string): string => path.replace(/^models\//, "renamed/");
+  interface Before {
+    readonly element: HTMLElement;
+    readonly modeler: ReturnType<MountedBoard["modeler"]>;
+    readonly view: ShownView;
+    readonly text: string;
+  }
+  const before = new Map<string, Before>();
+  let mounted: MountedBoard;
+  beforeAll(async () => {
+    mounted = await mountBoard({ nodes: NODES, files: FILES, view: START });
+    for (const node of NODES) {
+      const element = mounted.engine(node.id);
+      const modeler = mounted.modeler(node.id);
+      before.set(node.id, {
+        element,
+        modeler,
+        view: shownView(modeler, element),
+        text: modeler.exportText(),
+      });
+    }
+    // one move per file of the folder, told in one call
+    mounted.backend.move("models", "renamed");
+    await vi.waitFor(() => {
+      if (mounted.boardChanges() < NODES.length) throw new Error("a node did not follow yet");
+    }, WAIT);
+    // behind every text the editors asked for under the new paths
+    await mounted.files.settled();
+    await settle();
+  }, LOAD_MS);
+  afterAll(() => mounted.destroy());
+  beforeEach(() => mounted.board.setViewState(START));
+  afterEach(() => endEditing(mounted.element));
+
+  it("changed the board once per node, and loaded no notation's module again", () => {
+    expect(mounted.boardChanges()).toBe(NODES.length);
+    const text = mounted.board.exportText();
+    for (const node of NODES) expect(text).toContain(`"file":"${moved(node.path)}"`);
+    expect(text).not.toContain('"file":"models/');
+    expect(NOTATIONS.map((notation) => mounted.loads(notation))).toEqual(NOTATIONS.map(() => 1));
+    expect(mounted.backend.writes).toEqual([]);
+  });
+
+  it.each(NOTATIONS)(
+    "%s: the modeler it had stands in the element the board made for the new path, with its view and its text",
+    (notation) => {
+      const node = nodeOf(notation);
+      const was = before.get(node.id)!;
+      const engine = mounted.engine(node.id);
+
+      expect(engine).not.toBe(was.element);
+      expect(was.element.isConnected).toBe(false);
+      expect(mounted.modeler(node.id)).toBe(was.modeler);
+      expect([engine.dataset.embedState, engine.dataset.notation, engine.dataset.armed]).toEqual([
+        "ready",
+        notation,
+        "false",
+      ]);
+      expect(shownView(was.modeler, engine)).toEqual(was.view);
+      expect(was.modeler.exportText()).toBe(was.text);
+      // a preview as before: the sheet's rule reaches the new element
+      expect(shownChrome(engine)).toEqual([]);
+    },
+  );
+
+  it(
+    "Wardley Maps: a real drag writes the file under its new path, and the editor stays armed and takes the next drag when the file is renamed under it",
+    async () => {
+      const { backend } = mounted;
+      const node = nodeOf("wardley");
+      const path = moved(node.path);
+      const modeler = mounted.modeler(node.id);
+      mounted.board.setViewState({ x: 120 - node.x * 0.5, y: 200 - node.y * 0.5, zoom: 0.5 });
+      await expect.poll(() => leftOf(mounted.engine(node.id)), WAIT).toBeCloseTo(120, -1);
+      const preview = mounted.engine(node.id).getBoundingClientRect();
+      await commands.realInput([
+        {
+          type: "dblclick",
+          x: preview.left + preview.width / 2,
+          y: preview.top + preview.height * 0.85,
+        },
+      ]);
+      const canvasOf = (): Element | null =>
+        mounted.engine(node.id).querySelector(".djs-container > svg");
+      await expect.poll(() => document.activeElement, WAIT).toBe(canvasOf());
+
+      const drag = async (): Promise<void> => {
+        const shape = reachableShapes(mounted.engine(node.id))[0];
+        if (!shape) throw new Error("no component is clear of the palette");
+        await commands.realInput([
+          { type: "move", x: shape.x, y: shape.y },
+          { type: "down" },
+          { type: "move", x: shape.x + 12, y: shape.y + 8, steps: 4 },
+          { type: "move", x: shape.x + 30, y: shape.y + 22, steps: 6 },
+          { type: "up" },
+        ]);
+      };
+      await drag();
+      await expect.poll(() => backend.writes.length, WAIT).toBe(1);
+      expect(backend.writes[0]?.path).toBe(path);
+      expect(backend.textOf(node.path)).toBeUndefined();
+
+      // renamed while a person edits it
+      const changes = mounted.boardChanges();
+      const armedElement = mounted.engine(node.id);
+      backend.move(path, "renamed/green-tea.owm");
+      await expect.poll(() => mounted.boardChanges(), WAIT).toBe(changes + 1);
+      await mounted.files.settled();
+      await expect.poll(() => armedElement.isConnected, WAIT).toBe(false);
+      const engine = mounted.engine(node.id);
+      expect(engine.parentElement?.classList.contains("board-overlay-layer")).toBe(true);
+      expect(engine.dataset.armed).toBe("true");
+      expect(mounted.modeler(node.id)).toBe(modeler);
+      // the keys are the editor's again in the element the board made
+      await expect.poll(() => document.activeElement, WAIT).toBe(canvasOf());
+
+      await drag();
+      await expect.poll(() => backend.writes.length, WAIT).toBe(2);
+      expect(backend.writes[1]?.path).toBe("renamed/green-tea.owm");
+      expect(backend.textOf("renamed/green-tea.owm")).toBe(backend.writes[1]?.text);
+      await settle();
+      expect(backend.writes).toHaveLength(2);
+    },
+    FLOW_TIMEOUT,
+  );
+});
 
 describe("C4 in a narrow node", () => {
   const { path, text } = exampleOf("c4");

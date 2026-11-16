@@ -1,6 +1,7 @@
 import {
   createFilesClient,
   createMemoryBackend,
+  PROTOCOL,
   type BoardFiles,
   type HostMessage,
   type MemoryBackend,
@@ -26,10 +27,10 @@ describe("the webview's files channel", () => {
   test("posts through the API it is given, the message as it is", () => {
     const posted: unknown[] = [];
     const channel = filesChannel().over({ postMessage: (message) => void posted.push(message) });
-    channel.post({ type: "board.hello", protocol: 2 });
+    channel.post({ type: "board.hello", protocol: PROTOCOL });
     channel.post({ type: "board.text.close", path: "models/tea.owm" });
     expect(posted).toEqual([
-      { type: "board.hello", protocol: 2 },
+      { type: "board.hello", protocol: PROTOCOL },
       { type: "board.text.close", path: "models/tea.owm" },
     ]);
   });
@@ -148,7 +149,7 @@ async function wired(): Promise<Wired> {
 describe("a page's files over the webview's channel, against the extension's editor options", () => {
   test("says hello through the API and hears what a board reaches of the repository", async () => {
     const { files, posted } = await wired();
-    expect(posted).toEqual([{ type: "board.hello", protocol: 2 }]);
+    expect(posted).toEqual([{ type: "board.hello", protocol: PROTOCOL }]);
     expect(files.paths()).toEqual([]);
     await vi.waitFor(() => expect(files.paths()).toEqual(["assets/logo.svg", "models/tea.owm"]));
   });
@@ -203,10 +204,10 @@ describe("a page's files over the webview's channel, against the extension's edi
     before.write("title Mine\n", "title Outside\n");
     const again = reloaded();
     expect(posted).toEqual([
-      { type: "board.hello", protocol: 2 },
+      { type: "board.hello", protocol: PROTOCOL },
       { type: "board.text.open", requestId: 1, path: "models/tea.owm" },
       { type: "board.text.edit", path: "models/tea.owm", text: "title Mine\n", version: 2 },
-      { type: "board.hello", protocol: 2 },
+      { type: "board.hello", protocol: PROTOCOL },
     ]);
     // the new page is told the list again, and opens the text the page before left
     await vi.waitFor(() => expect(again.paths()).toEqual(["assets/logo.svg", "models/tea.owm"]));

@@ -117,7 +117,7 @@ test("a click on Group is one applied edit of one added line, and VS Code's undo
   expect(problems).toEqual([]);
 });
 
-test("an invalid text from VS Code locks the board and names the line, and a valid one unlocks it", async ({
+test("an invalid text from VS Code locks the board, names the line and counts one problem in the pill, and a valid one unlocks it", async ({
   page,
 }) => {
   const problems = problemsOf(page);
@@ -125,7 +125,9 @@ test("an invalid text from VS Code locks the board and names the line, and a val
   await modelsReady(page);
   const slot = page.locator(".cd-shell-canvas");
   const status = page.locator('[data-chrome="status"]');
+  const pill = page.locator('[data-chrome="problems"]');
   await expect(status).toBeHidden();
+  await expect(pill).toBeHidden();
 
   const brokenLine = lines(EXAMPLE_BOARD).length;
   await page.evaluate(
@@ -141,6 +143,32 @@ test("an invalid text from VS Code locks the board and names the line, and a val
   // the last valid version stays in sight
   await expect(page.locator(".board-group")).toHaveCount(1);
   expect(await canvasText(page)).toBe(EXAMPLE_BOARD);
+  // The extension's count of the problem is the shell's pill: it lies clear of the board's
+  // toolbar, of the sentence above and of the zoom panel, and a click asks VS Code for its
+  // Problems view, also while the board is locked.
+  await expect(pill).toBeVisible();
+  await expect(pill).toHaveText("1 problem");
+  await expect(pill).toHaveAttribute("data-severity", "danger");
+  const pillBox = await pill.boundingBox();
+  if (!pillBox) throw new Error("the problems pill has no box");
+  for (const beside of [".board-toolbar", '[data-chrome="status"]', '[data-chrome="zoom"]']) {
+    const box = await page.locator(beside).first().boundingBox();
+    if (!box) throw new Error(`nothing visible matches ${beside}`);
+    const apart =
+      pillBox.x + pillBox.width <= box.x ||
+      box.x + box.width <= pillBox.x ||
+      pillBox.y + pillBox.height <= box.y ||
+      box.y + box.height <= pillBox.y;
+    expect(apart, `the pill lies over ${beside}`).toBe(true);
+  }
+  await page.mouse.click(pillBox.x + pillBox.width / 2, pillBox.y + pillBox.height / 2);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        (window.vscodeHost?.host.executedCommands ?? []).map(({ command }) => command),
+      ),
+    )
+    .toEqual(["workbench.actions.view.problems"]);
   // a real click where the Group button stands reaches nothing, and nothing is written over
   // the text somebody repairs
   const group = await toolbarButton(page, "Group").boundingBox();
@@ -159,6 +187,7 @@ test("an invalid text from VS Code locks the board and names the line, and a val
   );
   await expect.poll(() => slot.evaluate((element: HTMLElement) => element.inert)).toBe(false);
   await expect(status).toBeHidden();
+  await expect(pill).toBeHidden();
   await expect(page.locator(".board-text")).toHaveCount(3);
   await expect.poll(() => canvasText(page)).toBe(repaired);
 

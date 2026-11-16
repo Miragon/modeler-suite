@@ -4,11 +4,18 @@
  * `connectBackend`.
  */
 
-/** a file that has a new path, both repository-relative */
+/** a file that has a new path, both repository-relative; a moved folder is one move per file in it */
 export interface FileMove {
   from: string;
   to: string;
 }
+
+/**
+ * Why an edit is not in the file. `crossed`: the file had another text than the one the edit was
+ * made on, so a change from somewhere else came first. `too-large`: the edit would make the file
+ * larger than the place takes. `refused`: the place did not take it and names no reason.
+ */
+export type DropReason = "crossed" | "too-large" | "refused";
 
 /**
  * ONE text file for ONE reader. What this session writes never comes back to it; the other
@@ -34,6 +41,13 @@ export interface TextSession {
   onReplace(listener: (text: string) => void): () => void;
   /** the file went away (false) or is back (true); the text of one that is back follows in `onReplace` */
   onAvailable(listener: (available: boolean) => void): () => void;
+  /**
+   * A write of this session is not in the file and never will be, with the reason. Told when the
+   * session drops a write itself (made on another text than the path has: `crossed`) and when
+   * the host says that it dropped the edit this session posted last. The text the file has
+   * comes through `onReplace`, before or after. Absent in a session that never says so.
+   */
+  onDropped?: ((listener: (reason: DropReason) => void) => () => void) | undefined;
   close(): void;
 }
 
@@ -56,6 +70,19 @@ export interface BoardFiles {
    * use. Absent where the host stores none.
    */
   createFile?: ((path: string, bytes: Blob) => Promise<void>) | undefined;
+  /**
+   * Asks the host to show the file at `path` in an editor of its own, as it opens any file. The
+   * page gets nothing of the file. Any path of the repository outside its dot folders can be
+   * asked for, a file no board shows among them. Rejects with the host's message for a path it
+   * refuses and for a file it could not show. Absent where no host could ever show a file.
+   */
+  showFile?: ((path: string) => Promise<void>) | undefined;
+  /**
+   * Whether the host shows files: undefined until it said so (its answer to the hello, which
+   * comes before the first list, so `onPaths` reports once it is known), false for a host that
+   * has no editor to show a file in. Absent: the host shows files whenever `showFile` is there.
+   */
+  showsFiles?: (() => boolean | undefined) | undefined;
   /** files whose bytes are new: a file that was created, or one that changed outside */
   onBytesChanged(listener: (paths: readonly string[]) => void): () => void;
   onMoved(listener: (moves: readonly FileMove[]) => void): () => void;

@@ -149,13 +149,18 @@ changelog and a tag on every release: `business-model-canvas-schema-model`, `-ds
 for Orca, its `extra-files` move `orca-plugin.json`). Each starts with `initial-version` 0.1.0;
 remove that key once the components have been released.
 
-The board (`modelers/board`), which is in progress and unpublished, **publishes nothing to npm**
-either: every one of its workspaces is `private`, and its web app and VS Code extension bundle its
-packages, and the other modelers' renderers, from source. Its eight components get a version, a
-changelog and a tag on every release: `board-schema-model`, `-renderer`, `-files`, `-host`,
-`-editors`, `-ide-editor`, `-vscode` (Marketplace and Open VSX) and `-webapp` (nothing: the board has
-no Netlify site). It has no Orca plugin. Each starts with `initial-version` 0.1.0; remove that key
-once the components have been released.
+The board (`modelers/board`), which is in progress and unpublished, **publishes nothing at all**: it
+is [held back](#a-modeler-that-is-held-back). Every one of its workspaces is `private`, and its web
+app and VS Code extension bundle its packages, and the other modelers' renderers, from source. Its
+eight components get a version, a changelog and a tag on every release: `board-schema-model`,
+`-renderer`, `-files`, `-host`, `-editors`, `-ide-editor`, `-vscode` (no marketplace while the board
+is held back) and `-webapp` (nothing: the board has no Netlify site). It has no Orca plugin. Each
+starts with `initial-version` 0.1.0; remove that key once the components have been released.
+
+A component that was never released stands at 0.0.0 in `.release-please-manifest.json` and needs an
+`initial-version`: without one release-please proposes 1.0.0 for its first release.
+[`test/release-config.test.ts`](../test/release-config.test.ts) fails for a component at 0.0.0 that
+names none.
 
 - **The squash title decides.** A pull request lands as one commit whose message is its title and
   description; the title's type decides the bump (`feat` minor, `fix` patch, before 1.0 a breaking
@@ -229,7 +234,8 @@ modeler's label (`modeler: wardley`, …).
 [`release-please.yml`](../.github/workflows/release-please.yml) runs on every push to `main`. When a
 release pull request is merged, it tags each released component, creates its GitHub release and
 publishes exactly what released (`.github/scripts/release-plan.mjs`: every public workspace, every
-extension and every Orca plugin at or below a released component's path):
+extension and every Orca plugin at or below a released component's path, but nothing of a
+[modeler that is held back](#a-modeler-that-is-held-back)):
 
 Every target takes the same three steps. A **build** job without an environment builds and checks
 it; then each **publish** job, which needs every build job, waits for its environment's approval,
@@ -270,6 +276,28 @@ jobs builds again and then publishes.
 
 A release runs from `main` only. Started by hand with `dry_run`, on any branch, the workflow runs
 every build job for every package, extension and plugin and publishes nothing.
+
+### A modeler that is held back
+
+A modeler can be on `main` before it is public. `HELD_BACK` in
+[`release-plan.mjs`](../.github/scripts/release-plan.mjs) names such a modeler by its folder; today
+it names the board. A release still gives a held modeler's components their versions, changelogs,
+tags and GitHub releases, and the plan lists nothing of it: no package for npm, no extension for
+the VS Code Marketplace and Open VSX, no plugin for the Orca catalog. Its VSIX is not even built,
+so no artifact of that run carries it. Only the dry run lists a held modeler, to build and
+smoke-test it like every other; its VSIX is then an artifact of that run for seven days. What the
+plan does not decide stays out as well: a `netlify.toml`, a page under `docs/modelers/`, an entry
+of the extension pack and a plugin of the Claude marketplace.
+[`test/release-workflow.test.ts`](../test/release-workflow.test.ts) runs the plan and fails when a
+held modeler has one of the four.
+
+The hold ends with a deliberate edit and in no other way: the pull request that makes the modeler
+public takes it off `HELD_BACK` and off the list of the same name in that test. The edit alone
+publishes nothing. Each of the modeler's components is published with its own next release, at the
+version it has reached by then, because the versions tagged while the modeler was held were never
+published. So that pull request is best a `feat` or `fix` that also touches what is to go out, for
+the board its extension. On Open VSX the first publish is the
+[manual step](#trusted-publishing-on-the-vs-code-marketplace-and-open-vsx) of every new extension.
 
 ### The first release of a new npm package
 

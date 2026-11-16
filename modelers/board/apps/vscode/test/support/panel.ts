@@ -88,10 +88,24 @@ export function registerEditor(): {
   };
 }
 
-/** VS Code opening the board file at `path` in the custom editor */
+/** the editor of the workspace of the moment: VS Code activates an extension once in a window */
+let activated: { workspace: unknown; provider: vscode.CustomTextEditorProvider } | undefined;
+
+function activatedProvider(): vscode.CustomTextEditorProvider {
+  if (activated?.workspace !== vscodeMock.memory) {
+    activated = { workspace: vscodeMock.memory, provider: registerEditor().provider };
+  }
+  return activated.provider;
+}
+
+/**
+ * VS Code opening the board file at `path` in the custom editor. Without a provider the
+ * extension is registered first, once for the workspace: a second registration would find its
+ * commands taken, as in VS Code.
+ */
 export async function openBoard(
   path: string,
-  provider: vscode.CustomTextEditorProvider = registerEditor().provider,
+  provider: vscode.CustomTextEditorProvider = activatedProvider(),
 ): Promise<FakePanel> {
   const document = await vscodeMock.memory.vscode.workspace.openTextDocument(Uri.file(path));
   const opened = fakeWebviewPanel();

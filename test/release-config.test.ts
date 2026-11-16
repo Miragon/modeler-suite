@@ -36,10 +36,12 @@ type ExtraFile = string | { type: string; path: string; jsonpath?: string; glob?
 
 interface ComponentConfig {
   component?: string;
+  "initial-version"?: string;
   "extra-files"?: ExtraFile[];
 }
 
 interface ReleaseConfig {
+  "initial-version"?: string;
   plugins?: (string | { type: string })[];
   packages: Record<string, ComponentConfig>;
 }
@@ -157,6 +159,15 @@ describe("the suite's release-please config", () => {
     const names = componentPaths.map((path) => config.packages[path]!.component);
     expect(names.filter((name) => !name)).toEqual([]);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  // To release-please 0.0.0 in the manifest means "never released", and a first release without
+  // an initial-version is 1.0.0, whatever bump-minor-pre-major says.
+  it("names the first version of every component that was never released", () => {
+    const unreleased = componentPaths.filter((path) => manifest[path] === "0.0.0");
+    const firstVersion = (path: string): string | undefined =>
+      config.packages[path]!["initial-version"] ?? config["initial-version"];
+    expect(unreleased.filter((path) => firstVersion(path) === undefined)).toEqual([]);
   });
 
   it("releases every published npm package and every VS Code extension", () => {

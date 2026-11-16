@@ -16,6 +16,21 @@ import {
   type HostBoard,
   type HostBoardOptions,
 } from "../support/board.js";
+import {
+  arm,
+  badgeOf,
+  centreOf,
+  contrast,
+  delivered,
+  inLayer,
+  itemOf,
+  OUTSIDE_THE_BOARD,
+  paletteOf,
+  ready,
+  SOON,
+  stateOf,
+  zoomOf,
+} from "../support/on-board.js";
 import { watchWindowErrors, type WindowErrors } from "../support/window-errors.js";
 
 const PLAN_PATH = "plans/plan.items";
@@ -53,10 +68,6 @@ const NODES = {
   }),
 };
 
-/** an editor answers and the board moves within a few frames, and slower on a busy machine */
-const SOON = { timeout: 8000 };
-const OUTSIDE_THE_BOARD = { x: 1250, y: 770 };
-
 let board: HostBoard | undefined;
 let windowErrors: WindowErrors;
 
@@ -81,71 +92,6 @@ afterAll(() => {
 async function mount(nodes: string[], options: HostBoardOptions = {}): Promise<HostBoard> {
   board = await mountHostBoard(files(), boardText(...nodes), options);
   return board;
-}
-
-const stateOf = (mounted: HostBoard, id: string): string | undefined =>
-  mounted.engine(id).dataset.embedState;
-const badgeOf = (mounted: HostBoard, id: string): HTMLElement => {
-  const badge = mounted.engine(id).querySelector<HTMLElement>(":scope > .board-host-state");
-  if (!badge) throw new Error(`the node ${id} has no state badge`);
-  return badge;
-};
-async function ready(mounted: HostBoard, ...ids: string[]): Promise<void> {
-  for (const id of ids) await expect.poll(() => stateOf(mounted, id), SOON).toBe("ready");
-}
-
-const centreOf = (element: Element): { x: number; y: number } => {
-  const box = element.getBoundingClientRect();
-  return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
-};
-const itemOf = (mounted: HostBoard, id: string, item: string): Element => {
-  const hit = mounted.engine(id).querySelector(`.djs-shape[data-element-id="${item}"] .djs-hit`);
-  if (!hit) throw new Error(`the editor of ${id} draws no item ${item}`);
-  return hit;
-};
-const paletteOf = (mounted: HostBoard, id: string): HTMLElement => {
-  const palette = mounted.engine(id).querySelector<HTMLElement>(".djs-container > .djs-palette");
-  if (!palette) throw new Error(`the editor of ${id} has no palette`);
-  return palette;
-};
-const zoomOf = (mounted: HostBoard): number =>
-  (mounted.modeler.getViewState() as { zoom: number }).zoom;
-const inLayer = (mounted: HostBoard, id: string): boolean =>
-  mounted.engine(id).parentElement?.classList.contains("board-overlay-layer") === true;
-
-/** a real double-click below the model's content, as a person arms a model */
-async function arm(mounted: HostBoard, id: string): Promise<void> {
-  const body = mounted.engine(id).getBoundingClientRect();
-  await commands.realInput([
-    { type: "dblclick", x: body.left + body.width / 2, y: body.top + body.height * 0.92 },
-  ]);
-  await expect.poll(() => mounted.runtime.armedId(), SOON).toBe(id);
-  await expect.poll(() => inLayer(mounted, id), SOON).toBe(true);
-  await mounted.settle();
-}
-
-/**
- * Lets everything the backend said so far arrive at the page: the port's messages keep their
- * order, so the answer to a question asked now comes after them. For a test that expects
- * nothing to happen, which cannot poll for it.
- */
-async function delivered(mounted: HostBoard): Promise<void> {
-  await mounted.files.readBytes("assets/logo.png");
-  await mounted.settle();
-}
-
-/** the contrast of two colours as `getComputedStyle` writes them */
-function contrast(foreground: string, background: string): number {
-  const luminance = (colour: string): number => {
-    const channels = (colour.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-    const [red = 0, green = 0, blue = 0] = channels.map((value) => {
-      const part = value / 255;
-      return part <= 0.04045 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-  };
-  const [light, dark] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
-  return ((light ?? 0) + 0.05) / ((dark ?? 0) + 0.05);
 }
 
 describe("a model node before its editor is there", () => {
@@ -234,14 +180,15 @@ describe("what the board shows of the host's files", () => {
     await expect.poll(options, SOON).toEqual(["other (Stand-in)", "plan (Stand-in)"]);
   });
 
-  it("leaves a file without an editor to the board, and says why a path cannot be opened", async () => {
+  it("names a file without an editor on a card, and says why a path cannot be opened", async () => {
     const mounted = await mount([NODES.readme, NODES.outside]);
 
-    await expect
-      .poll(() => mounted.engine("n_readme").classList.contains("board-engine--failed"), SOON)
-      .toBe(true);
-    expect(mounted.engine("n_readme").textContent).toBe("notes/readme.md cannot be shown here");
-    expect(stateOf(mounted, "n_readme")).toBeUndefined();
+    // no look of a failed file: the board has an editor to show, and the card is it
+    await expect.poll(() => stateOf(mounted, "n_readme"), SOON).toBe("card");
+    const card = mounted.engine("n_readme");
+    expect(card.classList.contains("board-engine--failed")).toBe(false);
+    expect(card.querySelector(".board-host-card__name")?.textContent).toBe("readme.md");
+    await expect.poll(() => mounted.runtime.mounted("n_readme"), SOON).toBe(true);
 
     await expect.poll(() => stateOf(mounted, "n_outside"), SOON).toBe("failed");
     expect(badgeOf(mounted, "n_outside").textContent).toBe(
@@ -693,7 +640,7 @@ describe("a change of a file from outside", () => {
     expect(mounted.boardChanges()).toBe(0);
   });
 
-  it("that moves the file is exactly one change of the board and a new editor", async () => {
+  it("that moves the file is exactly one change of the board, and the node keeps its editor", async () => {
     const mounted = await mount([NODES.plan, NODES.other]);
     await ready(mounted, "n_plan", "n_other");
     const before = mounted.editorOf("n_other");
@@ -701,17 +648,21 @@ describe("a change of a file from outside", () => {
     mounted.backend.move(OTHER_PATH, "plans/renamed.items");
     await expect.poll(() => mounted.boardChanges(), SOON).toBe(1);
     await expect
-      .poll(() => mounted.editors.made.length === 3 && stateOf(mounted, "n_other"), SOON)
-      .toBe("ready");
+      .poll(() => mounted.sessions.some((session) => session.path === "plans/renamed.items"), SOON)
+      .toBe(true);
     await delivered(mounted);
 
     expect(mounted.boardChanges()).toBe(1);
     const text = mounted.modeler.exportText();
     expect(text).toContain('"file":"plans/renamed.items"');
     expect(text).not.toContain(OTHER_PATH);
+    // the same modeler in the element the board made for the new path: nothing was loaded anew
     const after = mounted.editorOf("n_other");
-    expect(after).not.toBe(before);
-    expect(before.record.destroyed).toBe(1);
+    expect(after).toBe(before);
+    expect(mounted.editors.made).toHaveLength(2);
+    expect(before.record.destroyed).toBe(0);
+    expect(before.record.imports).toEqual([OTHER]);
+    expect(stateOf(mounted, "n_other")).toBe("ready");
     expect(after.exportText()).toBe(OTHER);
     const byPath = [...mounted.sessions].sort((a, b) => (a.path < b.path ? -1 : 1));
     expect(byPath).toEqual([

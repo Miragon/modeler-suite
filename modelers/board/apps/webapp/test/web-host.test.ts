@@ -75,6 +75,19 @@ describe("the web app as the host of the board's editor", () => {
     expect(webEditorHost(pageSide("a board\n").document, COLUMN).canvasOwnsHistory).toBe(true);
   });
 
+  test("hands the editor the place the page keeps its view in, and none where the page has none", () => {
+    const kept = new Map<string, unknown>();
+    const place = {
+      read: (key: string) => kept.get(key),
+      write: (key: string, value: unknown) => void kept.set(key, value),
+    };
+    const { document } = pageSide("a board\n");
+
+    expect(webEditorHost(document, COLUMN, place).state).toBe(place);
+    // absent, not undefined: the editor asks for the member
+    expect("state" in webEditorHost(document, COLUMN)).toBe(false);
+  });
+
   test("hands the editor the page's text once, and nothing before the editor asked", async () => {
     const editor = editorSide();
     const { page, document } = pageSide("a board\n");

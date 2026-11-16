@@ -19,9 +19,18 @@ export interface ShortcutsChrome {
 /** The label of the board file's download: its menu entry and its row in the dialog. */
 export const BOARD_EXPORT_LABEL = "Export as .board";
 
+/**
+ * How a picture gets onto a board beside the Image button: pasted, and dropped. `shift-drop`
+ * where the host takes a dropped file for itself unless Shift is held, as VS Code does, which
+ * opens the file in an editor of its own.
+ */
+export type PictureGestures = "drop" | "shift-drop";
+
 export interface BoardShortcutsOptions {
   /** A web app's own file keys, Cmd/Ctrl+O and Cmd/Ctrl+S, in a File group first. */
   fileKeys?: boolean | undefined;
+  /** The row for a pasted and a dropped picture. Absent: a board that keeps no pictures. */
+  pictures?: PictureGestures | undefined;
 }
 
 export function boardShortcuts(
@@ -39,6 +48,15 @@ export function boardShortcuts(
       { action: BOARD_EXPORT_LABEL, keys: [command("S")] },
     ],
   };
+  const shiftDrop = mac ? "⇧ drop" : `${keyNames.shift}+drop`;
+  const pictureRows = options.pictures
+    ? [
+        {
+          action: "Add a picture",
+          keys: [command("V"), options.pictures === "shift-drop" ? shiftDrop : "Drop"],
+        },
+      ]
+    : [];
   return [
     ...(options.fileKeys === true ? [fileGroup] : []),
     {
@@ -52,6 +70,7 @@ export function boardShortcuts(
         { action: "Select with a box", keys: [mac ? "⇧ drag" : `${keyNames.shift}+drag`] },
         { action: "Edit a note or a model", keys: ["Double-click"] },
         { action: "Finish a note", keys: ["Esc", command("Enter")] },
+        ...pictureRows,
       ],
     },
   ];

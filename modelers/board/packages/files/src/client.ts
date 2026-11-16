@@ -1,7 +1,7 @@
 /**
  * The page's side of the protocol: the port over a channel to the host that keeps the files.
  */
-import type { BoardFiles, FileMove, TextSession } from "./port.js";
+import type { BoardFiles, DropReason, FileMove, TextSession } from "./port.js";
 import {
   fromBase64,
   PROTOCOL,
@@ -15,6 +15,7 @@ import {
 interface Reader {
   replace(text: string): void;
   available(value: boolean): void;
+  dropped(reason: DropReason): void;
 }
 
 /** one path the page has open, however many sessions read it: the host hears of it once */
@@ -25,6 +26,8 @@ interface OpenPath {
   readOnly: boolean;
   available: boolean;
   readonly sessions: Set<Reader>;
+  /** the session that posted the last edit of this path: the one a dropped edit is told to */
+  writer: Reader | undefined;
   /** callers of `openText` that wait for the host's answer and have no session yet */
   joining: number;
   /** settles with the host's answer to the one `board.text.open` of this path */
@@ -34,6 +37,8 @@ interface OpenPath {
 /** what the client keeps: one object, so that its parts are functions of their own */
 interface ClientState {
   readonly channel: Channel<ClientMessage, HostMessage>;
+  /** whether the host shows files: undefined until its welcome said so */
+  shows: boolean | undefined;
   paths: readonly string[];
   readonly pathListeners: Set<() => void>;
   readonly bytesListeners: Set<(paths: readonly string[]) => void>;
@@ -71,6 +76,9 @@ function tellReaders(entry: OpenPath, tell: (reader: Reader) => void, except?: R
 function receive(state: ClientState, message: HostMessage): void {
   if (state.disposed) return;
   switch (message.type) {
+    case "board.welcome":
+      state.shows = message.shows === true;
+      return;
     case "board.paths":
       state.paths = Object.freeze([...message.paths]);
       for (const listener of [...state.pathListeners]) listener();
@@ -86,6 +94,13 @@ function receive(state: ClientState, message: HostMessage): void {
         if (cameBack) reader.available(true);
         reader.replace(message.text);
       });
+      return;
+    }
+    case "board.text.dropped": {
+      // a word about the edit this page posted last: whoever wrote it says so where it is seen
+      const entry = state.open.get(message.path);
+      const writer = entry?.writer;
+      if (entry && writer && entry.sessions.has(writer)) writer.dropped(message.reason);
       return;
     }
     case "board.text.gone": {
@@ -105,8 +120,14 @@ function receive(state: ClientState, message: HostMessage): void {
       state.waiting.get(message.requestId)?.reject(new Error(message.message));
       state.waiting.delete(message.requestId);
       return;
-    case "board.text.opened":
     case "board.bytes":
+      // one answer for every read of the path that was on its way
+      for (const requestId of [message.requestId, ...(message.alsoFor ?? [])]) {
+        state.waiting.get(requestId)?.resolve(message);
+        state.waiting.delete(requestId);
+      }
+      return;
+    case "board.text.opened":
     case "board.done":
       state.waiting.get(message.requestId)?.resolve(message);
       state.waiting.delete(message.requestId);
@@ -125,6 +146,7 @@ function entryOf(state: ClientState, path: string): OpenPath {
     readOnly: false,
     available: true,
     sessions: new Set(),
+    writer: undefined,
     joining: 0,
     opened: asked.then((answer) => {
       if (answer.type !== "board.text.opened") throw new Error(`${path}: unexpected answer`);
@@ -151,12 +173,16 @@ function closeUnread(state: ClientState, path: string, entry: OpenPath): void {
 function sessionOf(state: ClientState, path: string, entry: OpenPath): TextSession {
   const replaceListeners = new Set<(text: string) => void>();
   const availableListeners = new Set<(available: boolean) => void>();
+  const droppedListeners = new Set<(reason: DropReason) => void>();
   const own: Reader = {
     replace: (text) => {
       for (const listener of [...replaceListeners]) listener(text);
     },
     available: (value) => {
       for (const listener of [...availableListeners]) listener(value);
+    },
+    dropped: (reason) => {
+      for (const listener of [...droppedListeners]) listener(reason);
     },
   };
   entry.sessions.add(own);
@@ -169,12 +195,16 @@ function sessionOf(state: ClientState, path: string, entry: OpenPath): TextSessi
       if (closed || state.disposed || entry.readOnly || !entry.available) return;
       // Made on a text the path has left: the writer was told the one it has now, and this
       // write would take that one away from the place and from every other reader.
-      if (base !== undefined && base !== entry.text) return;
+      if (base !== undefined && base !== entry.text) {
+        own.dropped("crossed");
+        return;
+      }
       if (text === entry.text) return;
       // Posted before the other readers hear of it: a reader that answers with a write of its
       // own is then behind this one on the channel, and the host ends with the text the page has.
       state.channel.post({ type: "board.text.edit", path, text, version: entry.version });
       entry.text = text;
+      entry.writer = own;
       // the host never echoes this client's edit: the other readers of the path hear it here
       tellReaders(entry, (reader) => reader.replace(text), own);
     },
@@ -185,6 +215,10 @@ function sessionOf(state: ClientState, path: string, entry: OpenPath): TextSessi
     onAvailable(listener) {
       availableListeners.add(listener);
       return () => void availableListeners.delete(listener);
+    },
+    onDropped(listener) {
+      droppedListeners.add(listener);
+      return () => void droppedListeners.delete(listener);
     },
     close() {
       if (closed) return;
@@ -218,6 +252,7 @@ async function openText(state: ClientState, path: string): Promise<TextSession> 
 export function createFilesClient(channel: Channel<ClientMessage, HostMessage>): BoardFiles {
   const state: ClientState = {
     channel,
+    shows: undefined,
     paths: Object.freeze([]),
     pathListeners: new Set(),
     bytesListeners: new Set(),
@@ -257,6 +292,10 @@ export function createFilesClient(channel: Channel<ClientMessage, HostMessage>):
         mime,
       }));
     },
+    async showFile(path) {
+      await request(state, (requestId) => ({ type: "board.file.show", requestId, path }));
+    },
+    showsFiles: () => state.shows,
     onBytesChanged(listener) {
       state.bytesListeners.add(listener);
       return () => void state.bytesListeners.delete(listener);

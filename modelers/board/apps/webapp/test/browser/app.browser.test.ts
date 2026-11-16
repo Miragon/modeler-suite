@@ -17,8 +17,10 @@ import {
   type MockInstance,
 } from "vitest";
 import { commands } from "vitest/browser";
+import { CARD_NOTE, NO_SHOW_TEXT, OPEN_LABEL } from "@miragon/board-host";
 import { addNode } from "@miragon/board-renderer";
 import { encodeBoard, isNodeAttrs, parseBoardText } from "@miragon/board-schema-model";
+import { BOARD_VIEW_KEY, fittedView, type BoardView } from "board-ide-editor";
 import { startApp, type App } from "../../src/app.js";
 import { EXAMPLE } from "../../src/example.js";
 import { NO_MODEL, NO_MODELS_TO_ADD, NO_PICTURE } from "../../src/no-repository.js";
@@ -679,6 +681,293 @@ describe("a board without a repository", () => {
       expect(started.shown()).toBe("example");
       expect(openIn(store)).toEqual({ kind: "example" });
       expect(toasts()).toEqual([]);
+    },
+    READY_MS + STEP_MS,
+  );
+});
+
+describe("a file no notation of the suite covers", () => {
+  afterEach(stop);
+
+  const PROCESS = "processes/order-to-cash.bpmn";
+  /** a card as a person meets it: what it says, and the buttons a pointer could press */
+  function cardOf(nodeId: string): { text: string; buttons: string[] } {
+    const engine = one<HTMLElement>(`.react-flow__node[data-id="${nodeId}"] .board-engine`);
+    return {
+      // as it is rendered: what a part that is hidden holds is no word to a person
+      text: engine.innerText,
+      buttons: [...engine.querySelectorAll("button")]
+        .filter((button) => button.checkVisibility())
+        .map((button) => button.textContent),
+    };
+  }
+
+  test(
+    "is a card with the file's name and no button on a board that was opened from a file: this page shows no file",
+    async () => {
+      await start(memoryStore());
+      await openFile(
+        "from-designiq.board",
+        encodeBoard({
+          meta: { title: "From another tool", version: 1 },
+          elements: { n_process: node("model", { file: PROCESS, x: 0, width: 480, height: 320 }) },
+        }),
+      );
+
+      await expect.poll(engineStates, POLL).toEqual(["card"]);
+      const card = cardOf("n_process");
+      expect(card.text).toContain("order-to-cash.bpmn");
+      expect(card.text).toContain(CARD_NOTE);
+      expect(card.text).toContain(NO_SHOW_TEXT);
+      expect(NO_SHOW_TEXT).toBe("This app cannot show this file.");
+      // nothing to press, and no word of an editor the page does not have
+      expect(card.buttons).toEqual([]);
+      expect(card.text).not.toContain(OPEN_LABEL);
+      expect(status()).toBeNull();
+    },
+    READY_MS,
+  );
+
+  test(
+    "is the same card on the example, whose repository is in the page and has no editor to show a file in",
+    async () => {
+      const store = memoryStore();
+      const parsed = parseBoardText(EXAMPLE.board);
+      if (!parsed.ok) throw new Error("the example is no board");
+      keptIn(store).keepBoard(
+        encodeBoard({
+          ...parsed.snapshot,
+          elements: {
+            ...parsed.snapshot.elements,
+            n_process: node("model", { file: PROCESS, x: 0, y: -400, width: 480, height: 320 }),
+          },
+        }),
+      );
+      createOpenStorage(store).keep({ kind: "example" });
+
+      await start(store);
+
+      // the seven models of the example in their editors, and the eighth node as a card
+      await expect
+        .poll(() => engineStates().sort(), { timeout: READY_MS, interval: 50 })
+        .toEqual(["card", ...Array.from({ length: 7 }, () => "ready")]);
+      const card = cardOf("n_process");
+      expect(card.text).toContain("order-to-cash.bpmn");
+      expect(card.text).toContain(NO_SHOW_TEXT);
+      expect(card.buttons).toEqual([]);
+      // the picker still offers the seven notations' files only
+      expect(
+        all<HTMLOptionElement>("select.board-toolbar__models option:not([disabled])").map(
+          (option) => option.value,
+        ),
+      ).not.toContain(PROCESS);
+    },
+    READY_MS + STEP_MS,
+  );
+});
+
+describe("the keys the page names", () => {
+  afterEach(stop);
+
+  async function shortcutRows(): Promise<string[]> {
+    await chooseFromMenu("keyboard-shortcuts");
+    await expect.poll(() => root.querySelector("dialog[open]") !== null, POLL).toBe(true);
+    return all("dialog[open] tr").map((row) => row.textContent);
+  }
+
+  test(
+    "the example keeps pictures: its shortcuts name the paste and the drop, which a browser hands the page",
+    async () => {
+      await startExample(memoryStore());
+      const rows = await shortcutRows();
+      expect(rows.filter((row) => row.startsWith("Add a picture"))).toHaveLength(1);
+      expect(rows.find((row) => row.startsWith("Add a picture"))).toMatch(
+        /^Add a picture(Ctrl\+V|⌘V)Drop$/,
+      );
+    },
+    READY_MS + STEP_MS,
+  );
+
+  test(
+    "a board without a repository keeps no picture: its shortcuts name no way to add one",
+    async () => {
+      await start(memoryStore());
+      await realClick(cardButton("New diagram"));
+      const rows = await shortcutRows();
+      expect(rows.some((row) => row.startsWith("Delete the selection"))).toBe(true);
+      expect(rows.filter((row) => row.startsWith("Add a picture"))).toEqual([]);
+    },
+    READY_MS,
+  );
+});
+
+describe("where a person left the board", () => {
+  afterEach(stop);
+
+  /**
+   * Two notes 1400 px apart from edge to edge: the fit of this board is below 100 %, and at
+   * 100 % around its middle a part of each note is still in sight.
+   */
+  const WIDE_BOARD = encodeBoard({
+    meta: { title: "Wide", version: 1 },
+    elements: {
+      n_near: node("text", { text: "Near", x: 0, width: 240, height: 160 }),
+      n_far: node("text", { text: "Far", x: 1160, width: 240, height: 160, z: "b" }),
+    },
+  });
+  /** The same two notes 2640 px apart: at 100 % around the middle neither is in sight. */
+  const FAR_APART_BOARD = encodeBoard({
+    meta: { title: "Far apart", version: 1 },
+    elements: {
+      n_near: node("text", { text: "Near", x: 0, width: 240, height: 160 }),
+      n_far: node("text", { text: "Far", x: 2400, width: 240, height: 160, z: "b" }),
+    },
+  });
+  const keptView = (store: KeyValueStore): unknown =>
+    createOpenStorage(store).state(BOARD_VIEW_KEY);
+  /** the open board's view; none while one document is closed and the next not yet mounted */
+  const viewNow = (): BoardView | undefined => {
+    try {
+      return app?.editor().modeler.getViewState() as BoardView | undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  /** the view the shell's fit gives the open board in this window */
+  function fitNow(): BoardView | undefined {
+    const editor = app?.editor();
+    if (!editor) return undefined;
+    const slot = editor.shell.canvas;
+    return fittedView(
+      editor.modeler.contentBounds(),
+      { width: slot.clientWidth, height: slot.clientHeight },
+      editor.shell.fitInsets(),
+    );
+  }
+  const zoomTo100 = async (): Promise<void> => {
+    await realClick(one('[data-zoom="actual"]'));
+    await expect.poll(() => viewNow()?.zoom, POLL).toBe(1);
+  };
+
+  test(
+    "a second start comes back to the view the board was left at, and not to its fit",
+    async () => {
+      const store = memoryStore();
+      createOpenStorage(store).keep({ kind: "board", name: "wide.board", text: WIDE_BOARD });
+      await start(store);
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      const fitted = viewNow();
+      expect(fitted?.zoom).toBeLessThan(1);
+      // the fit is the page's own view: nothing is kept of it
+      expect(keptView(store)).toBeUndefined();
+
+      await zoomTo100();
+      // kept with the board in the browser once it rested, without the page going
+      await expect.poll(() => keptView(store), POLL).toEqual(viewNow());
+      const left = viewNow();
+      expect(left).not.toEqual(fitted);
+      expect(openIn(store)).toEqual({ kind: "board", name: "wide.board", text: WIDE_BOARD });
+
+      await stop();
+      await start(store);
+
+      await expect.poll(viewNow, POLL).toEqual(left);
+      await expect.poll(() => one('[data-zoom="actual"]').textContent, POLL).toBe("100%");
+      // coming back keeps nothing anew, and tells nobody
+      expect(keptView(store)).toEqual(left);
+      expect(toasts()).toEqual([]);
+      expect(status()).toBeNull();
+    },
+    READY_MS + STEP_MS,
+  );
+
+  test(
+    "a view that was left on the empty space between two notes comes back as the fit: no start shows an empty canvas",
+    async () => {
+      const store = memoryStore();
+      createOpenStorage(store).keep({ kind: "board", name: "far.board", text: FAR_APART_BOARD });
+      await start(store);
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      // 100 % around the middle of this board: both notes are out of sight
+      await zoomTo100();
+      await expect.poll(() => keptView(store), POLL).toEqual(viewNow());
+      const left = viewNow();
+
+      await stop();
+      await start(store);
+
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      expect(viewNow()?.zoom).toBeLessThan(1);
+      // what was kept stays kept until the person moves the view
+      expect(keptView(store)).toEqual(left);
+    },
+    READY_MS + STEP_MS,
+  );
+
+  test(
+    "another document starts fitted: the view of the board before it is forgotten, for its Undo too",
+    async () => {
+      const store = memoryStore();
+      createOpenStorage(store).keep({ kind: "board", name: "wide.board", text: WIDE_BOARD });
+      const started = await start(store);
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      await zoomTo100();
+      await expect.poll(() => keptView(store), POLL).toEqual(viewNow());
+      const left = viewNow();
+
+      await openFile("notes.board", NOTES_BOARD);
+
+      await expect.poll(boardText, POLL).toBe(NOTES_BOARD);
+      expect(keptView(store)).toBeUndefined();
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      expect(viewNow()).not.toEqual(left);
+
+      // the board that was replaced comes back as a document that is opened: fitted
+      await expect.poll(toasts, POLL).toContain("info: Board replaced");
+      await realClick(one(".cd-shell-toast-action"));
+      await expect.poll(boardText, POLL).toBe(WIDE_BOARD);
+      await started.settled();
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      expect(viewNow()?.zoom).toBeLessThan(1);
+      expect(keptView(store)).toBeUndefined();
+    },
+    READY_MS + STEP_MS,
+  );
+
+  test(
+    "a browser that does not keep the view stops nothing and says nothing: the next start is fitted",
+    async () => {
+      const store = memoryStore();
+      createOpenStorage(store).keep({ kind: "board", name: "wide.board", text: WIDE_BOARD });
+      let refused = 0;
+      const withoutRoomForAView: KeyValueStore = {
+        get length() {
+          return store.length;
+        },
+        key: (index) => store.key(index),
+        getItem: (key) => store.getItem(key),
+        removeItem: (key) => store.removeItem(key),
+        setItem(key, value) {
+          if (key === "miragon-board:open-state") {
+            refused++;
+            throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+          }
+          store.setItem(key, value);
+        },
+      };
+      await start(withoutRoomForAView);
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+
+      await zoomTo100();
+      await expect.poll(() => refused, POLL).toBe(1);
+      // a view is no change a person loses: no line about what the browser did not keep
+      expect(status()).toBeNull();
+      expect(toasts()).toEqual([]);
+
+      await stop();
+      await start(withoutRoomForAView);
+      await expect.poll(viewNow, POLL).toEqual(fitNow());
+      expect(viewNow()?.zoom).toBeLessThan(1);
     },
     READY_MS + STEP_MS,
   );

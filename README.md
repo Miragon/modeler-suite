@@ -55,6 +55,8 @@ covers its features, its file format and its npm packages.
 (`.board`), on which the models above are shown and edited in place, each saved in its own file,
 next to notes, images, groups and arrows. It is not released yet: there is no public web app, its
 VS Code extension is on no marketplace and not in the extension pack, and it has no Orca plugin.
+The suite's releases [hold it back](docs/ci-and-releases.md#a-modeler-that-is-held-back) until the
+pull request that makes it public.
 
 ## With your AI assistant
 

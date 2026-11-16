@@ -30,10 +30,14 @@ const using = (pattern: RegExp): string[] =>
   HOST.filter(({ code }) => pattern.test(code)).map(({ file }) => file);
 
 describe("the sources of the extension host", () => {
-  test("are found: the entry, the editor, its options and the files of a workspace", () => {
+  test("are found: the entry, the editor with its options, commands, problems and saves, and the files of a workspace", () => {
     expect(HOST.map(({ file }) => file).sort()).toEqual([
       "boardEditor.ts",
       "boardEditorOptions.ts",
+      "commands.ts",
+      "diagnostics.ts",
+      "example-files.ts",
+      "example.ts",
       "extension.ts",
       "files/backend.ts",
       "files/bytes.ts",
@@ -41,7 +45,11 @@ describe("the sources of the extension host", () => {
       "files/file-index.ts",
       "files/memory-vscode.ts",
       "files/root.ts",
+      "files/show.ts",
       "files/vscode-like.ts",
+      "files/written.ts",
+      "problems.ts",
+      "saveModels.ts",
     ]);
   });
 
@@ -55,13 +63,21 @@ describe("the sources of the extension host", () => {
     expect(using(/\bfsPath\b/)).toEqual(["files/memory-vscode.ts"]);
   });
 
-  test("never save a document, and write no file but a new picture", () => {
-    expect(using(/\.save\(|saveAll|workspace\.save\b/)).toEqual([]);
-    // the fake implements writeFile; the one caller is the store of a new picture
-    expect(using(/\.writeFile\(/)).toEqual(["files/bytes.ts"]);
+  test("save a document in one place alone, the setting that saves the models with their board", () => {
+    expect(using(/\.save\(|saveAll|workspace\.save\b/)).toEqual(["saveModels.ts"]);
   });
 
-  test("import vscode itself only where the extension is registered: the files run on the structural type", () => {
-    expect(using(/from\s+"vscode"/).sort()).toEqual(["boardEditor.ts", "extension.ts"]);
+  test("write no file but a new picture and, when a person asks for it, the example", () => {
+    // the fake implements writeFile; the shell's New Board command writes the one empty file
+    expect(using(/\.writeFile\(/)).toEqual(["example.ts", "files/bytes.ts"]);
+  });
+
+  test("import vscode itself only where the extension is registered: the files, the example and the saves run on the structural type", () => {
+    expect(using(/from\s+"vscode"/).sort()).toEqual([
+      "boardEditor.ts",
+      "commands.ts",
+      "diagnostics.ts",
+      "extension.ts",
+    ]);
   });
 });

@@ -62,32 +62,40 @@ async function openShipped(page: Page): Promise<void> {
 }
 
 /** What the extension answers a message of the page with, for the example folder. */
-function answerTo(message: PostedMessage): PostedMessage | undefined {
+function answersTo(message: PostedMessage): PostedMessage[] {
   const { requestId, path } = message;
   switch (message.type) {
     case "ready":
-      return { type: "init", text: EXAMPLE_BOARD };
+      return [{ type: "init", text: EXAMPLE_BOARD }];
     case "board.hello":
-      return { type: "board.paths", paths: [PICTURE, ...EXAMPLE_MODELS] };
+      // the welcome first, then the list: VS Code has editors to show a file in
+      return [
+        { type: "board.welcome", shows: true },
+        { type: "board.paths", paths: [PICTURE, ...EXAMPLE_MODELS] },
+      ];
     case "board.text.open":
-      return {
-        type: "board.text.opened",
-        requestId,
-        path,
-        text: exampleText(String(path)),
-        readOnly: false,
-        version: 1,
-      };
+      return [
+        {
+          type: "board.text.opened",
+          requestId,
+          path,
+          text: exampleText(String(path)),
+          readOnly: false,
+          version: 1,
+        },
+      ];
     case "board.bytes.read":
-      return {
-        type: "board.bytes",
-        requestId,
-        path,
-        base64: readFileSync(join(EXAMPLE_FOLDER, String(path))).toString("base64"),
-        mime: "image/svg+xml",
-      };
+      return [
+        {
+          type: "board.bytes",
+          requestId,
+          path,
+          base64: readFileSync(join(EXAMPLE_FOLDER, String(path))).toString("base64"),
+          mime: "image/svg+xml",
+        },
+      ];
     default:
-      return undefined;
+      return [];
   }
 }
 
@@ -97,8 +105,7 @@ function extensionFor(page: Page): () => Promise<void> {
   return async () => {
     const posted = await postedMessages(page);
     for (const message of posted.slice(answered)) {
-      const answer = answerTo(message);
-      if (answer) await postFromHost(page, answer);
+      for (const answer of answersTo(message)) await postFromHost(page, answer);
     }
     answered = posted.length;
   };

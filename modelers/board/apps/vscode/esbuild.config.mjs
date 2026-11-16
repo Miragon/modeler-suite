@@ -1,5 +1,6 @@
 // Two bundles from one run:
-//   1. Extension host (Node/CJS, `vscode` external)       -> dist/extension.cjs
+//   1. Extension host (Node/CJS, `vscode` external, with the example folder's files as texts)
+//                                                          -> dist/extension.cjs
 //   2. Webview (browser/IIFE, the board and its editors)  -> dist/webview.js, dist/webview.css
 //      and the font files beside them in dist/fonts
 // and, written from what went into the two, dist/THIRD_PARTY_NOTICES.md with every licence file
@@ -9,13 +10,36 @@
 // takes the other modelers' packages from their sources too (board-suite-editors/build), so no
 // modeler is built first. @miragon/modeler-shell comes from its dist in both bundles.
 import * as esbuild from "esbuild";
-import { realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { webviewBundle } from "board-suite-editors/build/esbuild.mjs";
 import { writeBundleNotices } from "board-suite-editors/build/notices-build.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * A file's text as a module, for an import that ends in `?raw`, as Vite reads one: the unit
+ * tests run the host's sources through Vite, and the files of the example folder are no
+ * modules to either bundler.
+ * @type {import('esbuild').Plugin}
+ */
+const rawText = {
+  name: "raw-text",
+  setup(build) {
+    // In the namespace of files, so that the metafile names such a file as it names every other:
+    // by its path from the working directory.
+    build.onResolve({ filter: /\?raw$/ }, ({ path, resolveDir }) => ({
+      path: resolve(resolveDir, path.slice(0, -"?raw".length)),
+      pluginData: { raw: true },
+    }));
+    build.onLoad({ filter: /.*/ }, ({ path, pluginData }) =>
+      pluginData?.raw === true
+        ? { contents: readFileSync(path, "utf8"), loader: "text" }
+        : undefined,
+    );
+  },
+};
 
 /**
  * The options of both bundles; `production` is the build the VSIX ships (`vscode:prepublish`).
@@ -45,6 +69,8 @@ export function bundleOptions({ production }) {
     target: "node20",
     // `vscode` is only available at runtime (from the host) and must not be bundled.
     external: ["vscode"],
+    // The example of "New Board from Example" is in the bundle, each of its files as a text.
+    plugins: [rawText],
   };
 
   /** @type {import('esbuild').BuildOptions} */

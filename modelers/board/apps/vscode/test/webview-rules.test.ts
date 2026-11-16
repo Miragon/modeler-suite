@@ -68,6 +68,10 @@ describe("the sources of the webview", () => {
     expect(MAIN).toMatch(/containHistoryKeys: true,/);
   });
 
+  test("name the drop of a picture that reaches the page in VS Code: with Shift held", () => {
+    expect(MAIN).toMatch(/pictures: "shift-drop",/);
+  });
+
   test("wait for no answer of the extension before the board is mounted: nothing is awaited at the top", () => {
     const beforeTheMount = MAIN.slice(0, MAIN.indexOf("mountBoardEditor(host"));
     expect(beforeTheMount).not.toMatch(/\bawait\b|\.then\(/);

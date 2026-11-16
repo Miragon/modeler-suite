@@ -39,7 +39,8 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 Each modeler folder holds `packages/` (its npm libraries), `apps/webapp`, `apps/vscode`, `e2e/`
 (Playwright), `example/`, `docs/`, its `README.md`, `CLAUDE.md`, `CONTRIBUTING.md` and
 `.claude/rules/`. Its `package.json` is the private workspace `@miragon/<modeler>-modeler-workspace`
-whose scripts run that modeler's checks. The board has no `docs/` yet.
+whose scripts run that modeler's checks. The board's `docs/` holds the parts of its guide, and no
+demo or screenshots yet.
 
 ## Commands
 
@@ -124,7 +125,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   the shell and run its conformance kit in the e2e projects `webapp` (`chromium` in Context Maps)
   and `vscode-webview`. The board deviates, with an end: under the shell it keeps a toolbar of its
   own, and its e2e projects run the board's own specs, not the kit
-  ([its guide](modelers/board/CLAUDE.md#three-deviations-under-the-shell-each-with-an-end)). The
+  ([its guide](modelers/board/docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end)). The
   shell itself has zero runtime dependencies and a DOM-free `src/core`;
   `packages/shell/test/package-boundaries.test.ts` enforces both.
 - **Shared code changes reach every modeler at once.** The modelers pin the workspace's current
@@ -190,6 +191,11 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   `build`, `test` and `refactor` release nothing. Never bump a version or edit a `CHANGELOG.md` by
   hand. Workflows, publishing (npm, VS Code Marketplace, Open VSX, the web apps) and how to add a
   package are in [docs/ci-and-releases.md](docs/ci-and-releases.md).
+- **The board is held back from publishing.** `HELD_BACK` in `.github/scripts/release-plan.mjs`
+  names it, so a release tags its components and publishes nothing of it: no npm package, no
+  extension on a marketplace, no Orca plugin. The hold ends only with the pull request that makes
+  the board public and takes it off that list, which the owner decides: never edit the list in
+  passing ([docs/ci-and-releases.md](docs/ci-and-releases.md#a-modeler-that-is-held-back)).
 - Every new `@deprecated` gets an issue that names its target version as a number, filed by the
   pull request that adds it ([CONTRIBUTING.md](CONTRIBUTING.md#releases)).
 

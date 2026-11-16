@@ -45,3 +45,74 @@
   background: var(--cd-ui-warning-flaeche);
   color: var(--cd-ui-text);
 }
+
+/* What the node says once, over the bottom edge of its editor: a change that is not in the
+   file. It takes no pointer, so the editor below it stays in reach. */
+.board-engine > .board-host-notice {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  padding: 8px 12px;
+  background: var(--cd-ui-warning-flaeche);
+  color: var(--cd-ui-text);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* A file no editor of the board shows: its name and, where the host shows files, the way to it */
+.board-engine > .board-host-card {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 16px;
+  overflow: hidden;
+  background: var(--cd-ui-plot);
+  color: var(--cd-ui-text);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+.board-engine > .board-host-card:focus {
+  outline: none;
+}
+.board-host-card__name {
+  max-width: 100%;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.board-host-card__folder,
+.board-host-card__note,
+.board-host-card__said {
+  max-width: 100%;
+  margin: 0;
+  color: var(--cd-ui-text-leise);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.board-host-card__said:empty {
+  display: none;
+}
+.board-host-card__open {
+  margin-top: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--cd-ui-kontur);
+  border-radius: var(--cd-radius-sm);
+  background: var(--cd-ui-flaeche);
+  color: var(--cd-ui-link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.board-host-card__open:hover {
+  background: var(--cd-ui-hover);
+}
+.board-host-card__open:focus-visible {
+  outline: 2px solid var(--cd-ui-fokus);
+  outline-offset: 2px;
+}

@@ -98,6 +98,8 @@ describe("the root of a board's files", () => {
   test("is its repository: the page is told the empty list at once and the repository's files once they are found", async () => {
     const { wire } = await served(REPOSITORY, { folders: ["/work/repo/boards"] });
     expect(wire.fromHost).toEqual([
+      // VS Code has an editor for every file: the page may ask to have one shown
+      { type: "board.welcome", shows: true },
       { type: "board.paths", paths: [] },
       { type: "board.paths", paths: LISTED },
     ]);
@@ -116,7 +118,10 @@ describe("the root of a board's files", () => {
       { "/downloads/a.board": "", "/downloads/models/tea.owm": TEA },
       { board: "/downloads/a.board", folders: [] },
     );
-    expect(wire.taken()).toEqual([{ type: "board.paths", paths: [] }]);
+    expect(wire.taken()).toEqual([
+      { type: "board.welcome", shows: true },
+      { type: "board.paths", paths: [] },
+    ]);
     wire.send({ type: "board.text.open", requestId: 1, path: "models/tea.owm" });
     wire.send({ type: "board.bytes.read", requestId: 2, path: "assets/logo.png" });
     wire.send({
@@ -127,11 +132,15 @@ describe("the root of a board's files", () => {
       mime: "image/png",
     });
     await settled();
+    wire.send({ type: "board.file.show", requestId: 4, path: "models/tea.owm" });
+    await settled();
     expect(byRequest(wire.taken())).toEqual([
       { type: "board.failed", requestId: 1, message: NO_ROOT },
       { type: "board.bytes", requestId: 2, path: "assets/logo.png", base64: null, mime: "" },
       { type: "board.failed", requestId: 3, message: NO_ROOT },
+      { type: "board.failed", requestId: 4, message: NO_ROOT },
     ]);
+    expect(memory.executed).toEqual([]);
     expect(memory.calls.findFiles).toEqual([]);
     expect(memory.calls.openTextDocument).toEqual([]);
     expect(memory.calls.writeFile).toEqual([]);
@@ -251,7 +260,8 @@ describe("a model's text between a page and VS Code", () => {
     await settled();
     expect(memory.document(FILE)?.getText()).toBe("title Typed beside the board\n");
     expect(memory.applied).toEqual([]);
-    expect(wire.fromHost).toEqual([]);
+    // the page has the other text already, and is told that its own edit is not in the file
+    expect(wire.taken()).toEqual([{ type: "board.text.dropped", path: PATH, reason: "crossed" }]);
     wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 2 });
     await settled();
     expect(memory.document(FILE)?.getText()).toBe(MINE);
@@ -267,8 +277,10 @@ describe("a model's text between a page and VS Code", () => {
     release();
     await settled();
     expect(memory.document(FILE)?.getText()).toBe("title Typed meanwhile\n");
+    // VS Code refused it because the document moved on: a crossing, and told as one
     expect(wire.fromHost).toEqual([
       { type: "board.text.update", path: PATH, text: "title Typed meanwhile\n", version: 2 },
+      { type: "board.text.dropped", path: PATH, reason: "crossed" },
     ]);
   });
 
@@ -281,6 +293,7 @@ describe("a model's text between a page and VS Code", () => {
     expect(memory.document(FILE)).toMatchObject({ isDirty: false, version: 1 });
     expect(wire.taken()).toEqual([
       { type: "board.text.update", path: PATH, text: TEA, version: 2 },
+      { type: "board.text.dropped", path: PATH, reason: "too-large" },
     ]);
     // the page shows the document's text again, and its next edit is made on that
     wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 2 });
@@ -316,6 +329,7 @@ describe("a model's text between a page and VS Code", () => {
     expect(memory.document(FILE)?.getText()).toBe("title From a checkout\n");
     expect(wire.taken()).toEqual([
       { type: "board.text.update", path: PATH, text: "title From a checkout\n", version: 2 },
+      { type: "board.text.dropped", path: PATH, reason: "crossed" },
     ]);
     wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 2 });
     await settled();
@@ -346,16 +360,6 @@ describe("a model's text between a page and VS Code", () => {
       text: TEA,
       version: 2,
     });
-  });
-
-  test("takes a file a person renames for one that went and one that came: no move is ever posted", async () => {
-    const { memory, wire, paths } = await opened();
-    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
-    await vi.waitFor(() => expect(paths()).toContain("models/green-tea.owm"));
-    expect(paths()).not.toContain(PATH);
-    const types = wire.fromHost.map((message) => message.type);
-    expect(types).toContain("board.text.gone");
-    expect(types).not.toContain("board.moved");
   });
 
   test("opens no link and no file above the size limit, and says why", async () => {
@@ -424,13 +428,404 @@ describe("a model's text between a page and VS Code", () => {
   });
 });
 
+describe("a file a person renames or moves in VS Code", () => {
+  const types = (wire: Wire): string[] => wire.fromHost.map((message) => message.type);
+
+  test("is told as a move, before the old path's text says that its file went; the list follows", async () => {
+    const { memory, wire, paths } = await opened();
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    expect(wire.fromHost.slice(0, 2)).toEqual([
+      { type: "board.moved", moves: [{ from: PATH, to: "models/green-tea.owm" }] },
+      { type: "board.text.gone", path: PATH },
+    ]);
+    await vi.waitFor(() => expect(paths()).toContain("models/green-tea.owm"));
+    expect(paths()).not.toContain(PATH);
+    // the page follows: the file opens at its new path
+    wire.taken();
+    wire.send({ type: "board.text.open", requestId: 2, path: "models/green-tea.owm" });
+    await settled();
+    expect(wire.fromHost).toMatchObject([{ type: "board.text.opened", text: TEA, version: 1 }]);
+  });
+
+  test("is every listed file below a folder, mapped by the folder's old name, in one message", async () => {
+    const { memory, wire } = await opened();
+    memory.explorer.rename("/work/repo/models", "/work/repo/maps");
+    expect(wire.fromHost[0]).toEqual({
+      type: "board.moved",
+      moves: [
+        { from: "models/tea.owm", to: "maps/tea.owm" },
+        { from: "models/teams/sample.tt", to: "maps/teams/sample.tt" },
+      ],
+    });
+    expect(types(wire).filter((type) => type === "board.moved")).toHaveLength(1);
+  });
+
+  test("is one message for several files moved in one gesture, and a picture's bytes are new at both paths", async () => {
+    const { memory, wire } = await served();
+    wire.taken();
+    memory.explorer.move([
+      [FILE, "/work/repo/archive/tea.owm"],
+      ["/work/repo/assets/logo.svg", "/work/repo/assets/mark.svg"],
+    ]);
+    expect(wire.fromHost).toEqual([
+      {
+        type: "board.moved",
+        moves: [
+          { from: PATH, to: "archive/tea.owm" },
+          { from: "assets/logo.svg", to: "assets/mark.svg" },
+        ],
+      },
+      { type: "board.bytes.changed", paths: ["assets/logo.svg"] },
+      { type: "board.bytes.changed", paths: ["assets/mark.svg"] },
+      // the watcher's later word of the old name
+      { type: "board.bytes.changed", paths: ["assets/logo.svg"] },
+    ]);
+  });
+
+  test("keeps its unsaved text: VS Code moves the document with the file, and the page reads it at the new path", async () => {
+    const { memory, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    wire.taken();
+    wire.send({ type: "board.text.open", requestId: 2, path: "models/green-tea.owm" });
+    await settled();
+    expect(wire.fromHost).toContainEqual(
+      expect.objectContaining({ type: "board.text.opened", requestId: 2, text: MINE }),
+    );
+    expect(memory.disk.text("/work/repo/models/green-tea.owm")).toBe(TEA);
+  });
+
+  test("is a file that is gone, and no move, where it leaves the repository or gets a path a board does not reach", async () => {
+    const outside = await opened();
+    outside.memory.explorer.rename(FILE, "/elsewhere/tea.owm");
+    expect(types(outside.wire)).toContain("board.text.gone");
+    expect(types(outside.wire)).not.toContain("board.moved");
+
+    const hidden = await opened();
+    hidden.memory.explorer.rename(FILE, "/work/repo/.attic/tea.owm");
+    expect(types(hidden.wire)).toContain("board.text.gone");
+    expect(types(hidden.wire)).not.toContain("board.moved");
+
+    const renamed = await opened();
+    renamed.memory.explorer.rename(FILE, "/work/repo/models/tea.txt");
+    expect(types(renamed.wire)).toContain("board.text.gone");
+    expect(types(renamed.wire)).not.toContain("board.moved");
+  });
+
+  test("stays a file that went and one that came where another program moved it", async () => {
+    const { memory, wire, paths } = await opened();
+    memory.disk.move(FILE, "/work/repo/models/green-tea.owm");
+    await vi.waitFor(() => expect(paths()).toContain("models/green-tea.owm"));
+    expect(types(wire)).toContain("board.text.gone");
+    expect(types(wire)).not.toContain("board.moved");
+  });
+
+  test("reaches every open board of the repository, and none whose editor closed", async () => {
+    const memory = createMemoryVsCode(REPOSITORY, { workspaceFolders: ["/work/repo"] });
+    const indexes = createIndexPool(memory.vscode, SUFFIXES, { restMs: 0 });
+    const board = (path: string) => {
+      const backend = createVsCodeBackend(memory.vscode, {
+        board: MemoryUri.file(path),
+        suffixes: SUFFIXES,
+        indexes,
+      });
+      const moves: unknown[] = [];
+      backend.onMoved((moved) => moves.push(...moved));
+      return { backend, moves };
+    };
+    const first = board("/work/repo/boards/a.board");
+    const second = board("/work/repo/boards/b.board");
+    const closed = board("/work/repo/boards/c.board");
+    await Promise.all([first.backend.ready(), second.backend.ready(), closed.backend.ready()]);
+    closed.backend.dispose();
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    const move = { from: PATH, to: "models/green-tea.owm" };
+    expect(first.moves).toEqual([move]);
+    expect(second.moves).toEqual([move]);
+    expect(closed.moves).toEqual([]);
+  });
+
+  test("is told to nobody who stopped listening", async () => {
+    const { memory, backend } = await served();
+    const moves: unknown[] = [];
+    const stop = backend.onMoved((moved) => moves.push(...moved));
+    stop();
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    expect(moves).toEqual([]);
+  });
+});
+
+describe("a file the page asks to have shown", () => {
+  const OPEN = "vscode.open";
+  const README = "/work/repo/readme.md";
+
+  test("is opened in VS Code's own way, whatever the board's rule says of it, and the page gets nothing of the file", async () => {
+    const { memory, wire } = await served();
+    wire.taken();
+    wire.send({ type: "board.file.show", requestId: 1, path: "readme.md" });
+    wire.send({ type: "board.file.show", requestId: 2, path: "boards/a.board" });
+    await settled();
+    expect(wire.taken()).toEqual([
+      { type: "board.done", requestId: 1 },
+      { type: "board.done", requestId: 2 },
+    ]);
+    expect(memory.executed).toEqual([
+      [OPEN, MemoryUri.file(README)],
+      [OPEN, MemoryUri.file("/work/repo/boards/a.board")],
+    ]);
+    expect(memory.calls.readFile).toEqual([]);
+    expect(memory.calls.openTextDocument).toEqual([]);
+  });
+
+  test("is not opened where it is not there, is a folder, is a link or lies behind one: each says why, and VS Code is not asked", async () => {
+    const { memory, wire } = await served({ ...REPOSITORY, "/outside/secret.txt": "secret\n" });
+    memory.disk.link("/work/repo/link.txt", "/outside/secret.txt");
+    memory.disk.link("/work/repo/linked", "/outside");
+    wire.taken();
+    // one after the other, as a person presses one card at a time: the server lets one wait
+    const paths = ["none.txt", "models", "link.txt", "linked/secret.txt", ".git/HEAD"];
+    for (const [at, path] of [...paths, "../repo/readme.md"].entries()) {
+      wire.send({ type: "board.file.show", requestId: at + 1, path });
+      await settled();
+    }
+    expect(
+      byRequest(wire.taken()).map((message) => "message" in message && message.message),
+    ).toEqual([
+      "none.txt does not exist",
+      "models is no file",
+      "link.txt is a link, and a board shows no link",
+      "linked/secret.txt is behind a link, and a board shows no link",
+      "a board reaches no dot file and no file in a dot folder",
+      "this path is outside the repository",
+    ]);
+    expect(memory.executed).toEqual([]);
+  });
+
+  test("checks the path itself too: handed one outside the repository or in a dot folder, it asks VS Code nothing", async () => {
+    const { memory, backend } = await served();
+    const asked = memory.calls.stat.length;
+    await expect(backend.showFile("../repo/readme.md")).rejects.toThrow(
+      "../repo/readme.md is no file of this repository",
+    );
+    await expect(backend.showFile(".git/HEAD")).rejects.toThrow(
+      ".git/HEAD is no file of this repository",
+    );
+    expect(memory.calls.stat).toHaveLength(asked);
+    expect(memory.executed).toEqual([]);
+  });
+
+  test("says so where VS Code could not open it, with what VS Code said", async () => {
+    const { memory, backend, wire } = await served();
+    memory.failCommand(OPEN, new Error("no editor takes this file"));
+    wire.taken();
+    wire.send({ type: "board.file.show", requestId: 1, path: "readme.md" });
+    await settled();
+    // a rejection that is no error is its own text
+    memory.failCommand(OPEN, "cancelled");
+    wire.send({ type: "board.file.show", requestId: 2, path: "readme.md" });
+    await settled();
+    expect(wire.taken()).toEqual([
+      {
+        type: "board.failed",
+        requestId: 1,
+        message: "VS Code could not open readme.md: no editor takes this file",
+      },
+      {
+        type: "board.failed",
+        requestId: 2,
+        message: "VS Code could not open readme.md: cancelled",
+      },
+    ]);
+    // and what VS Code rejected with is kept behind the sentence, for whoever logs it
+    const refused = new Error("refused by VS Code");
+    memory.failCommand(OPEN, refused);
+    const failure: unknown = await backend.showFile("readme.md").catch((error: unknown) => error);
+    expect((failure as Error).cause).toBe(refused);
+  });
+
+  test("waits for the root like every request: asked before the repository is found, the file is shown once it is", async () => {
+    const memory = createMemoryVsCode(REPOSITORY, { workspaceFolders: ["/work/repo"] });
+    const backend = createVsCodeBackend(memory.vscode, {
+      board: MemoryUri.file("/work/repo/boards/a.board"),
+      suffixes: SUFFIXES,
+    });
+    await backend.showFile("readme.md");
+    expect(memory.executed).toEqual([[OPEN, MemoryUri.file(README)]]);
+  });
+
+  test("is shown one at a time, whoever asks: the next file is looked at when VS Code is done with the one before, also after one that failed", async () => {
+    const { memory, backend } = await served();
+    const log: string[] = [];
+    const { stat } = memory.vscode.workspace.fs;
+    memory.vscode.workspace.fs.stat = (uri) => {
+      log.push(`look ${uri.path}`);
+      return stat(uri);
+    };
+    const { executeCommand } = memory.vscode.commands;
+    memory.vscode.commands.executeCommand = (command, ...rest) => {
+      log.push(`${command} ${(rest[0] as MemoryUri).path}`);
+      return executeCommand(command, ...rest);
+    };
+    const outcomes = await Promise.allSettled([
+      backend.showFile("readme.md"),
+      backend.showFile("none.txt"),
+      backend.showFile("models/tea.owm"),
+    ]);
+    expect(outcomes.map((outcome) => outcome.status)).toEqual([
+      "fulfilled",
+      "rejected",
+      "fulfilled",
+    ]);
+    expect(log).toEqual([
+      `look ${README}`,
+      `${OPEN} ${README}`,
+      "look /work/repo/none.txt",
+      "look /work/repo/models",
+      `look ${FILE}`,
+      `${OPEN} ${FILE}`,
+    ]);
+  });
+});
+
+describe("the documents a board made dirty", () => {
+  const names = (backend: VsCodeBackend): string[] =>
+    backend.unsaved().map((document) => document.uri.path);
+
+  test("are the ones its page wrote into, for as long as they are unsaved", async () => {
+    const { memory, backend, wire } = await opened();
+    expect(names(backend)).toEqual([]);
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    expect(names(backend)).toEqual([FILE]);
+    expect(backend.unsaved()[0]).toBe(memory.document(FILE));
+    // A person saves it, in its own tab or with Save All: what the page wrote is in the file.
+    // What the person types there afterwards is the person's alone, and not this board's to save.
+    memory.save(FILE);
+    memory.type(FILE, "title Typed in its own tab\n");
+    expect(memory.document(FILE)).toMatchObject({ isDirty: true });
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are not a document the page only opened, nor one somebody else changed, nor one whose edit was dropped", async () => {
+    const { memory, backend, wire } = await opened();
+    memory.type(FILE, "title Typed beside the board\n");
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    expect(memory.document(FILE)).toMatchObject({ isDirty: true });
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are forgotten once a person reverted one: it is clean, and a later change of it is not the board's", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    memory.revert(FILE);
+    expect(names(backend)).toEqual([]);
+    memory.type(FILE, "title Typed after the revert\n");
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are forgotten by the revert itself, whether or not anybody asked in between", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    // nobody asks for the list between the revert and the typing: a board is not saved that often
+    memory.revert(FILE);
+    memory.type(FILE, "title Typed after the revert\n");
+    expect(memory.document(FILE)).toMatchObject({ isDirty: true });
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are forgotten once an undo in the model's own tab took one back to the saved text", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    // the person takes the board's change back by typing the file's text again, then goes on
+    memory.type(FILE, TEA);
+    expect(memory.document(FILE)).toMatchObject({ isDirty: false });
+    memory.type(FILE, "title Typed in its own tab\n");
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are the board's again once its page wrote into one that was clean in between", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    memory.revert(FILE);
+    await settled();
+    // the page was told the reverted text as version 2
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 2 });
+    await settled();
+    expect(memory.document(FILE)?.getText()).toBe(MINE);
+    expect(names(backend)).toEqual([FILE]);
+  });
+
+  test("follow a file a person renames while it is unsaved, alone or with a folder above it", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    expect(names(backend)).toEqual(["/work/repo/models/green-tea.owm"]);
+    memory.explorer.rename("/work/repo/models", "/work/repo/maps");
+    expect(names(backend)).toEqual(["/work/repo/maps/green-tea.owm"]);
+    // a folder whose name only starts the same way is another folder
+    memory.explorer.rename("/work/repo/map", "/work/repo/other");
+    expect(names(backend)).toEqual(["/work/repo/maps/green-tea.owm"]);
+  });
+
+  test("are not a document that was clean when its file was renamed: nothing unsaved moved with it", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    // saved a moment ago, and renamed within the moment a clean document is remembered
+    memory.save(FILE);
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    // VS Code has a clean document at the new name: what is typed there is the person's
+    expect(memory.document("/work/repo/models/green-tea.owm")).toMatchObject({ isDirty: false });
+    memory.type("/work/repo/models/green-tea.owm", "title Typed after the rename\n");
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are not a document that was typed into after a revert and then renamed: the unsaved text that moved is the person's", async () => {
+    const { memory, backend, wire } = await opened();
+    wire.send({ type: "board.text.edit", path: PATH, text: MINE, version: 1 });
+    await settled();
+    memory.revert(FILE);
+    memory.type(FILE, "title Typed after the revert\n");
+    // within the moment a clean document is remembered for a rename
+    memory.explorer.rename(FILE, "/work/repo/models/green-tea.owm");
+    expect(memory.document("/work/repo/models/green-tea.owm")).toMatchObject({ isDirty: true });
+    expect(names(backend)).toEqual([]);
+  });
+
+  test("are each board's own: what another board's page wrote is not among them", async () => {
+    const memory = createMemoryVsCode(REPOSITORY, { workspaceFolders: ["/work/repo"] });
+    const indexes = createIndexPool(memory.vscode, SUFFIXES, { restMs: 0 });
+    const board = (path: string): VsCodeBackend =>
+      createVsCodeBackend(memory.vscode, {
+        board: MemoryUri.file(path),
+        suffixes: SUFFIXES,
+        indexes,
+      });
+    const first = board("/work/repo/boards/a.board");
+    const second = board("/work/repo/boards/b.board");
+    const text = await first.openText(PATH);
+    expect(await text.write(MINE, TEA)).toBe(true);
+    expect(names(first)).toEqual([FILE]);
+    expect(names(second)).toEqual([]);
+  });
+});
+
 describe("a text the page closes", () => {
   test("is let go of: the backend listens to its document no longer, and to it again when it is opened anew", async () => {
     const { memory, wire } = await opened();
-    expect(memory.listening().documents).toBe(2);
+    // the text's two, and the one of the backend's own record of what its page wrote: a
+    // change, which is how VS Code says that a document is clean
+    expect(memory.listening().documents).toBe(3);
     wire.send({ type: "board.text.close", path: PATH });
     await settled();
-    expect(memory.listening().documents).toBe(0);
+    expect(memory.listening().documents).toBe(1);
     memory.type(FILE, "title Typed while nobody reads\n");
     expect(wire.fromHost).toEqual([]);
     wire.send({ type: "board.text.open", requestId: 2, path: PATH });
@@ -586,7 +981,7 @@ describe("a backend that is disposed", () => {
     let told = 0;
     backend.onListChanged(() => (told += 1));
     backend.onBytesChanged(() => (told += 1));
-    expect(memory.listening()).toEqual({ documents: 0, files: 3, folders: 2, watchers: 1 });
+    expect(memory.listening()).toEqual({ documents: 1, files: 4, folders: 2, watchers: 1 });
     backend.dispose();
     backend.dispose();
     expect(memory.listening()).toEqual({ documents: 0, files: 0, folders: 0, watchers: 0 });

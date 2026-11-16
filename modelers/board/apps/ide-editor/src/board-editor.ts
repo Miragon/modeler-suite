@@ -7,27 +7,35 @@
  * Code webview) or a web app's, which mounts the shell's web column around the same board.
  */
 import type { BoardFiles } from "@miragon/board-files";
-import { createFilesHost, type EditorEntry } from "@miragon/board-host";
+import { createFilesHost, followMoves, type EditorEntry } from "@miragon/board-host";
 import { createCollaborativeModeler, type CollaborativeBoard } from "@miragon/board-renderer";
-import { parseBoardText } from "@miragon/board-schema-model";
+import { absoluteBoxes, parseBoardText } from "@miragon/board-schema-model";
 import type { Insets, ShellHandle, ShellMessageOverrides, Theme } from "@miragon/modeler-shell";
 import type { IdeDocument, IdeEditorHost } from "@miragon/modeler-shell/ide";
 
 import { createFirstFit } from "./first-fit.js";
 import { createBoardLock } from "./invalid.js";
-import { boardShortcuts } from "./shortcuts.js";
+import { BOARD_VIEW_KEY, keepView, type KeptState } from "./kept-view.js";
+import { boardShortcuts, type PictureGestures } from "./shortcuts.js";
 import { viewChanges } from "./view-events.js";
 import { boardZoomTarget } from "./zoom-target.js";
 
 /**
  * The place the editor is mounted in, as far as the editor asks it. The shell's `IdeEditorHost`
- * fits, as the VS Code webview hands it in. A web app is no IDE and brings the three members
- * itself: its `mountShell` adds the shell's web column, and its document is the page's own.
+ * fits, as the VS Code webview hands it in. A web app is no IDE and brings the members itself:
+ * its `mountShell` adds the shell's web column, and its document is the page's own.
  */
 export type BoardEditorHost = Pick<
   IdeEditorHost,
   "canvasOwnsHistory" | "mountShell" | "connectDocument"
->;
+> & {
+  /**
+   * Where the host keeps the board's view between two lives of the page, under the key
+   * `BOARD_VIEW_KEY`: the webview's state in VS Code, the browser's storage in a web app. One
+   * place per document. Absent: every mount starts with the fit.
+   */
+  readonly state?: KeptState | undefined;
+};
 
 export interface BoardEditorOptions {
   /** Where the shell is mounted. Default: the element with the id `app`. */
@@ -48,6 +56,13 @@ export interface BoardEditorOptions {
   invalidText?: string | undefined;
   /** True where the host binds the file keys itself (a web app): the shortcuts dialog lists them. */
   fileKeys?: boolean | undefined;
+  /**
+   * How a picture gets onto this board beside the Image button, for the shortcuts dialog:
+   * `drop` where a dropped file reaches the page (a browser), `shift-drop` where the host takes
+   * it for itself unless Shift is held (VS Code). Absent: the dialog names neither, as for a
+   * board that keeps no pictures.
+   */
+  pictures?: PictureGestures | undefined;
 }
 
 export interface BoardEditor {
@@ -103,7 +118,10 @@ export async function mountBoardEditor(
           icon: "keyboard",
           onSelect: () =>
             void shell.showShortcutsDialog(
-              boardShortcuts(shell, { fileKeys: options.fileKeys === true }),
+              boardShortcuts(shell, {
+                fileKeys: options.fileKeys === true,
+                pictures: options.pictures,
+              }),
             ),
         },
       ],
@@ -128,14 +146,26 @@ export async function mountBoardEditor(
     freeArea: { insets },
   });
   modeler.attachTo(slot);
+  // A model node follows its file through its own editor. An image node has none: the host
+  // package writes its new path into the board that shows it, which is this one.
+  const stopFollowing = options.files ? followMoves(modeler, options.files) : undefined;
 
   const lock = createBoardLock(shell);
-  const firstFit = createFirstFit(modeler, slot, insets);
+  // One watch of the view for the zoom panel and for the view the host keeps.
+  const onView = viewChanges(modeler);
+  const kept = host.state;
+  const keeper = kept ? keepView({ modeler, place: kept, onView }) : undefined;
+  const firstFit = createFirstFit(modeler, slot, insets, {
+    kept: () => kept?.read(BOARD_VIEW_KEY),
+    // each node by its own box: a view between nodes that lie far apart shows none of them
+    boxes: () => [...absoluteBoxes(modeler.board.store.getSnapshot()).values()],
+    shown: () => keeper?.start(),
+  });
   const target = boardZoomTarget({
     modeler,
     slot,
     insets,
-    onView: viewChanges(modeler),
+    onView,
     onContent: (listener) => modeler.board.store.subscribe(listener),
   });
   shell.setZoomTarget(target);
@@ -172,6 +202,9 @@ export async function mountBoardEditor(
     destroyed = true;
     stopHint();
     firstFit.stop();
+    // while the board still answers with its view
+    keeper?.stop();
+    stopFollowing?.();
     modeler.destroy();
     // The board unmounts its canvas, and with it every model's editor, in a microtask it queued
     // inside destroy(): this one runs behind it. An editor may write while it goes (a label

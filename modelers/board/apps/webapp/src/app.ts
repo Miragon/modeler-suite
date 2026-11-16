@@ -88,10 +88,16 @@ export function startApp(root: HTMLElement, options: AppOptions): App {
   const focusBoard = (): void =>
     root.querySelector<HTMLElement>(".react-flow__pane")?.focus({ preventScroll: true });
 
+  const opened = createOpenStorage(options.storage);
   const sessionPage: SessionPage = {
     root,
     kept: createAppStorage(options.storage, EXAMPLE),
-    opened: createOpenStorage(options.storage),
+    opened,
+    // A view the browser did not keep is no change a person loses: the next visit is fitted.
+    state: {
+      read: (key) => opened.state(key),
+      write: (key, value) => void opened.keepState(key, value),
+    },
     saved,
     say,
     column: (kind, startScreen) =>
@@ -128,8 +134,11 @@ export function startApp(root: HTMLElement, options: AppOptions): App {
     if (current === session && (page.activeElement ?? page.body) === page.body) focusBoard();
   }
 
-  async function show(next: OpenDocument, startScreen = false): Promise<Session> {
+  async function show(next: OpenDocument, startScreen = false, resumed = false): Promise<Session> {
     await close();
+    // What is kept by now is the view of the document that just closed. Only the document of
+    // the last visit comes back to it; any other one is new to the person and starts fitted.
+    if (!resumed) opened.forgetState();
     const session =
       next.kind === "example"
         ? await mountExample(sessionPage)
@@ -143,8 +152,8 @@ export function startApp(root: HTMLElement, options: AppOptions): App {
   }
 
   const actions: Actions = createActions(
-    { current: () => current, close, show },
-    { page, kept: sessionPage.kept, opened: sessionPage.opened, saved, run },
+    { current: () => current, close, show, resume: (last) => show(last, false, true) },
+    { page, kept: sessionPage.kept, opened, saved, run },
   );
   const input: PageInput = connectPage(root, {
     openFile: (file) => void run(() => actions.openFile(file)),

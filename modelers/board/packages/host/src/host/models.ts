@@ -1,10 +1,13 @@
 /**
  * The models of a board host, from the files of a repository and a registry of editors: the list
- * the model picker offers, what a file is called, and its editor.
+ * the model picker offers, what a file is called, its editor, and a card for a file no editor
+ * of the registry covers.
  */
 import { bySuffix, type BoardFiles } from "@miragon/board-files";
 import type { BoardModels, ModelDescription } from "@miragon/board-renderer";
 
+import { createEditorHandover } from "../facade/handover.js";
+import { openCard } from "../facade/open-card.js";
 import { openEditor } from "../facade/open-editor.js";
 import type { EditorEntry } from "../registry.js";
 
@@ -39,6 +42,7 @@ function fileName(path: string, suffixes: readonly string[]): FileName {
 
 export function modelsFrom(options: ModelsOptions): BoardModels {
   const { files, editors } = options;
+  const handover = createEditorHandover();
   let from: readonly string[] | undefined;
   let listed: readonly string[] = [];
   let names = new Map<string, FileName>();
@@ -80,12 +84,13 @@ export function modelsFrom(options: ModelsOptions): BoardModels {
     open(context) {
       const entry = bySuffix(editors, context.path);
       // a file no editor of this host shows, a board among them
-      if (!entry) return undefined;
+      if (!entry) return openCard(context, { files });
       return openEditor(context, {
         entry,
         files,
         containHistoryKeys: options.containHistoryKeys,
         invalidText: options.invalidText,
+        handover,
       });
     },
   };

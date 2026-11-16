@@ -20,9 +20,18 @@ export interface TestDocument {
   disconnected(): boolean;
 }
 
+/** The place a host keeps an editor's state in, as VS Code keeps a webview's. */
+export interface TestState {
+  /** what is kept now, by key */
+  readonly values: Readonly<Record<string, unknown>>;
+  /** every write the editor made, in order */
+  readonly writes: ReadonlyArray<readonly [key: string, value: unknown]>;
+}
+
 export interface TestHost {
   readonly host: IdeEditorHost;
   readonly document: TestDocument;
+  readonly state: TestState;
 }
 
 export interface TestHostOptions {
@@ -32,10 +41,14 @@ export interface TestHostOptions {
   readOnly?: boolean | undefined;
   /** the host cannot connect the document: `connectDocument` rejects with this message */
   connectFails?: string | undefined;
+  /** what the host kept of the page before this one, by key */
+  kept?: Readonly<Record<string, unknown>> | undefined;
 }
 
 export function testHost(options: TestHostOptions = {}): TestHost {
   const edits: string[] = [];
+  const values: Record<string, unknown> = { ...options.kept };
+  const writes: Array<readonly [string, unknown]> = [];
   let connected: IdeDocumentOptions | undefined;
   let disconnected = false;
   let reconciled = "";
@@ -67,8 +80,12 @@ export function testHost(options: TestHostOptions = {}): TestHost {
       view: undefined,
       legendOpen: undefined,
       writeLegendOpen: () => undefined,
-      read: () => undefined,
-      write: () => undefined,
+      read: (key) => values[key],
+      write(key, value) {
+        // as a webview's state: a copy, which the editor cannot change afterwards
+        values[key] = structuredClone(value);
+        writes.push([key, values[key]]);
+      },
       persistView: () => () => undefined,
     },
     mountShell: (root, shellOptions): ShellHandle =>
@@ -102,6 +119,7 @@ export function testHost(options: TestHostOptions = {}): TestHost {
   };
   return {
     host,
+    state: { values, writes },
     document: {
       open: (text) => enqueue(text).then(settleReady),
       change: (text) => enqueue(text),
@@ -113,7 +131,7 @@ export function testHost(options: TestHostOptions = {}): TestHost {
 }
 
 export interface TestWebHost {
-  /** The three members a web app brings: it is no IDE, and has no kind and no kept state. */
+  /** The three members every web app brings; this one keeps no view. */
   readonly host: BoardEditorHost;
   readonly document: TestDocument;
 }

@@ -1,19 +1,21 @@
 /**
  * The first view of a board under the shell. The board is created with `fitOnImport: false`:
  * its own fit is not capped at 100 % and is made at the import, into whatever box the board has
- * then. So the app sets the first view itself, by the shell's rule, and never touches the view
- * again: after that it is the person's.
+ * then. So the app sets the first view itself and never touches the view again: after that it
+ * is the person's. The first view is the one the host kept, where it still shows a node of this
+ * board (kept-view.ts), and the shell's fit otherwise.
  *
- * The fit is made in an animation frame, and not at the import. In VS Code 1.146 the webview of
- * a tab that is behind a text editor has a stand-in size of 300 x 150 and gets no animation
+ * It is set in an animation frame, and not at the import. In VS Code 1.146 the webview of a
+ * tab that is behind a text editor has a stand-in size of 300 x 150 and gets no animation
  * frame until the tab is shown again (seen there; VS Code 1.96 keeps the size). To whoever asks,
  * 300 x 150 is a size like any other: a board whose first valid text arrives then, a broken
  * file that is repaired in the editor that covers it, was fitted into that box and stayed so.
  * The page says nothing else about being covered: its visibility state stays `visible` and no
  * event tells it. The frame comes when the board is seen, with the size it then has.
  */
-import type { Insets } from "@miragon/modeler-shell/core";
+import type { Bounds, Insets } from "@miragon/modeler-shell/core";
 
+import { keptViewFor } from "./kept-view.js";
 import { fittedView, sizeOf, type ViewBox, type ViewedBoard } from "./zoom-target.js";
 
 /** Calls `onSize` whenever the element's size changed; returns the stop function. */
@@ -33,10 +35,26 @@ const observedSize: SizeWatch = (element, onSize) => {
   return () => observer.disconnect();
 };
 
+export interface FirstFitOptions {
+  /** What the host kept as this board's view, asked when the first view is set. */
+  kept?: (() => unknown) | undefined;
+  /**
+   * The boxes of the board's nodes, in board coordinates: a kept view is restored where it
+   * shows one of them. Absent: the box around all content is the one box, which also holds the
+   * empty space between nodes that lie far apart.
+   */
+  boxes?: (() => readonly Bounds[]) | undefined;
+  /** Called once the first view stands: restored, fitted, or left alone on an empty board. */
+  shown?: (() => void) | undefined;
+  /** The page's own, for a test that draws its frames and sizes its slot by hand. */
+  watchSize?: SizeWatch | undefined;
+  nextFrame?: NextFrame | undefined;
+}
+
 export interface FirstFit {
   /** After every text the board accepted. Only the first call does anything. */
   imported(): void;
-  /** Gives up a fit that still waits for a frame, or for the slot to get a size. */
+  /** Gives up a first view that still waits for a frame, or for the slot to get a size. */
   stop(): void;
 }
 
@@ -44,21 +62,26 @@ export function createFirstFit(
   modeler: ViewedBoard,
   slot: ViewBox & Element,
   insets: () => Insets,
-  watchSize: SizeWatch = observedSize,
-  nextFrame: NextFrame = animationFrame,
+  options: FirstFitOptions = {},
 ): FirstFit {
+  const watchSize = options.watchSize ?? observedSize;
+  const nextFrame = options.nextFrame ?? animationFrame;
   let started = false;
   let stopWaiting: (() => void) | undefined;
   const stop = (): void => {
     stopWaiting?.();
     stopWaiting = undefined;
   };
-  /** true once the slot has a size, with or without anything to fit */
-  const fitNow = (): boolean => {
+  /** true once the slot has a size, with or without anything to show */
+  const showNow = (): boolean => {
     const size = sizeOf(slot);
     if (!(size.width > 0 && size.height > 0)) return false;
-    const fitted = fittedView(modeler.contentBounds(), size, insets());
-    if (fitted) modeler.setViewState(fitted);
+    const bounds = modeler.contentBounds();
+    const boxes = options.boxes?.() ?? (bounds ? [bounds] : []);
+    const first =
+      keptViewFor(options.kept?.(), boxes, size, insets()) ?? fittedView(bounds, size, insets());
+    if (first) modeler.setViewState(first);
+    options.shown?.();
     return true;
   };
   return {
@@ -67,9 +90,9 @@ export function createFirstFit(
       started = true;
       stopWaiting = nextFrame(() => {
         stopWaiting = undefined;
-        if (fitNow()) return;
+        if (showNow()) return;
         stopWaiting = watchSize(slot, () => {
-          if (fitNow()) stop();
+          if (showNow()) stop();
         });
       });
     },

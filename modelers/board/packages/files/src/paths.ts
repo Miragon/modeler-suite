@@ -17,10 +17,17 @@ function hasControlCharacter(text: string): boolean {
 }
 
 /**
+ * The short name NTFS gives `.git` (`GIT~1`): on Windows it opens Git's folder without a dot.
+ * Git itself refuses a path with such a segment (`core.protectNTFS`).
+ */
+const GIT_SHORT_NAME = /^git~\d+$/i;
+
+/**
  * Why a path is none of the port's, undefined for one that is. `outside`: no
  * repository-relative path with forward slashes at all. `hidden`: such a path with a segment
  * that starts with a dot, a dot file or a dot folder at any depth (`.git`, `.github`, `.vscode`,
- * `.env`): what a repository keeps there is on no board.
+ * `.env`), or with a segment that is the short name Windows has for `.git`: what a repository
+ * keeps there is on no board.
  */
 export function pathProblem(input: unknown): "outside" | "hidden" | undefined {
   if (typeof input !== "string" || input === "" || input.length > 1024) return "outside";
@@ -31,7 +38,9 @@ export function pathProblem(input: unknown): "outside" | "hidden" | undefined {
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     return "outside";
   }
-  return segments.some((segment) => segment.startsWith(".")) ? "hidden" : undefined;
+  return segments.some((segment) => segment.startsWith(".") || GIT_SHORT_NAME.test(segment))
+    ? "hidden"
+    : undefined;
 }
 
 /**

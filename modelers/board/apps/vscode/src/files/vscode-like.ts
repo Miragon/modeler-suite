@@ -3,8 +3,9 @@
  * the backend never imports `vscode`, so it runs against the fake in `memory-vscode.ts` in a unit
  * test and in a test page. The extension passes its own `import * as vscode from "vscode"`.
  *
- * Only `workspace.fs`, `findFiles`, the watcher, the text documents and URIs: no `node:fs` and no
- * `fsPath`, so that a window on a remote machine or on a virtual file system keeps its files.
+ * Only `workspace.fs`, `findFiles`, the watcher, the text documents, their saves, the command
+ * that opens a file and URIs: no `node:fs` and no `fsPath`, so that a window on a remote machine
+ * or on a virtual file system keeps its files.
  */
 import type {
   DisposableLike,
@@ -19,6 +20,8 @@ export const DIRECTORY = 2;
 export const SYMBOLIC_LINK = 64;
 /** `vscode.FilePermission.Readonly` */
 export const READONLY = 1;
+/** `vscode.TextDocumentSaveReason.Manual`: a save somebody asked for, a person or `save()` */
+export const MANUAL_SAVE = 1;
 
 /** `vscode.Uri` as far as the files need it; `path` is decoded and has forward slashes */
 export interface BoardUriLike {
@@ -47,6 +50,19 @@ export interface RelativePatternLike {
  * never passes: its files are below a root that need not be one of them.
  */
 export type GlobLike = string | RelativePatternLike;
+
+/** `vscode.TextDocument` as far as a save needs it */
+export interface SavableDocumentLike extends TextDocumentLike {
+  readonly isDirty: boolean;
+  /** true once the file has the text; false where VS Code could not save it, and says why itself */
+  save(): PromiseLike<boolean>;
+}
+
+/** `vscode.TextDocumentWillSaveEvent`: `reason` is a `vscode.TextDocumentSaveReason` */
+export interface WillSaveEventLike {
+  readonly document: TextDocumentLike;
+  readonly reason: number;
+}
 
 /** `vscode.FileSystemWatcher` */
 export interface FileWatcherLike<Uri> extends DisposableLike {
@@ -85,6 +101,11 @@ export interface BoardWorkspaceLike<Uri> {
   ): DisposableLike;
   /** VS Code let go of a document: the object is dead, and the next open makes another */
   onDidCloseTextDocument(listener: (document: TextDocumentLike) => unknown): DisposableLike;
+  /** every document VS Code has open, shown in an editor or not; a dirty one is always among them */
+  readonly textDocuments: readonly SavableDocumentLike[];
+  /** before a save, with who asked for it; a save that fails has no `onDidSaveTextDocument` after it */
+  onWillSaveTextDocument(listener: (event: WillSaveEventLike) => unknown): DisposableLike;
+  onDidSaveTextDocument(listener: (document: TextDocumentLike) => unknown): DisposableLike;
   readonly fs: {
     /** rejects where nothing is at `uri` */
     stat(uri: Uri): PromiseLike<FileStatLike>;
@@ -100,6 +121,8 @@ export interface BoardVsCodeLike<
   Uri extends BoardUriLike = BoardUriLike,
 > extends VsCodeDocumentEditLike {
   readonly workspace: VsCodeDocumentEditLike["workspace"] & BoardWorkspaceLike<Uri>;
+  /** `vscode.open` shows a file in the editor VS Code has for it; rejects for a command nobody has */
+  readonly commands: { executeCommand(command: string, ...rest: unknown[]): PromiseLike<unknown> };
   readonly Uri: { joinPath(base: Uri, ...pathSegments: string[]): Uri };
   readonly RelativePattern: new (base: Uri, pattern: string) => RelativePatternLike;
 }

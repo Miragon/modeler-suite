@@ -7,7 +7,7 @@
  */
 import { connectBackend, createMemoryBackend, type BoardFiles } from "@miragon/board-files";
 import type { ToastHandle } from "@miragon/modeler-shell";
-import { mountBoardEditor, type BoardEditor } from "board-ide-editor";
+import { mountBoardEditor, type BoardEditor, type KeptState } from "board-ide-editor";
 import { SUITE_EDITORS } from "board-suite-editors";
 import { BOARD_SUFFIX, holdsNothing } from "./board-file.js";
 import { EXAMPLE } from "./example.js";
@@ -41,6 +41,8 @@ export interface SessionPage {
   readonly root: HTMLElement;
   readonly kept: AppStorage;
   readonly opened: OpenStorage;
+  /** where the editor of the open document keeps its view: with the board, in the browser */
+  readonly state: KeptState;
   /** the answer of a save: the page says once, and for good, that the browser refused one */
   saved(taken: boolean): void;
   /** the status box follows the open session's state */
@@ -107,6 +109,7 @@ export async function mountExample(page: SessionPage): Promise<Session> {
       },
     },
     page.column("example", false),
+    page.state,
   );
   const editor = await mountBoardEditor(host, {
     root: page.root,
@@ -115,6 +118,8 @@ export async function mountExample(page: SessionPage): Promise<Session> {
     containHistoryKeys: false,
     invalidText: INVALID,
     fileKeys: true,
+    // a browser hands the page every dropped file; a board without a repository keeps none
+    pictures: "drop",
   });
   return {
     kind: "example",
@@ -144,6 +149,7 @@ export async function mountBoard(
       },
     },
     page.column("board", startScreen),
+    page.state,
   );
   const editor = await mountBoardEditor(host, {
     root: page.root,

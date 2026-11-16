@@ -1,3 +1,4 @@
+import { WriteRefusal } from "@miragon/board-files";
 import { describe, expect, test } from "vitest";
 
 import {
@@ -39,6 +40,15 @@ async function opened(files: Record<string, string> = { [FILE]: TEA }): Promise<
 
 /** resolves once the fake VS Code and the text have nothing left on their way */
 const settled = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+/** why a write was refused, as the files server reads it: a rejection that carries its reason */
+async function refusal(write: Promise<boolean>): Promise<string> {
+  const outcome = await write.then(
+    (taken) => `resolved ${taken}`,
+    (error: unknown) => error,
+  );
+  return outcome instanceof WriteRefusal ? outcome.reason : `no refusal: ${String(outcome)}`;
+}
 
 describe("a model's text in VS Code", () => {
   test("is the text of the file's document, which the open leaves clean", async () => {
@@ -501,9 +511,71 @@ describe("a folder that turns into a link under an open text", () => {
     memory.disk.remove("/repo/models");
     memory.disk.link("/repo/models", "/outside");
     const opens = memory.calls.openTextDocument.length;
-    expect(await text.write(MINE, TEA)).toBe(false);
+    // nothing crossed this write: the file is one a board does not open any more
+    expect(await refusal(text.write(MINE, TEA))).toBe("refused");
     expect(memory.calls.openTextDocument).toHaveLength(opens);
     expect(memory.applied).toEqual([]);
+  });
+});
+
+describe("why a write is not in the file, as the page is told it", () => {
+  test("is a crossing where the document has another text: the write resolves false, before VS Code is asked and after it refused", async () => {
+    const { memory, text } = await opened();
+    expect(await text.write(MINE, "title Somebody else's\n")).toBe(false);
+    const release = memory.holdEdits();
+    const written = text.write(MINE, TEA);
+    await settled();
+    memory.type(FILE, "title Typed meanwhile\n");
+    release();
+    expect(await written).toBe(false);
+  });
+
+  test("is a refusal where VS Code takes no edit of a text nobody else changed: a file that may not be written", async () => {
+    const { memory, text, changes } = await opened();
+    // the file system turned read-only under the open text
+    memory.disk.readOnly(FILE);
+    expect(await refusal(text.write(MINE, TEA))).toBe("refused");
+    expect(memory.document(FILE)?.getText()).toBe(TEA);
+    expect(text.text()).toBe(TEA);
+    expect(changes).toEqual([]);
+  });
+
+  test("is a refusal where the file went without a word and VS Code has no document to write into", async () => {
+    const { memory, text } = await opened();
+    memory.closeDocument(FILE);
+    memory.disk.unwatched(() => memory.disk.remove(FILE));
+    expect(await refusal(text.write(MINE, TEA))).toBe("refused");
+    expect(memory.applied).toEqual([]);
+  });
+});
+
+describe("the documents a text wrote into", () => {
+  test("are told to whoever opened the text: the document of each write that landed, and of none that did not", async () => {
+    const memory = createMemoryVsCode({ [FILE]: TEA }, { workspaceFolders: ["/repo"] });
+    const wrote: string[] = [];
+    const text = await openDocumentText(memory.vscode, PATH, MemoryUri.file(FILE), (document) =>
+      wrote.push(`${document.uri.toString()} ${document.getText().split("\n")[1]}`),
+    );
+    expect(wrote).toEqual([]);
+    expect(await text.write(MINE, TEA)).toBe(true);
+    expect(wrote).toEqual(["file:///repo/models/tea.owm component Mug [0.8, 0.6]"]);
+    // a write on another text, one that is too large and one for a text that is closed: nothing
+    expect(await text.write(TEA, "title Somebody else's\n")).toBe(false);
+    await text.write(`title Tea\n${"a".repeat(TEXT_LIMIT_BYTES)}`, MINE).catch(() => undefined);
+    text.close();
+    expect(await text.write(TEA, MINE)).toBe(false);
+    expect(wrote).toHaveLength(1);
+  });
+
+  test("are the live document after VS Code let go of one: the write opens it again and names the new one", async () => {
+    const memory = createMemoryVsCode({ [FILE]: TEA }, { workspaceFolders: ["/repo"] });
+    const wrote: unknown[] = [];
+    const text = await openDocumentText(memory.vscode, PATH, MemoryUri.file(FILE), (document) =>
+      wrote.push(document),
+    );
+    memory.closeDocument(FILE);
+    expect(await text.write(MINE, TEA)).toBe(true);
+    expect(wrote).toEqual([memory.document(FILE)]);
   });
 });
 
@@ -512,7 +584,7 @@ describe("a write that would make a model larger than a board opens", () => {
 
   test("is refused before VS Code is handed an edit: the document keeps its text and stays clean", async () => {
     const { memory, text, changes } = await opened();
-    expect(await text.write(filled(TEXT_LIMIT_BYTES + 1), TEA)).toBe(false);
+    expect(await refusal(text.write(filled(TEXT_LIMIT_BYTES + 1), TEA))).toBe("too-large");
     expect(memory.applied).toEqual([]);
     expect(memory.document(FILE)).toMatchObject({ isDirty: false, version: 1 });
     expect(text.text()).toBe(TEA);
@@ -533,7 +605,7 @@ describe("a write that would make a model larger than a board opens", () => {
     const { memory, text } = await opened();
     // three bytes each: a third of the limit in letters is the limit in bytes
     const letters = Math.floor(TEXT_LIMIT_BYTES / 3);
-    expect(await text.write("\u20ac".repeat(letters + 1), TEA)).toBe(false);
+    expect(await refusal(text.write("\u20ac".repeat(letters + 1), TEA))).toBe("too-large");
     expect(memory.applied).toEqual([]);
     expect(await text.write("\u20ac".repeat(letters), TEA)).toBe(true);
   });

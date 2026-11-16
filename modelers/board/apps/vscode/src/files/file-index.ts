@@ -10,7 +10,7 @@
  * moves is one word, the folder's, and none for its files, and a watcher whose glob matches
  * files alone hears nothing of it.
  */
-import { repoPath, suffixRule } from "@miragon/board-files";
+import { repoPath, suffixRule, type FileMove } from "@miragon/board-files";
 import type { DisposableLike } from "@miragon/modeler-shell/vscode/extension";
 
 import { fileAt, pathBelow } from "./root.js";
@@ -29,6 +29,15 @@ export const LIST_REST_MS = 100;
  * all of them: a build that writes a thousand files costs one search and no thousand questions.
  */
 export const FOLDER_LOOKS = 8;
+
+/**
+ * How long the index remembers which files a watcher's word took off the list. VS Code moves
+ * the entries of one drag one after the other and says that a person renamed them after the
+ * last, so the watcher may name an earlier entry as gone before that (seen in VS Code 1.146 and
+ * 1.96 for the first of two files dragged in the Explorer, the watcher 2 and 12 ms ahead).
+ * Within this time such an entry is still a move.
+ */
+export const MOVE_MEMORY_MS = 5_000;
 
 /**
  * Left out of the search and of the list. `findFiles` reads no `.gitignore`, and the models of
@@ -55,6 +64,14 @@ export interface FileIndex {
    * `node_modules`), where the watcher names the file itself.
    */
   onFile(listener: (path: string, event: FileEvent) => void): () => void;
+  /**
+   * Files a person renamed or moved in VS Code, one move per file and by their paths from the
+   * root: every listed file at or below what was renamed, and a renamed file itself where its
+   * name is one a board shows. The moves of one gesture are one call, made before `onFile` says
+   * of any old path that its file went. A file that left the root, and one another program
+   * moved, is in no move: it went, and maybe one came.
+   */
+  onMoved(listener: (moves: readonly FileMove[]) => void): () => void;
   /** a file this host made itself: listed without waiting for the watcher's word */
   created(path: string): void;
   /** settles with the first search, whether it found the files or failed */
@@ -121,6 +138,16 @@ interface Listing {
   /** a file whose changes a text or a picture of a board hears of, listed or not */
   followed(path: string): boolean;
   listed(path: string): boolean;
+  /** a file by its name: one a board shows as a model or as a picture, wherever it lies */
+  named(path: string): boolean;
+  /** the listed files at or below a folder, or the listed file a path names */
+  below(folder: string): string[];
+  /** the watcher named `path` as gone, which took `files` off the list */
+  remember(path: string, files: readonly string[]): void;
+  /** the files the watcher's word of exactly `path` took off the list a moment ago; asked once */
+  recall(path: string): readonly string[];
+  /** files have a new path; told before `leave` says that the old ones went */
+  moved(moves: readonly FileMove[]): void;
   /** every listed file at or below a folder goes, each told; answers which they were */
   leave(folder: string): string[];
   /** the files a board lists among `found` are listed, each told once */
@@ -172,6 +199,37 @@ function folderLooks<Uri extends BoardUriLike>(
 }
 
 /**
+ * What the watcher's word took off the list a moment ago, by the path it named: kept for
+ * `MOVE_MEMORY_MS` and handed out once, to the rename event that names the same path.
+ */
+function watcherMemory(): Pick<Listing, "remember" | "recall"> & { dispose(): void } {
+  const lately = new Map<
+    string,
+    { files: readonly string[]; forget: ReturnType<typeof setTimeout> }
+  >();
+  let disposed = false;
+  const recall = (path: string): readonly string[] => {
+    const found = lately.get(path);
+    if (!found) return [];
+    clearTimeout(found.forget);
+    lately.delete(path);
+    return found.files;
+  };
+  return {
+    recall,
+    remember(path, files) {
+      recall(path);
+      if (files.length === 0 || disposed) return;
+      lately.set(path, { files, forget: setTimeout(() => lately.delete(path), MOVE_MEMORY_MS) });
+    },
+    dispose() {
+      disposed = true;
+      for (const path of [...lately.keys()]) recall(path);
+    },
+  };
+}
+
+/**
  * What the watcher names, for whatever program changed the disk. It names a file, and for a
  * folder that went or came it names the folder alone.
  */
@@ -205,9 +263,35 @@ function watching<Uri extends BoardUriLike>(
       if (path === undefined) return;
       // A folder that went is one word for every file in it.
       const left = listing.leave(path);
+      // VS Code may still say that a person renamed it: then these files moved
+      listing.remember(path, left);
       if (listing.followed(path) && !left.includes(path)) listing.tell(path, "deleted");
     }),
   ];
+}
+
+/**
+ * The files that moved with one renamed entry, by their paths from the root. VS Code names a
+ * renamed folder alone: its files are the listed ones below it, each at the same place below
+ * the new name. A file the list does not hold (a model in `node_modules`, a picture outside
+ * `assets/`) is followed where VS Code names the file itself and its name is one a board shows.
+ * Where the watcher named the entry as gone before VS Code said that a person renamed it, its
+ * files are the ones that word took off the list. Nothing moved for what left the root or came
+ * from outside it.
+ */
+function movesOf<Uri extends BoardUriLike>(
+  root: Uri,
+  listing: Listing,
+  oldUri: Uri,
+  newUri: Uri,
+): FileMove[] {
+  const from = pathBelow(root, oldUri);
+  const to = pathBelow(root, newUri);
+  if (from === undefined || to === undefined) return [];
+  const stillListed = listing.below(from);
+  const listed = stillListed.length > 0 ? stillListed : listing.recall(from);
+  const files = listed.includes(from) || !listing.named(from) ? listed : [...listed, from];
+  return files.map((path) => ({ from: path, to: to + path.slice(from.length) }));
 }
 
 /**
@@ -234,6 +318,9 @@ function gestures<Uri extends BoardUriLike>(
       }
     }),
     vscode.workspace.onDidRenameFiles(({ files }) => {
+      // The moves first, those of one gesture as one word and before any file is told to have
+      // gone: whoever follows a move is on the new path before the old one's text says so.
+      listing.moved(files.flatMap(({ oldUri, newUri }) => movesOf(root, listing, oldUri, newUri)));
       let unknown = false;
       for (const { oldUri, newUri } of files) {
         const from = placeOf(root, oldUri);
@@ -264,6 +351,7 @@ export function createFileIndex<Uri extends BoardUriLike>(
   const pictures = new vscode.RelativePattern(root, `assets/${globOf(suffixes.pictures)}`);
   const listListeners = new Set<() => void>();
   const fileListeners = new Set<(path: string, event: FileEvent) => void>();
+  const moveListeners = new Set<(moves: readonly FileMove[]) => void>();
   let paths = new Set<string>();
   let listed: readonly string[] | undefined;
   let searches = 0;
@@ -357,11 +445,20 @@ export function createFileIndex<Uri extends BoardUriLike>(
     for (const path of fresh) tellFile(path, "created");
   };
 
+  const lately = watcherMemory();
   const folders = folderLooks(vscode, root, restMs, () => void search());
   const listing: Listing = {
     listable,
     followed,
     listed: (path) => paths.has(path),
+    named: (path) => rule.model(path) || rule.picture(path),
+    below: (folder) => [...paths].filter((path) => atOrBelow(path, folder)),
+    remember: lately.remember,
+    recall: lately.recall,
+    moved(moves) {
+      if (moves.length === 0) return;
+      for (const listener of [...moveListeners]) listener(moves);
+    },
     leave,
     arrive,
     tell: tellFile,
@@ -385,6 +482,10 @@ export function createFileIndex<Uri extends BoardUriLike>(
       fileListeners.add(listener);
       return () => void fileListeners.delete(listener);
     },
+    onMoved(listener) {
+      moveListeners.add(listener);
+      return () => void moveListeners.delete(listener);
+    },
     created(path) {
       arrive([path]);
     },
@@ -392,10 +493,12 @@ export function createFileIndex<Uri extends BoardUriLike>(
     dispose() {
       disposed = true;
       clearTimeout(rest);
+      lately.dispose();
       folders.dispose();
       for (const subscription of subscriptions.splice(0)) subscription.dispose();
       listListeners.clear();
       fileListeners.clear();
+      moveListeners.clear();
     },
   };
 }
