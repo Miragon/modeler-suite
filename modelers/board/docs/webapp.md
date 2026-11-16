@@ -49,7 +49,7 @@ no drop zone: the board takes a dropped picture itself.
 - **The start.** The document of the last visit is opened again without a word (key
   `miragon-board:open`: `{ kind: "example" }` or `{ kind: "board", name?, text }`, outside the
   example's prefix, so a reset of the example leaves it). Without one the page shows the shell's
-  start screen ("Board Modeler", "Start a new diagram, or explore the example.", the Miragon mark
+  start screen ("Modeler Board", "Start a new diagram, or explore the example.", the Miragon mark
   from `public/`, New diagram, Show example and the link "Open a file…" with its key) over a new,
   empty board that is mounted already: New diagram only leaves the card and hands the board the
   keys. The sentence and the button are the shell's shared terms, so the card says "diagram" where
@@ -86,7 +86,7 @@ no drop zone: the board takes a dropped picture itself.
   so the note that is being typed is in the file, and does nothing on the start screen. The
   download's name is the opened file's, `example.board` for the example and `untitled.board` for a
   board that was made new; a toast says "Exported <name>." The page's title is
-  `<file name> · Board Modeler`, and `Board Modeler` for a board without a file.
+  `<file name> · Modeler Board`, and `Modeler Board` for a board without a file.
 - **Replacing asks nothing and offers back.** New, Open and Show example replace the open document
   at once. A board that holds an element is kept as text and offered back by a toast "Board
   replaced" with Undo, until the first change of what replaced it. The example needs no offer: its

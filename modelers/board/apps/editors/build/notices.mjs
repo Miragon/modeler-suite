@@ -629,7 +629,7 @@ function tally(packages) {
  *   product: string,
  *   files: readonly string[],
  *   outputs?: Readonly<Record<string, string>> | undefined,
- * }} build `product` as a sentence's subject ("The Board Modeler extension"), the absolute paths
+ * }} build `product` as a sentence's subject ("The Modeler Board extension"), the absolute paths
  *   of the files the bundles were made of, and the built scripts and sheets by their path in the
  *   build, in which a licence file may be named
  * @returns {{

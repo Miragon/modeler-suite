@@ -311,7 +311,7 @@ describe("the start screen", () => {
       expect(started.shown()).toBe("board");
       expect(started.editor().shell.isEmptyStateShown()).toBe(true);
       expect(startCard().hidden).toBe(false);
-      expect(one("h1", startCard()).textContent).toBe("Board Modeler");
+      expect(one("h1", startCard()).textContent).toBe("Modeler Board");
       expect(one(".cd-shell-empty-state-text", startCard()).textContent).toBe(
         "Start a new diagram, or explore the example.",
       );
@@ -345,7 +345,7 @@ describe("the start screen", () => {
       expect(store.length).toBe(0);
       expect(status()).toBeNull();
       expect(toasts()).toEqual([]);
-      expect(document.title).toBe("Board Modeler");
+      expect(document.title).toBe("Modeler Board");
     },
     READY_MS,
   );
@@ -390,7 +390,7 @@ describe("the start screen", () => {
       await expect
         .poll(() => all(".board-text__body").map((body) => body.textContent.trim()), POLL)
         .toEqual([NOTE_TEXT]);
-      expect(document.title).toBe("Board Modeler");
+      expect(document.title).toBe("Modeler Board");
     },
     READY_MS,
   );
@@ -463,7 +463,7 @@ describe("a board without a repository", () => {
       await expect
         .poll(() => all(".board-text__body").map((body) => body.textContent.trim()), POLL)
         .toEqual(["From a disk"]);
-      expect(document.title).toBe("team.board · Board Modeler");
+      expect(document.title).toBe("team.board · Modeler Board");
       expect(openIn(store)).toEqual({ kind: "board", name: "team.board", text: TEAM_BOARD });
 
       // the model: the host package's line for a file that could not be opened, then the page's
@@ -586,7 +586,7 @@ describe("a board without a repository", () => {
       expect(started.editor()).toBe(editor);
       expect(boardText()).toBe(NOTES_BOARD);
       expect(openIn(store)).toEqual({ kind: "board", name: "notes.board", text: NOTES_BOARD });
-      expect(document.title).toBe("notes.board · Board Modeler");
+      expect(document.title).toBe("notes.board · Modeler Board");
     },
     READY_MS,
   );
@@ -608,7 +608,7 @@ describe("a board without a repository", () => {
       await expect.poll(toasts, POLL).toEqual(["info: Board replaced"]);
       expect(all(".board-text")).toHaveLength(0);
       expect(openIn(store)).toBeUndefined();
-      expect(document.title).toBe("Board Modeler");
+      expect(document.title).toBe("Modeler Board");
 
       await realClick(one(".cd-shell-toast-action"));
 
@@ -616,7 +616,7 @@ describe("a board without a repository", () => {
       await started.settled();
       await expect.poll(() => all(".board-text").length, POLL).toBe(2);
       expect(openIn(store)).toEqual({ kind: "board", name: "notes.board", text: changed });
-      expect(document.title).toBe("notes.board · Board Modeler");
+      expect(document.title).toBe("notes.board · Modeler Board");
       // taking it back is no replacement of its own: nothing more is offered
       expect(toasts()).toEqual([]);
     },
@@ -653,7 +653,7 @@ describe("a board without a repository", () => {
       // the address asked for the example, and the example is what the next visit opens
       expect(started.shown()).toBe("example");
       expect(openIn(store)).toEqual({ kind: "example" });
-      expect(document.title).toBe("example.board · Board Modeler");
+      expect(document.title).toBe("example.board · Modeler Board");
       // the board this visit would have opened took no part in the request: it is offered back
       await expect.poll(toasts, POLL).toEqual(["info: Board replaced"]);
 
@@ -663,7 +663,7 @@ describe("a board without a repository", () => {
       await started.settled();
       expect(started.shown()).toBe("board");
       expect(openIn(store)).toEqual({ kind: "board", name: "notes.board", text: NOTES_BOARD });
-      expect(document.title).toBe("notes.board · Board Modeler");
+      expect(document.title).toBe("notes.board · Modeler Board");
       expect(toasts()).toEqual([]);
     },
     READY_MS + STEP_MS,
@@ -1126,7 +1126,7 @@ describe("the example", () => {
       expect(openIn(store)).toEqual({ kind: "example" });
       expect(store.length).toBe(1);
       expect(status()).toBeNull();
-      expect(document.title).toBe("example.board · Board Modeler");
+      expect(document.title).toBe("example.board · Modeler Board");
       await realClick(one('[data-chrome="menu"]'));
       await expect
         .poll(() => root.querySelector('[data-menu-id="reset-example"]')?.textContent, POLL)
@@ -1175,7 +1175,7 @@ describe("the example", () => {
       const titleBefore = "A page of its own";
       document.title = titleBefore;
       const first = await startExample(memoryStore());
-      expect(document.title).toBe("example.board · Board Modeler");
+      expect(document.title).toBe("example.board · Modeler Board");
       const element = root;
       const boardElement = one(".cd-shell-canvas");
       expect(document.documentElement.classList.contains("cd-shell-document")).toBe(true);

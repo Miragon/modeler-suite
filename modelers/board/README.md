@@ -1,4 +1,4 @@
-# Board
+# Modeler Board
 
 A board is a canvas of a repository's own files: models shown and edited in place, each saved in
 its own file, next to notes, images, groups and arrows. The board stores where a file sits, never

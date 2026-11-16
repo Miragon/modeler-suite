@@ -1285,7 +1285,7 @@ the smoke's four new parts is seen in scratch.
     before, and started again on the folder: the extension was not active. "Board: New Empty
     Board" from the Command Palette then showed the dialog "New Board" on
     `<folder>/untitled.board`, and the extension was active. File › New File… listed "Board"
-    and "New Board from Example", each with "Board Modeler" beside it (both, in a window with
+    and "New Board from Example", each with "Modeler Board" beside it (both, in a window with
     a board open; on 1.96.0 also in the fresh window before the extension was active; on
     1.146.0 the key of that list opened nothing in the fresh window). An empty board made that
     way opened in the board's editor as an empty file with its toolbar and the picker's

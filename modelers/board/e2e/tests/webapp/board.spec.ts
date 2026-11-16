@@ -130,7 +130,7 @@ test("a fresh page starts on the start screen, with the legal line and nothing k
 
   await freshPage(page);
 
-  await expect(startScreen(page).getByRole("heading", { level: 1 })).toHaveText("Board Modeler");
+  await expect(startScreen(page).getByRole("heading", { level: 1 })).toHaveText("Modeler Board");
   await expect(startScreen(page).getByRole("button")).toHaveText([
     "New diagram",
     "Show example",
@@ -149,7 +149,7 @@ test("a fresh page starts on the start screen, with the legal line and nothing k
     "Datenschutz",
     "GitHub",
   ]);
-  await expect(page).toHaveTitle("Board Modeler");
+  await expect(page).toHaveTitle("Modeler Board");
   expect(await page.evaluate(() => window.localStorage.length)).toBe(0);
   // the page's icon is a file of the public folder as well
   expect((await page.request.get("/favicon.svg")).headers()["content-type"]).toContain("image/svg");
@@ -187,7 +187,7 @@ test("the example opens with its seven models ready, its picture drawn and no pa
     .toBeGreaterThan(0);
   await expect(page.locator(".board-text")).toHaveCount(2);
   await expect(page.locator(".board-group")).toHaveCount(1);
-  await expect(page).toHaveTitle("example.board · Board Modeler");
+  await expect(page).toHaveTitle("example.board · Modeler Board");
   expect(problems).toEqual([]);
 });
 
@@ -279,7 +279,7 @@ test("Open takes a board file from the disk, from the start screen and from the 
 
   await expect(page.locator(".board-text__body", { hasText: "From a disk" })).toHaveCount(1);
   await expect(startScreen(page)).toBeHidden();
-  await expect(page).toHaveTitle("team.board · Board Modeler");
+  await expect(page).toHaveTitle("team.board · Modeler Board");
   expect(await boardText(page)).toBe(TEAM_BOARD);
   // the model is a file of the repository the board came from: its node says so
   await expect(
@@ -305,14 +305,14 @@ test("Open takes a board file from the disk, from the start screen and from the 
     toast(page, "Couldn't read “tea.owm”. Line 1 is no JSON. Check that it is a .board file."),
   ).toBeVisible();
   expect(await boardText(page)).toBe(TEAM_BOARD);
-  await expect(page).toHaveTitle("team.board · Board Modeler");
+  await expect(page).toHaveTitle("team.board · Modeler Board");
 
   // the open board is there after a reload, with the name of its file
   await page.reload();
   await expect(page.locator(".board-text__body", { hasText: "From a disk" })).toHaveCount(1, {
     timeout: MODELS_READY_MS,
   });
-  await expect(page).toHaveTitle("team.board · Board Modeler");
+  await expect(page).toHaveTitle("team.board · Modeler Board");
   expect(problems).toEqual([]);
 });
 
@@ -419,7 +419,7 @@ test("a picture dropped onto the example is a file of its repository, and is the
   await expect(page.locator(".board-drop-hint")).toHaveCount(0);
   await expect(page.locator(".board-notice", { hasText: "assets/sketch.svg" })).toHaveCount(1);
   // still the app: the browser did not leave the page for the dropped file
-  await expect(page).toHaveTitle("example.board · Board Modeler");
+  await expect(page).toHaveTitle("example.board · Modeler Board");
 
   await page.reload();
   await modelsReady(page);

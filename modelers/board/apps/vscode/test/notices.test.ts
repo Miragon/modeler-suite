@@ -92,7 +92,7 @@ describe("the notices of the extension's two production bundles", () => {
         if (/\.(cjs|js|css)$/.test(name)) texts[name] = text;
       }
     }
-    notices = use.composeNotices({ product: "The Board Modeler extension", files, outputs: texts });
+    notices = use.composeNotices({ product: "The Modeler Board extension", files, outputs: texts });
   }, 120_000);
 
   test("are whole: every licence is one the suite ships and has its text", () => {

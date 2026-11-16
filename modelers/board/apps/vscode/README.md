@@ -1,4 +1,4 @@
-# Board for VS Code
+# Modeler Board for VS Code
 
 A board is a canvas of your repository's own files. Put the models of a repository side by side,
 edit each of them in place, and add notes, pictures, groups and arrows around them. The board is

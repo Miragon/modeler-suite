@@ -161,7 +161,7 @@ export function testWebHost(options: { startScreen?: boolean | undefined } = {})
           platform: "other",
           legal: { links: [{ label: "GitHub", href: "https://github.com/Miragon/modeler-suite" }] },
           emptyState: {
-            title: "Board Modeler",
+            title: "Modeler Board",
             text: "Start a new board, or explore the example.",
             komet: MARK,
             onNewDiagram: () => undefined,

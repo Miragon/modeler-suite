@@ -100,7 +100,7 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   | Value Chain           | `schema-model`                      |
   | C4 model              | `schema-model`, `dsl`, `layout`     |
   | Business Model Canvas | `schema-model`, `dsl`               |
-  | Board                 | `schema-model`, `files`             |
+  | Modeler Board         | `schema-model`, `files`             |
 
   ESLint (`no-restricted-imports` / `no-restricted-globals`) and dependency-cruiser enforce it, so a
   violation fails `npm run <modeler> lint` and `npm run <modeler> depcruise`. Both configs come from

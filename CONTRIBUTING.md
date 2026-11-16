@@ -119,7 +119,7 @@ the port).
 | Value Chain           | plain Vite: `http://localhost:5181`                   | (no Portless)           |
 | C4 model              | `https://<branch>.c4.localhost`                       | `http://127.0.0.1:5182` |
 | Business Model Canvas | plain Vite: `http://localhost:5183`                   | (no Portless)           |
-| Board                 | plain Vite: `http://localhost:5184`                   | (no Portless)           |
+| Modeler Board         | plain Vite: `http://localhost:5184`                   | (no Portless)           |
 
 The HTTPS URLs need Portless's proxy, installed once per machine (asks for `sudo`):
 `npx portless trust` and `npx portless service install`. `npm run <modeler> dev:vscode`

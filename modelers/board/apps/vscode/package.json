@@ -2,7 +2,7 @@
   "name": "board-modeler",
   "private": true,
   "version": "0.0.0",
-  "displayName": "Board Modeler",
+  "displayName": "Modeler Board",
   "description": "View and edit boards directly in VS Code: a canvas of a repository's own files, with its models edited in place, as plain-text *.board files.",
   "publisher": "miragon-gmbh",
   "preview": true,

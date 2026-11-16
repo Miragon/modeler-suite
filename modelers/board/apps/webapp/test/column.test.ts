@@ -65,7 +65,7 @@ describe("the shell's web column for a board", () => {
     const on = actions();
     const { emptyState } = webColumn("board", true, PAGE, on);
 
-    expect(emptyState.title).toBe("Board Modeler");
+    expect(emptyState.title).toBe("Modeler Board");
     expect(emptyState.text).toBe("Start a new diagram, or explore the example.");
     expect(emptyState.komet).toBe("/mark.svg");
     expect(emptyState.dropHint).toBeUndefined();

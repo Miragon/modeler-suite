@@ -30,7 +30,7 @@ export default defineConfig({
   resolve: { alias: [...cssBaseAliases, ...sourceAliases] },
   // A production build writes its third-party notices from what it bundled and fails when they are
   // not whole; the check reads the source maps for what is in the build.
-  plugins: [modeMarkup(), noticesPlugin({ product: "The Board Modeler web app" })],
+  plugins: [modeMarkup(), noticesPlugin({ product: "The Modeler Board web app" })],
   // A notation loads when a node first shows it. What its renderer imports is bundled up front:
   // met only then, the dev server would bundle it and reload the page under an open board.
   optimizeDeps: { include: prebundle },

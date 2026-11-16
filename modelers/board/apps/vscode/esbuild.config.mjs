@@ -93,7 +93,7 @@ export function bundleOptions({ production }) {
  */
 function writeNotices(results) {
   const { written, problems } = writeBundleNotices({
-    product: "The Board Modeler extension for VS Code",
+    product: "The Modeler Board extension for VS Code",
     outdir: resolve(here, "dist"),
     metafiles: results.flatMap(({ metafile }) => (metafile === undefined ? [] : [metafile])),
     workingDirectory: here,

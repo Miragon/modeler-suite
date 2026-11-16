@@ -7,7 +7,7 @@ import { BOARD_EXPORT_LABEL } from "board-ide-editor";
 import { RESET_LABEL, type Session } from "./session.js";
 import type { WebColumn } from "./web-host.js";
 
-export const APP_NAME = "Board Modeler";
+export const APP_NAME = "Modeler Board";
 const REPOSITORY_URL = "https://github.com/Miragon/modeler-suite/tree/main/modelers/board";
 // The suite's one sentence, with the word of the button beside it.
 const START = "Start a new diagram, or explore the example.";
