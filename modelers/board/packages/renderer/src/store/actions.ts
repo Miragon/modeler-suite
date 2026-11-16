@@ -419,6 +419,16 @@ export function checkImage(file: ImageFile): ImageCheck {
   return { ok: true, extension, type: IMAGE_TYPES[extension] ?? file.type };
 }
 
+/** `text` without the dashes and dots at its two ends */
+function withoutEdgeMarks(text: string): string {
+  const mark = (index: number): boolean => text[index] === "-" || text[index] === ".";
+  let start = 0;
+  let end = text.length;
+  while (start < end && mark(start)) start++;
+  while (end > start && mark(end - 1)) end--;
+  return text.slice(start, end);
+}
+
 /**
  * The repository path a new image gets: `assets/<name>`, the name reduced to letters, digits,
  * dot, dash and underscore, and numbered when the path is taken (an image never replaces a file).
@@ -431,12 +441,12 @@ export function assetPath(
   const base = name.slice(Math.max(name.lastIndexOf("/"), name.lastIndexOf("\\")) + 1);
   const dot = base.lastIndexOf(".");
   const stem =
-    (dot > 0 ? base.slice(0, dot) : base)
-      .normalize("NFKD")
-      .replace(/[^A-Za-z0-9._-]+/g, "-")
-      .replace(/-{2,}/g, "-")
-      .replace(/^[-.]+|[-.]+$/g, "")
-      .toLowerCase() || "image";
+    withoutEdgeMarks(
+      (dot > 0 ? base.slice(0, dot) : base)
+        .normalize("NFKD")
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/-{2,}/g, "-"),
+    ).toLowerCase() || "image";
   for (let count = 1; ; count++) {
     const path = `${ASSET_FOLDER}/${stem}${count === 1 ? "" : `-${count}`}${extension}`;
     if (!taken(path)) return path;

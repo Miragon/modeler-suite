@@ -191,7 +191,7 @@ export function wheelChangesZoom(
 
 /** a CSS time ("250ms", "0.25s", "0") in ms; null for anything else */
 export function parseDuration(token: string): number | null {
-  const match = /^\s*(\d*\.?\d+)\s*(ms|s)?\s*$/.exec(token);
+  const match = /^(\d+(?:\.\d+)?|\.\d+)\s*(ms|s)?$/.exec(token.trim());
   if (!match) return null;
   const value = Number(match[1]);
   if (!Number.isFinite(value)) return null;
@@ -220,7 +220,7 @@ const linear = (t: number): number => Math.min(1, Math.max(0, t));
 
 /** a CSS easing token as a function; anything but a cubic-bezier() with x inside 0 to 1 eases linearly */
 export function parseEase(token: string): (t: number) => number {
-  const match = /^\s*cubic-bezier\(\s*([^)]*)\)\s*$/.exec(token);
+  const match = /^cubic-bezier\(([^)]*)\)$/.exec(token.trim());
   if (!match) return linear;
   const parts = (match[1] ?? "").split(",").map((part) => Number(part.trim()));
   const [x1, y1, x2, y2] = parts;

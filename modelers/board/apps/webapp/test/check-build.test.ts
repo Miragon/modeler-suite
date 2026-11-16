@@ -17,11 +17,15 @@ const PAGE_SHEET = [
   ".cd-shell .board-root .board-toolbar{margin-left:var(--cd-shell-frei)}",
 ].join("");
 
+/** the script the build writes for the contrast mode */
+const CONTRAST_SCRIPT =
+  '<script>if (window.matchMedia("(prefers-contrast: more)").matches) document.documentElement.setAttribute("data-cd-kontrast", "hoch");</script>';
+
 const HTML = [
   '<html lang="en" class="cd-shell-document" data-cd-theme="light"><head>',
   '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
   '<meta name="theme-color" content="#335DE5">',
-  '<script>if (window.matchMedia("(prefers-contrast: more)").matches) document.documentElement.setAttribute("data-cd-kontrast", "hoch");</script>',
+  CONTRAST_SCRIPT,
   '<link rel="stylesheet" crossorigin href="/assets/index-a1.css">',
   "</head></html>",
 ].join("");
@@ -118,7 +122,7 @@ describe("buildProblems", () => {
 
   test("a page whose mode markup the build did not write", () => {
     const marker = HTML.replace(/<meta name="theme-color"[^>]*>/, "<!-- miragon-mode -->").replace(
-      /<script>.*<\/script>/,
+      CONTRAST_SCRIPT,
       "",
     );
 

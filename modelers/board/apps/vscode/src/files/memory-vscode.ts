@@ -313,7 +313,7 @@ export function globToRegExp(glob: string): RegExp {
       source += ")";
       groups -= 1;
     } else if (char === "," && groups > 0) source += "|";
-    else source += char.replace(/[.+^$()|[\]{}\\]/, "\\$&");
+    else source += char.replace(/[.+^$()|[\]{}\\]/g, "\\$&");
   }
   return new RegExp(`^${source}$`);
 }
