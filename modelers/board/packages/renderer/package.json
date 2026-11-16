@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-renderer",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "View and edit a board in the browser: a canvas of a repository's own files that implements @miragon/modeler-api.",
   "license": "MIT",
@@ -21,7 +21,7 @@
     "test:browser": "npm --prefix ../.. run test:browser"
   },
   "dependencies": {
-    "@miragon/board-schema-model": "0.0.0",
+    "@miragon/board-schema-model": "0.1.0",
     "@miragon/modeler-api": "1.7.0",
     "@xyflow/react": "12.12.1",
     "dompurify": "3.4.17",

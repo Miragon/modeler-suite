@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-files",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The files of a repository as a board reads and writes them: the port, the message protocol between a page and its host, a client, a server that checks every path, and a memory backend.",
   "license": "MIT",

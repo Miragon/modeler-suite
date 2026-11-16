@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-schema-model",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "The board document model: the file format (one JSON line per element), its strict reader, the elements of a board and what a canvas draws of them.",
   "license": "MIT",
