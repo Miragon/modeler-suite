@@ -121,9 +121,12 @@ and the list of works copied into sources of the suite). After a change of a dep
 legal comment in any modeler's renderer, run `npm run board build:webapp` with its `check:build`
 and `npm run board package:vscode`.
 
-The extension's icon is the Miragon comet on blue until the Miragon modeler icon set has a board
-icon. Never draw, recolour or scale an icon here: copy it from the set in
-Miragon/corporate-identity and replace the checksum in `apps/vscode/test/papers.test.ts`.
+The extension's icon is a board on its stand with two cards, drawn in the icon system of the
+suite's modelers (the blue tile, a white stroke of 2 on a grid of 24, one green accent) on the
+owner's word, since the Miragon modeler icon set had no board icon. Its source is
+`apps/vscode/icon.svg`, which the VSIX leaves out. After a change, render it to `icon.png` at
+256 x 256 on a transparent ground and replace the checksum in `apps/vscode/test/papers.test.ts`.
+The web app's `public/favicon.svg` is the same drawing on the grid of 24.
 
 ## Design tokens
 
