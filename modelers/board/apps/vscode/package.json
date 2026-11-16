@@ -39,6 +39,30 @@
     "onCustomEditor:board.boardEditor"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "board",
+        "aliases": [
+          "Board",
+          "board"
+        ],
+        "extensions": [
+          ".board"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/icons/board-light.svg",
+          "dark": "./media/icons/board-dark.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "board",
+        "scopeName": "source.board",
+        "path": "./syntaxes/board.tmLanguage.json"
+      }
+    ],
     "customEditors": [
       {
         "viewType": "board.boardEditor",

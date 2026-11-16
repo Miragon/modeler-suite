@@ -45,7 +45,8 @@ bundle: no React, no renderer, no diagram-js, none of the seven modelers. With t
 increment `registerBoardEditor` also makes the board's entries in the Problems view, registers
 the three commands and gives each open board the part that saves its models with it; all of it
 is one disposable in `context.subscriptions`. The manifest contributes the commands, their menu
-entries, one setting and a walkthrough, and keeps its one activation event: VS Code activates an
+entries, one setting, a walkthrough and the language `board` for `*.board` with the board's file
+icon, and keeps its one activation event: VS Code activates an
 extension for a command it contributes. `vscode` itself is imported by `extension.ts`,
 `boardEditor.ts`, `commands.ts` and `diagnostics.ts` alone; everything else runs on the
 structural type, against the fake (`test/host-rules.test.ts`).
@@ -593,7 +594,14 @@ Everything else of the page is `board-ide-editor`, the shell and `board-suite-ed
   Business Model Canvas and C4 arrived without a CHANGELOG. `icon.png` is a board on its
   stand with two cards (256 x 256), rendered from `icon.svg`, which the VSIX leaves out: drawn in
   the icon system of the suite's modelers on the owner's word, since the Miragon modeler icon set
-  has no board icon. The manifest
+  has no board icon. The file icon in VS Code's Explorer and on an editor's tab is the same
+  drawing without its tile, in `media/icons/board-light.svg` and `board-dark.svg`, coloured as
+  the set colours its file icons (in light themes the outline `#1D1D1D` and the green card blue,
+  since green on white reaches 1.67:1). VS Code gives a file its icon only through a language,
+  and a custom editor has no icon field, so the manifest contributes the language `board` for
+  `*.board`, with a grammar that includes `source.json` and JSON's brackets: the text that Open
+  Source to the Side shows is highlighted as JSON. The icon is not hung on `json`, which would
+  mark every JSON file of a workspace. The manifest
   names it and carries the banner every extension of the suite has (`#335DE5`, dark).
   `test/papers.test.ts` holds all of it, the icon by its checksum and the README's silence on a
   marketplace by its words. Nobody has looked at the icon or the README in a real Extensions view.
@@ -1551,7 +1559,7 @@ setting across a reloaded window; and everything on macOS and Windows.
 The two projects and their rules are under [Tests](../CLAUDE.md#tests). This part's files:
 
 - `npm run board test`, the unit project:
-  - `apps/vscode/test` (24 files, 451 tests). The host half: the fake VS Code held to what it
+  - `apps/vscode/test` (24 files, 460 tests). The host half: the fake VS Code held to what it
     claims (`memory-vscode`, with its saves, commands and diagnostics, the one line break of a
     document, what the watchers hear of a move and of a drag, and how a document says that it
     turned unsaved or clean, also when its file is renamed), the root rule and the
@@ -1577,7 +1585,8 @@ The two projects and their rules are under [Tests](../CLAUDE.md#tests). This par
     bundle held against the folder and written around a board file (`example`), the production
     host bundle built in memory and activated with nothing but `vscode` and Node, with the
     manifest's commands registered and the example written from inside it (`bundle`), the
-    manifest with its commands, setting and walkthrough and the VSIX's ignore file
+    manifest with its commands, setting and walkthrough, the language with the file icon (its two
+    glyphs held against `icon.svg` and the web app's favicon) and the VSIX's ignore file
     (`contributions`), what the host's sources must not do (`host-rules`: no module of Node, no
     `fsPath`, a save in `saveModels.ts` alone, `writeFile` only for a new picture and the
     example, `vscode` imported only where the extension is registered) and the mock's identity

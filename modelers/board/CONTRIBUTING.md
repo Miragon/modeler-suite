@@ -126,7 +126,11 @@ suite's modelers (the blue tile, a white stroke of 2 on a grid of 24, one green 
 owner's word, since the Miragon modeler icon set had no board icon. Its source is
 `apps/vscode/icon.svg`, which the VSIX leaves out. After a change, render it to `icon.png` at
 256 x 256 on a transparent ground and replace the checksum in `apps/vscode/test/papers.test.ts`.
-The web app's `public/favicon.svg` is the same drawing on the grid of 24.
+The web app's `public/favicon.svg` is the same drawing on the grid of 24, and so are the file
+icons in `apps/vscode/media/icons/`: `board-dark.svg` the drawing without its tile as it is,
+`board-light.svg` with the outline and the white card in `#1D1D1D` and the green card in
+`#335DE5`. A change of the drawing goes into each of them; `apps/vscode/test/contributions.test.ts`
+holds the favicon and the file icons against `icon.svg`.
 
 ## Design tokens
 
