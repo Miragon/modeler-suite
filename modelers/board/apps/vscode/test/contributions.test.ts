@@ -77,7 +77,7 @@ describe("the extension's manifest", () => {
     expect(manifest.activationEvents).toEqual([`onCustomEditor:${BOARD_VIEW_TYPE}`]);
   });
 
-  test("carries the working names of a preview that is not published from here", () => {
+  test("carries the names it is published under, as a preview", () => {
     expect(manifest).toMatchObject({
       name: "board-modeler",
       publisher: "miragon-gmbh",

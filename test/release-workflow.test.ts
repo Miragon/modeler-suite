@@ -155,7 +155,7 @@ function extensionOf(modeler: string): ExtensionManifest {
  * The modelers `HELD_BACK` of the plan script names. The pull request that makes one public takes
  * it off both lists, and the cases that run once per held modeler go with it.
  */
-const HELD_BACK = ["board"];
+const HELD_BACK: string[] = [];
 
 describe("the release plan", () => {
   it("publishes the extension of a modeler whose component released", () => {

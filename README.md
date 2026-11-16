@@ -49,14 +49,13 @@ covers its features, its file format and its npm packages.
 > [Miragon Modeler Collection](https://marketplace.visualstudio.com/items?itemName=miragon-gmbh.miragon-modeler-collection)
 > in VS Code and open any of the files above: the modeler opens as a custom editor.
 
-### In progress: the board
+### A preview: the board
 
 [The board](modelers/board/README.md) is an eighth modeler: a canvas of a repository's own files
 (`.board`), on which the models above are shown and edited in place, each saved in its own file,
-next to notes, images, groups and arrows. It is not released yet: there is no public web app, its
-VS Code extension is on no marketplace and not in the extension pack, and it has no Orca plugin.
-The suite's releases [hold it back](docs/ci-and-releases.md#a-modeler-that-is-held-back) until the
-pull request that makes it public.
+next to notes, images, groups and arrows. Its VS Code extension, **Modeler Board**
+(`miragon-gmbh.board-modeler`), is a preview that the board's releases publish. It is not in the
+extension pack yet, there is no public web app, and it has no Orca plugin.
 
 ## With your AI assistant
 

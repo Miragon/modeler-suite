@@ -7,7 +7,7 @@ the board. Each of the seven is one notation on
 [diagram-js](https://github.com/bpmn-io/diagram-js) (MIT): DOM-free model packages, a renderer, a
 web app and a VS Code extension. The board is a canvas of a repository's own files on
 [React Flow](https://github.com/xyflow/xyflow) (MIT) that shows the models of the seven in place;
-it is **in progress and unpublished**. One npm workspace, one lockfile, one pre-commit hook; every
+it is **a preview, in progress**. One npm workspace, one lockfile, one pre-commit hook; every
 package keeps its own version, npm name and extension id.
 
 The rules below hold everywhere. **Before working in a modeler, read its `CLAUDE.md`** for what is
@@ -26,7 +26,7 @@ special to its notation (packages, DSL or file format, renderer architecture, te
 | `modelers/value-chain`            | Value Chain, `.vc` / `.vc.json`                                                                                                                                                  | [CLAUDE.md](modelers/value-chain/CLAUDE.md)                                                                                                           |
 | `modelers/c4`                     | C4 model, `.c4` / `.dsl` (Structurizr DSL, read and written losslessly)                                                                                                          | [CLAUDE.md](modelers/c4/CLAUDE.md)                                                                                                                    |
 | `modelers/business-model-canvas`  | Business Model Canvas, `.bmc` (YAML: the nine blocks and their stickies)                                                                                                         | [CLAUDE.md](modelers/business-model-canvas/CLAUDE.md)                                                                                                 |
-| `modelers/board`                  | The board, `.board` (one JSON line per element), on React Flow: a canvas of a repository's own files. **In progress, unpublished**                                               | [CLAUDE.md](modelers/board/CLAUDE.md)                                                                                                                 |
+| `modelers/board`                  | The board, `.board` (one JSON line per element), on React Flow: a canvas of a repository's own files. **A preview, in progress**                                                 | [CLAUDE.md](modelers/board/CLAUDE.md)                                                                                                                 |
 | `extensions/modeler-collection`   | the VS Code extension pack of every published Miragon modeler, `miragon-modeler-collection`                                                                                      | `test/modeler-collection.test.ts`                                                                                                                     |
 | `plugins/modeler-kit`             | Claude plugin: the `new-modeler` skill and its template                                                                                                                          | [README](plugins/modeler-kit/README.md)                                                                                                               |
 | `.claude-plugin/marketplace.json` | the suite's one Claude plugin marketplace (`modeler-suite`)                                                                                                                      |                                                                                                                                                       |
@@ -191,11 +191,12 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   `build`, `test` and `refactor` release nothing. Never bump a version or edit a `CHANGELOG.md` by
   hand. Workflows, publishing (npm, VS Code Marketplace, Open VSX, the web apps) and how to add a
   package are in [docs/ci-and-releases.md](docs/ci-and-releases.md).
-- **The board is held back from publishing.** `HELD_BACK` in `.github/scripts/release-plan.mjs`
-  names it, so a release tags its components and publishes nothing of it: no npm package, no
-  extension on a marketplace, no Orca plugin. The hold ends only with the pull request that makes
-  the board public and takes it off that list, which the owner decides: never edit the list in
-  passing ([docs/ci-and-releases.md](docs/ci-and-releases.md#a-modeler-that-is-held-back)).
+- **A modeler can be held back from publishing; none is today.** `HELD_BACK` in
+  `.github/scripts/release-plan.mjs` names a modeler that is on `main` before it is public: a
+  release then tags its components and publishes nothing of it, no npm package, no extension on a
+  marketplace, no Orca plugin. The board stood there until the owner made it public. Putting a
+  modeler on that list or taking it off is the owner's decision: never edit the list in passing
+  ([docs/ci-and-releases.md](docs/ci-and-releases.md#a-modeler-that-is-held-back)).
 - Every new `@deprecated` gets an issue that names its target version as a number, filed by the
   pull request that adds it ([CONTRIBUTING.md](CONTRIBUTING.md#releases)).
 

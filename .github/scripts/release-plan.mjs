@@ -25,7 +25,7 @@ const workspaces = Object.keys(readJson("package-lock.json").packages).filter(
 // A modeler leaves this list in the pull request that makes it public, and in no other: that
 // edit is the decision to publish, and the next release of its components carries it out.
 // test/release-workflow.test.ts names the same modelers and changes with this list.
-const HELD_BACK = new Set(["board"]);
+const HELD_BACK = new Set([]);
 
 // The workflow also passes --all when a release names no path. Inside a workflow run the hold
 // therefore gives way to the dry_run input alone, which the event's payload carries.

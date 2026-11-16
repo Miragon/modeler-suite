@@ -66,7 +66,8 @@ npm run board package:vscode # writes modelers/board/apps/vscode/board-modeler.v
 code --install-extension modelers/board/apps/vscode/board-modeler.vsix
 ```
 
-A preview, built from this branch and not published; it needs VS Code 1.96 or later. A `.board`
+A preview, published as **Modeler Board** (`miragon-gmbh.board-modeler`) with the board's
+releases; it needs VS Code 1.96 or later. A `.board`
 file opens in a custom editor inside the suite's shell: a menu with the keyboard shortcuts, the
 zoom panel, and a status box that names the line while the text is no valid board. The board file
 is VS Code's own text document, so undo, save, Git and a text editor beside the board work as for
