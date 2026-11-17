@@ -27,9 +27,14 @@ board deviates from the suite's rules is under Tests in `CLAUDE.md` (the kit's p
 The apps are `apps/editors` (the seven modelers of the suite as editors of model nodes, and the
 build helpers; the one workspace that imports another modeler), `apps/ide-editor` (the board inside
 the shell, handed its editors), `apps/vscode` (the extension: a host half that runs in Node and a
-webview half), `apps/webapp` and `e2e`. Every workspace is private and nothing goes to npm. The
-packages export their source, and the tests take the other modelers from their sources too, so
-there is nothing to build before the tests but the shared packages.
+webview half), `apps/webapp` and `e2e`. Two packages are public and go to npm with a release,
+`schema-model` (`@miragon/board-schema-model`) and `renderer` (`@miragon/board-renderer`, whose
+four shared libraries, `yjs`, `react`, `react-dom` and `@xyflow/react`, are ranged peers);
+`files`, `host` and every app stay private. The two public packages export their `dist`, the
+others their source, and every check reads all of them from their sources (the `paths` of
+`tsconfig.base.json`, `apps/editors/build/aliases.mjs`), as the tests take the other modelers from
+their sources too, so there is nothing to build before the tests but the shared packages.
+`npm run board build` builds the two `dist` folders, then runs the type check.
 
 ## Inner loop
 
@@ -151,7 +156,11 @@ A change under another modeler's `packages/` or `example/`, or to its `apps/vsco
 runs the board's CI jobs as well, because the board bundles those packages and reads those files.
 The board has eight release components (`board-schema-model`, `-renderer`, `-files`, `-host`,
 `-editors`, `-ide-editor`, `-vscode`, `-webapp`); a release tags them and publishes the
-extension to the VS Code Marketplace and Open VSX, and nothing else: nothing goes to npm. The
+extension to the VS Code Marketplace and Open VSX, and `@miragon/board-schema-model` and
+`@miragon/board-renderer` to npm: the release job runs `npm run board build` and packs each with
+`npm pack`. Neither package is on npm yet, and the first publish of a new name is a maintainer's
+step by hand
+([CI and releases](../../docs/ci-and-releases.md#the-first-release-of-a-new-npm-package)). The
 board was held back through its first release (`HELD_BACK` in `.github/scripts/release-plan.mjs`,
 [CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)), so 0.1.0 was
 tagged and never published. Never edit that list in passing: it is the owner's. Never bump a version

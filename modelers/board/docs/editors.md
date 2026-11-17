@@ -52,13 +52,15 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
   text that differs only in formatting or comments with `rebaseText`, which empties its history.
 - **The build helpers (`build/`)**, for Vite, Vitest and esbuild. `aliases.mjs` reads the folders
   under `modelers/*/packages` and maps each package name to its `src/index.ts`, every exported
-  subpath of a package before the package (39 entries over 27 packages), so that no other modeler
-  is built first. `prebundle.mjs` names every third-party module those sources load (82), for
-  `optimizeDeps.include`: a dependency Vite meets only when a notation loads would reload the page
-  in the middle of a run or of an edit. `css-base.mjs` is under
-  [Stylesheet and theme files](renderer.md#stylesheet-and-theme-files). A new package under any modeler's
-  `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching path, or
-  `aliases.sync.test.ts` fails for a change made in another modeler.
+  subpath of a package before the package (39 entries over 27 packages), so that no other modeler is
+  built first. A `dist` export is mapped back to its source, the board's two public packages
+  (`@miragon/board-schema-model`, `@miragon/board-renderer` with its `board.css`) among them, so the
+  board's own `dist` is never read either. `prebundle.mjs` names every third-party module those
+  sources load (82), for `optimizeDeps.include`: a dependency Vite meets only when a notation loads
+  would reload the page in the middle of a run or of an edit. `css-base.mjs` is under
+  [Stylesheet and theme files](renderer.md#stylesheet-and-theme-files). A new package under any
+  modeler's `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching
+  path, or `aliases.sync.test.ts` fails for a change made in another modeler.
 - **`webviewBundle` (`build/esbuild.mjs`)** is the set of esbuild options the VS Code webview is
   bundled with: every package of the suite from its source (`esbuildAlias`), the base-once plugin,
   the automatic JSX runtime, React's production build in a watch build too

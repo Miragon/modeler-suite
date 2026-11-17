@@ -147,11 +147,11 @@ Still to come before this is a modeler like the others:
 
 The suite's root tests pass with this folder in the tree: until the extension is on a marketplace,
 `test/modeler-collection.test.ts` lists the board as pending its first publish, so the extension
-pack leaves it out. The suite's releases hold the board back: they tag its components and publish
-nothing of it until the pull request that makes it public
-([CI and releases](../../docs/ci-and-releases.md#a-modeler-that-is-held-back)). Nothing of the
-board is published, and no CI run has seen this branch yet: its jobs were run on one machine, in
-the form that machine allows.
+pack leaves it out. A release of the suite publishes the extension and two of the board's
+packages, [`@miragon/board-schema-model`](packages/schema-model/) and
+[`@miragon/board-renderer`](packages/renderer/), to npm; the other workspaces stay private, and
+the web app and the extension bundle the packages from source
+([CI and releases](../../docs/ci-and-releases.md)). Neither package is on npm yet.
 
 [`CLAUDE.md`](CLAUDE.md) says what is in the tree and what must not change in passing, and names
 the document of each part under [`docs/`](docs/);

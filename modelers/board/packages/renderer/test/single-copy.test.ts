@@ -4,8 +4,10 @@ import { describe, expect, it } from "vitest";
 /**
  * The board shares these libraries with whoever mounts it, and each works only as one copy: the
  * store tells its elements by `instanceof Y.Map`, a second React has hooks of its own, and a
- * second React Flow a store the board's parts cannot read. This modeler publishes nothing, so no
- * ranged peer lets a host dedupe them: the lockfile must install exactly the root's copy.
+ * second React Flow a store the board's parts cannot read. A host of the published renderer
+ * dedupes them through its ranged peers (`peer-dependencies.sync.test.ts`); the board's own apps
+ * bundle the renderer from source, where no peer range is read: the lockfile must install exactly
+ * the root's copy.
  */
 const SHARED = ["yjs", "react", "react-dom", "@xyflow/react"] as const;
 const MODELER = "modelers/board";

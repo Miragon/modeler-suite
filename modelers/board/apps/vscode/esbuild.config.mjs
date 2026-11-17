@@ -6,9 +6,10 @@
 // and, written from what went into the two, dist/THIRD_PARTY_NOTICES.md with every licence file
 // a bundle names beside it.
 //
-// Both are built from source. The board's packages export their TypeScript, and the webview
-// takes the other modelers' packages from their sources too (board-suite-editors/build), so no
-// modeler is built first. @miragon/modeler-shell comes from its dist in both bundles.
+// Both are built from source, so no modeler is built first. The webview takes every package of
+// the suite from its source (board-suite-editors/build). The host half takes the board's schema
+// model, which exports its dist for npm, from its source through the paths of the board's
+// tsconfig, which esbuild reads. @miragon/modeler-shell comes from its dist in both bundles.
 import * as esbuild from "esbuild";
 import { readFileSync, realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";

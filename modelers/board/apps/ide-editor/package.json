@@ -18,7 +18,11 @@
     "@miragon/board-host": "0.1.0",
     "@miragon/board-renderer": "0.1.0",
     "@miragon/board-schema-model": "0.1.0",
-    "@miragon/modeler-shell": "0.14.2"
+    "@miragon/modeler-shell": "0.14.2",
+    "@xyflow/react": "12.12.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "typescript": "6.0.3"

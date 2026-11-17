@@ -201,8 +201,12 @@
     "@miragon/board-renderer": "0.1.0",
     "@miragon/board-schema-model": "0.1.0",
     "@miragon/modeler-shell": "0.14.2",
+    "@xyflow/react": "12.12.1",
     "board-ide-editor": "0.1.0",
-    "board-suite-editors": "0.1.0"
+    "board-suite-editors": "0.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "yjs": "13.6.33"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

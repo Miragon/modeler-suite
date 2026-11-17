@@ -92,6 +92,17 @@ the specification). Without any of them the board is one of notes, groups and ar
     the Done control is off and an undo brings the node back as a preview. The id is cleared with
     React's commit of the removal, not inside the document's transaction: whoever asks right
     after a write asks `runtime.isModel(armedId)` too.
+  - The end of the board: `destroy()` returns before any of this, since the canvas unmounts a
+    microtask later. `board.unmounted` resolves once it is through: the canvas is gone and every
+    editor has had its `destroy()`, an armed one its `release()` before. An `open()` whose promise
+    is still out when the board goes is waited for, and the editor it brings is destroyed as it
+    comes, before the signal: the overlay surface tells the runtime of every `open()` it makes and
+    of the end of its answer (`askEditor()`), and the factory settles the signal once
+    `editorsAnswered()` resolves after the unmount. So the board calls no editor after it. It
+    settles once, also when `destroy()` comes again and for a board that never mounted, and never
+    rejects; it stays pending for as long as a promise of `open()` does. A host that ends what
+    its editors were bound to (a live session, a files port) awaits it first;
+    `apps/ide-editor` still waits one microtask after `destroy()` in its place.
   - `context.relocate(path)` is nobody's gesture. It writes the node's new path through
     `store.amend`: one change that `onContentChanged` reports and that is on no history, so an
     undo afterwards takes back the gesture before it and leaves the new path. A new path is no
@@ -364,3 +375,37 @@ pointer and pan parts also at a device pixel ratio of 1.25 and 2.
   control, the eight copies; `sheets.browser.test.ts` and
   `sheets.context-maps-last.browser.test.ts` hold the computed `flex` with Context Maps loaded
   first and last, a page each. The board itself still vendors no `cd-canvas.css`.
+
+## The published build
+
+`@miragon/board-renderer` is one of the board's two public packages (the other is the schema
+model, built by tsup into an ES module, a CommonJS module and their types). Its `exports` point to
+`dist`, which `npm run board build` writes with `vite build` (`packages/renderer/vite.config.ts`)
+after the schema model's; the board's own apps and checks never read it.
+
+- **One ES entry and its chunks.** `dist/index.js` is the entry. Every part `canvas/board.tsx`
+  loads through `React.lazy` (the four node types, both edge types, the toolbar, the board
+  gestures, the presence layer) is a chunk of its own, and so are the modules they share.
+  `markdown-it` and `dompurify` stay `import()`s of their own names, so a host's bundler keeps them
+  lazy as well: a page of a host that bundled the packed package loads both only with the first
+  note.
+- **Nothing third-party in the scripts.** The peers (`yjs`, `react`, `react-dom`,
+  `@xyflow/react`), `react/jsx-runtime`, `react-dom/client` and the package's own dependencies are
+  external, read from the manifest. A build whose chunks hold a module from `node_modules` fails.
+- **One sheet.** In source the entry imports `assets/board.css`; the build takes it out into
+  `dist/board.css` with every `@import` inlined (the tokens in the layer `board-tokens`, React
+  Flow's sheet, the base in the layer `board-base`), and `dist/index.js` imports no sheet. A host
+  imports `@miragon/board-renderer/assets/board.css` once itself, and declares `*.css` modules,
+  or takes a bundler's client types, for that import under TypeScript 6 (TS2882).
+- **The notices.** The build copies `THIRD_PARTY_NOTICES.md` into `dist` (React Flow's sheet, the
+  preflight of Tailwind CSS) and fails when the sheet takes a file of a package that file does not
+  name. Lightning CSS keeps a legal comment only at the top of a sheet, so the build puts the
+  legal comments of the inlined sheets, the preflight's, at the top of `dist/board.css`.
+  `test/notices.test.ts` holds the file's texts against the installed licence of each package the
+  sheet imports and against the legal comment.
+- **Declarations.** `vite-plugin-dts` writes one `.d.ts` per source file, without maps. The `paths`
+  of `tsconfig.base.json`, which take `@miragon/board-schema-model` from its source for every check,
+  are left out there: a declaration imports the schema model by its name, from its `dist`, as a
+  host resolves it, so the schema model is built first. A declaration that does not type-check
+  fails the build. The declarations a host reaches from `index.d.ts` name `yjs`,
+  `@miragon/modeler-api` and `@miragon/board-schema-model` and no React type.

@@ -1,21 +1,37 @@
 {
   "name": "@miragon/board-renderer",
   "version": "0.1.0",
-  "private": true,
   "description": "View and edit a board in the browser: a canvas of a repository's own files that implements @miragon/modeler-api.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miragon/modeler-suite.git",
+    "directory": "modelers/board/packages/renderer"
+  },
+  "homepage": "https://github.com/Miragon/modeler-suite/tree/main/modelers/board/packages/renderer#readme",
+  "bugs": "https://github.com/Miragon/modeler-suite/issues",
   "type": "module",
   "sideEffects": [
     "**/*.css"
   ],
   "exports": {
-    ".": "./src/index.ts",
-    "./assets/board.css": "./src/assets/board.css",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./assets/board.css": "./dist/board.css",
     "./package.json": "./package.json"
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "build": "vite build",
     "typecheck": "tsc -p tsconfig.json",
     "test": "npm --prefix ../.. run test",
     "test:browser": "npm --prefix ../.. run test:browser"
@@ -23,15 +39,22 @@
   "dependencies": {
     "@miragon/board-schema-model": "0.1.0",
     "@miragon/modeler-api": "1.7.0",
-    "@xyflow/react": "12.12.1",
     "dompurify": "3.4.17",
     "lucide-react": "1.70.0",
-    "markdown-it": "15.0.3",
-    "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "yjs": "13.6.33"
+    "markdown-it": "15.0.3"
+  },
+  "peerDependencies": {
+    "@xyflow/react": "~12.12.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "yjs": "^13.6.0"
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "@xyflow/react": "12.12.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "6.0.3",
+    "vite-plugin-dts": "5.1.2",
+    "yjs": "13.6.33"
   }
 }

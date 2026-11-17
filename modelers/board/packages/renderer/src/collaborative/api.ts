@@ -70,6 +70,16 @@ export interface BoardHandle {
   redo(): void;
   /** resolves once the canvas exists in the host it was attached to; never rejects */
   readonly mounted: Promise<void>;
+  /**
+   * Resolves once the board is gone after `destroy()`, which returns before that: the canvas is
+   * unmounted, and every editor of a model node has had its `destroy()` (an armed one its
+   * `release()` before), also one the host hands in after its node or the board went, which is
+   * destroyed as it comes. From then on the board calls no editor, and a host may end what its
+   * editors were bound to (a live session, a files port). Settles once, also when `destroy()` is
+   * called again and for a board that never mounted; never rejects. Pending until `destroy()`,
+   * and for as long as a promise that `open()` returned is.
+   */
+  readonly unmounted: Promise<void>;
 }
 
 export interface CollaborativeBoard extends CollaborativeModeler {

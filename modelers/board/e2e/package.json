@@ -14,7 +14,11 @@
   "devDependencies": {
     "@miragon/modeler-shell": "0.14.2",
     "@playwright/test": "1.65.0",
+    "@xyflow/react": "12.12.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "typescript": "6.0.3",
-    "vite": "8.3.7"
+    "vite": "8.3.7",
+    "yjs": "13.6.33"
   }
 }

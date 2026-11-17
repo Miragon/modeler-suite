@@ -150,15 +150,18 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   see [docs/ci-and-releases.md](docs/ci-and-releases.md)), which reads `dependencies` and
   `devDependencies`.
 - **Exception: `peerDependencies`.** Runtime libraries a consumer shares (`zod`, the
-  `diagram-js` / `didi` / `tiny-svg` ecosystem) are **ranged** peers so a host dedupes them against
-  its own copy: a second `zod` or diagram-js breaks `instanceof`, schema identity and the DI
-  injector. Each ranged peer is mirrored by an exact `devDependency`, and the bundling apps
-  (`webapp`, `vscode`) declare it as an exact `dependency`. Neither npm nor pin-check notices a peer
-  range that rejects those exact versions; the peer-dependency tests of the Wardley Maps, Event
-  Storming, Context Maps and C4 renderers do. Details per modeler in its
-  `.claude/rules/package-json-fixed-versions.md`. Business Model Canvas and the board have no ranged
-  peers: every one of their workspaces is `private` and publishes nothing to npm, so no host dedupes
-  their packages, and the apps bundle them from source with exact `dependencies` only.
+  `diagram-js` / `didi` / `tiny-svg` ecosystem, and for the board's renderer `yjs`, `react`,
+  `react-dom` and `@xyflow/react`) are **ranged** peers so a host dedupes them against its own
+  copy: a second `zod` or diagram-js breaks `instanceof`, schema identity and the DI injector, a
+  second Yjs the board's `instanceof Y.Map` and a second React every hook. Each ranged peer is
+  mirrored by an exact `devDependency`, and the bundling apps (`webapp`, `vscode`) declare it as an
+  exact `dependency`. Neither npm nor pin-check notices a peer range that rejects those exact
+  versions; the peer-dependency tests of the Wardley Maps, Event Storming, Context Maps, C4 and
+  board renderers do. Details per modeler in its `.claude/rules/package-json-fixed-versions.md`.
+  Business Model Canvas has no ranged peers: every one of its workspaces is `private` and publishes
+  nothing to npm, so no host dedupes its packages, and its apps bundle them from source with exact
+  `dependencies` only. Of the board, the schema model and the renderer are public; its files and
+  host packages and its apps stay `private`.
 - The toolchain (TypeScript, Vitest, tsup, Vite, ESLint, Prettier, Playwright, …) is pinned once in
   the root `package.json`, with `overrides` for `vite` and `@types/node`; a workspace declares only
   what it alone needs. Keep `@playwright/test` in the `e2e` workspaces and `playwright-core` in
