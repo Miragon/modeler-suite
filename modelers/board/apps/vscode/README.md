@@ -51,6 +51,7 @@ files of the Miragon modelers:
 | Value Chain           | `.vc`, `.vc.json`  |
 | C4 model              | `.c4`              |
 | Business Model Canvas | `.bmc`             |
+| BPMN                  | `.bpmn`            |
 
 Every model stays its own file. What you change on the board is written into that file's text as
 the smallest edit, the file shows as unsaved, and you save it like any other file. A text editor
@@ -125,6 +126,8 @@ edited, when the setting above saves it with its board. It sends nothing anywher
 - Needs VS Code 1.96 or later on the desktop. VS Code for the Web is not supported.
 - There is no live co-editing. Share boards through Git.
 - The board and the models on it stay light in dark themes.
+- A BPMN diagram on a board is drawn by [bpmn-js](https://bpmn.io), whose bpmn.io watermark
+  stays visible in its node, as its licence asks.
 - A Business Model Canvas on a board carries its attribution: the canvas is by Strategyzer AG,
   [strategyzer.com](https://www.strategyzer.com), licensed under
   [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). This extension is not
@@ -132,9 +135,9 @@ edited, when the setting above saves it with its board. It sends nothing anywher
 
 ## Third-party software
 
-The extension bundles the editors of the seven Miragon modelers and the open-source software
-they and the board stand on, among them React, React Flow, Yjs, diagram-js, zod and the Geist
-fonts. Every bundled package is listed with its licence in `dist/THIRD_PARTY_NOTICES.md` in the
+The extension bundles the editors of the eight Miragon modelers and the open-source software
+they and the board stand on, among them React, React Flow, Yjs, diagram-js, bpmn-js, zod and the
+Geist fonts. Every bundled package is listed with its licence in `dist/THIRD_PARTY_NOTICES.md` in the
 folder of the installed extension. The build writes that file from what it bundled.
 
 ## Feedback

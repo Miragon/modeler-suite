@@ -1,8 +1,8 @@
 /**
- * Which files of a repository the suite's modelers show, as plain data without an import: a VS
- * Code extension host reads it in Node, where no renderer loads. `notation` is the `meta.notation`
- * of the renderer's contract. `.dsl` (C4) and the `.png` editors are left out until it is decided
- * whether a board shows them.
+ * Which files of a repository the suite's modelers and Miragon's BPMN modeler show, as plain data
+ * without an import: a VS Code extension host reads it in Node, where no renderer loads.
+ * `notation` is the `meta.notation` of the editor's contract. `.dsl` (C4) and the `.png` editors
+ * are left out until it is decided whether a board shows them.
  */
 export interface SuiteSuffixes {
   readonly notation: string;
@@ -20,4 +20,7 @@ export const SUITE_SUFFIXES: readonly SuiteSuffixes[] = [
   { notation: "value-chain", kind: "Value Chain", suffixes: [".vc", ".vc.json"] },
   { notation: "c4", kind: "C4 model", suffixes: [".c4"] },
   { notation: "business-model-canvas", kind: "Business Model Canvas", suffixes: [".bmc"] },
+  // Not a modeler of this repository: `@miragon/bpmn-modeler` from npm, under the contract's
+  // adapter in src/bpmn.
+  { notation: "bpmn", kind: "BPMN", suffixes: [".bpmn"] },
 ];

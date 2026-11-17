@@ -9,19 +9,74 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
 
 `board-suite-editors` is the one workspace of the board that imports another modeler, and
 `packages-no-other-modeler` keeps it so (the open decision is under [Packages](../CLAUDE.md#packages)).
+It is also the one that takes an editor from npm: Miragon's BPMN modeler,
+`@miragon/bpmn-modeler`, the modeler of its VS Code extension, under an adapter of its own to the
+contract (`src/bpmn`).
 
 - **The registry.** `SUITE_EDITORS` has one entry per notation, in the order of
   `SUITE_SUFFIXES`: wardley (`.wmap`, `.owm`), event-storming (`.storm`), team-topologies (`.tt`,
   `.ttm.json`), context-maps (`.cm`, `.cm.json`), value-chain (`.vc`, `.vc.json`), c4 (`.c4`),
-  business-model-canvas (`.bmc`). `notation` is the renderer's `meta.notation`. C4's `.dsl` and
+  business-model-canvas (`.bmc`) and bpmn (`.bpmn`). `notation` is the editor's `meta.notation`.
+  The names keep "suite" although BPMN is no modeler of this repository: they are read in the
+  web app, the extension's two halves and the tests. C4's `.dsl` and
   the `.png` editors are left out until it is decided whether a board shows them;
   `suffixes.sync.test.ts` holds the table against the `customEditors` of the seven extension
-  manifests, so a suffix a modeler adds fails there. Each `load()` is a literal dynamic import of
+  manifests, so a suffix a modeler adds fails there, and BPMN against `BEYOND_THE_SUITE`, the
+  files Miragon's BPMN extension opens (`*.bpmn`). Each `load()` is a literal dynamic import of
   `src/notations/<notation>.ts`, so a bundler makes a chunk per notation and a board without a
   Wardley map never loads the Wardley renderer. C4 and Business Model Canvas carry insets of 24,
   24, 24 and 80 px at the left, where their palette is a column; the others take the host's
   default with 64 px at the top. The left inset is a choice seen in two screenshots, not a
   measurement.
+- **BPMN (`src/bpmn`, `src/notations/bpmn.ts`).** `@miragon/bpmn-modeler` (npm, Apache-2.0, on
+  bpmn-js 18.31.1 and diagram-js 15.28.1, the copy the suite's renderers use) implements no
+  contract of its own, so `collaborative-bpmn.ts` is one: it reads nothing of the board and of the
+  suite but `@miragon/modeler-api`, so that it can leave for the BPMN modeler's package or a
+  package of its own, for designIQ say, as it is. What it decides:
+  - **The engine comes with the first text.** `createModeler` is asynchronous and wants the
+    engine (`detectEngine` of the text, Camunda 7 for a text without platform metadata and for a
+    blank one), so the modeler is made in the first `importText` and kept: a later text of
+    another engine is shown by the first engine's modeler. Before that `diagram` is undefined, and
+    `embedModeler` asks for the canvas when it fits or focuses, not after `attachTo`.
+  - **The file's own text until the first edit.** `exportText()` answers the text imported last,
+    byte for byte, so opening a file never rewrites it and L2 holds for every text; after an edit
+    it is what bpmn-js's `saveXML({ format: true })` writes. That is written when it is asked
+    (`serialise`): the same events around moddle-xml's `Writer`, so that the DI is ordered and the
+    token simulation's colours are taken off as for a save, and the contract's export answers at
+    once, where `saveXML` answers a Promise (the kit reads the export right after an undo). A
+    blank text is a new diagram and exports as blank until the first edit.
+  - **A refused text leaves the diagram (L7).** bpmn-js clears the canvas before it finds out that
+    a text has no diagram, so a text is parsed with the modeler's own moddle first and refused
+    without a diagram; one the modeler still refuses brings the last text back, at the cost of its
+    history.
+  - **No properties panel, no linter, light.** The modeler wants a parent for its properties
+    panel: it gets one that is never shown. Linting is off and the theme is light, as the board
+    draws light. With `fitOnImport: false` the modeler's own fit, which waits for the canvas's
+    first size, is settled after every import, so the board's first fit stays.
+  - **What else of the contract:** `elements` (no plane root and no external label, a label's
+    selection reported as its element's), `interaction` (diagram-js's drags but the hand tool's
+    pan), `contentBounds()` from the model, `undoRedoKeys: false` (the keys pass unprevented),
+    and a `destroy()` from a listener waits for the delivery. Not there: a viewer mount, the
+    `appearance` surface, and the gesture, pan and label-editor hooks of the kit's harness
+    (`test/browser/bpmn-conformance.browser.test.ts` pins the ten skips that leaves).
+  - The text rules (`src/bpmn/text-rules.ts`, apart from the notation module, which loads the
+    modeler, so that a test in Node reads them): what the modeler exports, and a text that differs
+    in its line endings or the space around it is the canvas's.
+  - The bpmn.io watermark is no chrome: the preview rule of the host's sheet hides the editor's
+    chrome inside `.djs-container`, and the watermark lies beside it, in sight in every preview,
+    as bpmn-js's licence asks (`shownChrome` of the battery leaves it out, and a test holds it in
+    sight). After a delete the modeler selects the next element, and a click on a selected element
+    takes it out of the selection: the battery's clicks go to an element that is not selected.
+- **The BPMN sheet (`build/css-scope.mjs`).** The modeler's sheet is one bundle (596 KB) with its
+  own copy of diagram-js's sheet in it, which the base-once helpers cannot empty. Loaded after the
+  seven, that copy would override their own rules at equal weight. The build holds the whole sheet
+  to `[data-notation="bpmn"]` (the element `embedModeler` writes the notation on) and to
+  `.am-overlay-root` (the append menu, which the modeler puts on the body) with one `@scope`:
+  `@font-face` and `@keyframes` stay in front of it, `:root` is read as `:scope`, and inside the
+  BPMN editors a scoped rule wins over an unscoped one of equal weight. `bpmnSheetScopeVite` is a
+  `load` hook for Vite and Vitest (the web app, the webview test page and the browser project),
+  `bpmnSheetScopeEsbuild` an `onLoad` for `webviewBundle`. The web app's build check and the
+  extension's bundle test count the base outside that scope, and the sheet tests count it inside.
 - **The declared face.** The workspace's `.` export has a `types` condition, the hand-written
   `index.d.ts`, before its source. The board's strict project and the apps read the declaration
   and never follow into another modeler's source under their own flags (checked:
@@ -56,7 +111,8 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
   built first. A `dist` export is mapped back to its source, the board's two public packages
   (`@miragon/board-schema-model`, `@miragon/board-renderer` with its `board.css`) among them, so the
   board's own `dist` is never read either. `prebundle.mjs` names every third-party module those
-  sources load (82), for `optimizeDeps.include`: a dependency Vite meets only when a notation loads
+  sources and this workspace's own `src` load (84, the BPMN modeler among them), for
+  `optimizeDeps.include`: a dependency Vite meets only when a notation loads
   would reload the page in the middle of a run or of an edit. `css-base.mjs` is under
   [Stylesheet and theme files](renderer.md#stylesheet-and-theme-files). A new package under any
   modeler's `packages/` adds an alias, and `apps/editors/tsconfig.json` then needs the matching
@@ -71,14 +127,15 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
   `tsconfigRaw` the same build came out with 788 fewer `"use strict"` directives and otherwise the
   same bytes, and Team Topologies and Context Maps would be compiled under another
   `verbatimModuleSyntax` than their own. `test/webview-bundle.test.ts` builds a page that loads the
-  fonts, the board and the seven notations through the registry in memory, and holds: one script
+  fonts, the board and the eight notations through the registry in memory, and holds: one script
   without a dynamic import left, one sheet with diagram-js's base rule and the canvas mapping once
-  and before every renderer's own rules, the font files as files, no warning; eight single edits of
+  and before every renderer's own rules, the BPMN sheet with its own copy inside its `@scope`, the
+  font files as files, no warning; eight single edits of
   the helper fail it. A build that imports the shell prints esbuild's `ignored-bare-import` warning
   for the shell's own chunks (four in a webview bundle, one in a host bundle), as every modeler's
   does: a warning is no failed build there.
 - **The notices (`build/notices.mjs`, `notices-build.mjs`, `notices-check.mjs`).** A build of the
-  board carries the seven renderers and whatever they bundle, so its third-party notices are no
+  board carries the seven renderers, the BPMN modeler and whatever they bundle, so its third-party notices are no
   list kept by hand and no committed file, where the seven other modelers commit
   `apps/vscode/THIRD_PARTY_NOTICES.md` and regenerate it with `npm run notices`: the build writes
   them from the files that went into it. `composeNotices({ product, files, outputs })` takes the
@@ -90,10 +147,16 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
   LICENSE they share, without versions, so a release changes nothing. Three things no bundler sees
   are said in the module: `INLINED_BY_UPSTREAM` (dagre's published build has graphlib inside),
   `COPIED_WORKS` (Lucide, Material Icons and Tailwind's preflight, each found by a mark in the
-  bundled sources of the suite, with the legal comments those sources carry) and `SHIPPED_LICENCES`
-  (0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, MIT, OFL-1.1: what the bundles hold today
-  plus 0BSD. Nothing in the suite names an allowed list and CI's dependency review runs with its
-  defaults, so this list is the board's own and the owner's to confirm). A package offered under
+  bundled sources of the suite, with the legal comments those sources carry), `SHIPPED_LICENCES`
+  (0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, ISC, LicenseRef-bpmn.io, MIT, OFL-1.1:
+  what the bundles hold today plus 0BSD. Nothing in the suite names an allowed list and CI's
+  dependency review runs with its defaults, so this list is the board's own and the owner's to
+  confirm; CC0-1.0, randomcolor's, and LicenseRef-bpmn.io, bpmn-js's MIT terms with the rule that
+  the bpmn.io watermark stays fully in sight, came with BPMN) and `SUPPLIED_TEXTS` (five MIT
+  packages of the BPMN modeler that ship no licence text: their repository's LICENSE under
+  `build/licences/`, and for `@bpmn-io/diagram-js-canvas-lock`, whose repository has none either,
+  the MIT License as SPDX publishes it; the section of each says so). A manifest that names its
+  licence in no SPDX words (`SEE LICENSE IN LICENSE`, `CC0`) is read by the text it ships. A package offered under
   several licences is taken under the first one on the list, and its section says so (DOMPurify,
   `MPL-2.0 OR Apache-2.0`: Apache-2.0). `writeBundleNotices` is esbuild's way (the metafile: every
   input with a byte in an output, and every font), `noticesPlugin` Vite's (the modules of the
@@ -162,18 +225,21 @@ What is found out or changed in `apps/editors`, the notices of a build among it,
 The two projects and their rules are under [Tests](../CLAUDE.md#tests). This part's files:
 
 - `npm run board test`, the unit project:
-  - `apps/editors/test` (9 files, 144 tests): `suffixes.sync` (the table against the manifests,
+  - `apps/editors/test` (10 files, 158 tests): `suffixes.sync` (the table against the manifests,
     the registry against the table and against `index.d.ts`), `aliases.sync`, `base.sync`,
     `text-rules`, `zod-jitless`, `build-helpers` (two of its tests are Vite builds in memory),
-    `webview-bundle` (one esbuild build in memory), `cruise-rules` and `notices` (56 tests: the
-    generator on trees the test writes, on a real page of the board with the seven notations built
+    `css-scope` (the BPMN sheet held to its editors, on the installed sheet),
+    `webview-bundle` (one esbuild build in memory), `cruise-rules` and `notices` (59 tests: the
+    generator on trees the test writes, on a real page of the board with the eight notations built
     in memory with esbuild, on a build on disk and in two Vite builds; the check's three reasons,
     a copied work among them, also one that a source names only in a plain comment).
     The notices tests write their trees into the OS temp folder and remove them.
 - `npm run board test:browser`, the browser project:
-  - `apps/editors/test/browser` (4 files, 62 tests): `real-editors` (58, the battery under
-    [Real editors, as measured](renderer.md#real-editors-as-measured)), the two sheet files and
-    `page-errors` (the watch itself). Nine of the battery's tests came with the fourth increment,
+  - `apps/editors/test/browser` (5 files, 107 tests): `real-editors` (67, the battery under
+    [Real editors, as measured](renderer.md#real-editors-as-measured), with BPMN as its eighth
+    notation on `test/fixtures/order-to-cash.bpmn`), `bpmn-conformance` (36, the contract's kit
+    on the BPMN adapter with its ten pinned skips), the two sheet files and `page-errors` (the
+    watch itself). Nine of the battery's tests came with the fourth increment,
     under "seven model nodes whose folder is renamed": one folder move takes all seven along,
     each keeps its modeler, its view and its text in the element the board made for the new path
     and loads no module again, and Wardley Maps takes a real drag under the new path, is renamed

@@ -1,10 +1,15 @@
 {
-  "_comment": "Turns on brand-lint from the miragon-brand plugin for the whole suite: as the Claude Code hook on every file Claude writes and for a manual run from the root. The hook takes the nearest .miragon/brand.json and never merges, so this is the one file; none goes under modelers/ (the new-modeler template carries its own for the repository it starts). The modelers are English (design guide section 2), so the German copy rules are off: du (A1), umlauts (A3), German passive (A4), German claim (A7) and gender forms (A11). C5 (one language per tool) stays on, as do em dashes as connectors (A2), spellings (A10), the anti-slop patterns (S*) and the palette, token and dark-mode rules. Ignored: CHANGELOGs, which release-please writes; the third-party notices, generated from the bundled licences, and the unchanged licence texts they quote (the Apache License of Context Maps and of the board, and the board's copy of the tailwindcss LICENSE); the Miragon docs kit in docs/.vitepress/miragon/, vendored unchanged and checked at its source; tests, e2e suites and snapshots, whose data breaks rules on purpose; fixtures, which also hold the shell's vendored design-system files. brand-lint skips the vendored *.generated.* tokens and cd-canvas.css by itself.",
+  "_comment": "Turns on brand-lint from the miragon-brand plugin for the whole suite: as the Claude Code hook on every file Claude writes and for a manual run from the root. The hook takes the nearest .miragon/brand.json and never merges, so this is the one file; none goes under modelers/ (the new-modeler template carries its own for the repository it starts). The modelers are English (design guide section 2), so the German copy rules are off: du (A1), umlauts (A3), German passive (A4), German claim (A7) and gender forms (A11). C5 (one language per tool) stays on, as do em dashes as connectors (A2), spellings (A10), the anti-slop patterns (S*) and the palette, token and dark-mode rules. Ignored: CHANGELOGs, which release-please writes; the third-party notices, generated from the bundled licences, and the unchanged licence texts they quote (the Apache License of Context Maps and of the board, the board's copy of the tailwindcss LICENSE, the LICENSE files of four packages of the BPMN modeler that ship none, and the MIT License as SPDX publishes it); the Miragon docs kit in docs/.vitepress/miragon/, vendored unchanged and checked at its source; tests, e2e suites and snapshots, whose data breaks rules on purpose; fixtures, which also hold the shell's vendored design-system files. brand-lint skips the vendored *.generated.* tokens and cd-canvas.css by itself.",
   "ignorieren": [
     "*CHANGELOG.md",
     "*THIRD_PARTY_NOTICES.md",
     "modelers/context-maps/apps/vscode/scripts/apache-2.0.txt",
     "modelers/board/apps/editors/build/licences/apache-2.0.txt",
+    "modelers/board/apps/editors/build/licences/bpmn-auto-layout.txt",
+    "modelers/board/apps/editors/build/licences/bpmn-io-semver-compat.txt",
+    "modelers/board/apps/editors/build/licences/bpmn-js-copy-as-image.txt",
+    "modelers/board/apps/editors/build/licences/bpmn-modeler-i18n.txt",
+    "modelers/board/apps/editors/build/licences/mit.txt",
     "modelers/board/apps/editors/build/licences/tailwindcss.txt",
     "docs/.vitepress/miragon/",
     "test/",

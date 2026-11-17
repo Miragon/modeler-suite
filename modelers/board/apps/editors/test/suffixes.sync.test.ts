@@ -19,6 +19,12 @@ const DECLARED_FACE = fileURLToPath(new URL("../index.d.ts", import.meta.url));
 /** The notation a modeler's renderer names in `meta.notation`, where it is not the folder's name. */
 const NOTATION_OF_FOLDER: Readonly<Record<string, string>> = { "wardley-maps": "wardley" };
 
+/**
+ * Editors from outside this repository, each with the files its own VS Code extension opens:
+ * Miragon's BPMN modeler (`miragon-gmbh.vs-code-bpmn-modeler`) opens `*.bpmn`.
+ */
+const BEYOND_THE_SUITE: Readonly<Record<string, readonly string[]>> = { bpmn: [".bpmn"] };
+
 // Left out until it is decided whether a board shows them: C4's second editor for Structurizr's
 // `.dsl`, which many other tools write too, and the pictures that carry their document.
 const isLeftOut = (suffix: string): boolean => suffix === ".dsl" || suffix.endsWith(".png");
@@ -49,12 +55,23 @@ const modelers = readdirSync(MODELERS)
 const sorted = (values: readonly string[]): string[] => [...values].sort();
 
 describe("SUITE_SUFFIXES", () => {
-  it("has one entry per modeler of the suite that ships an editor", () => {
+  it("has one entry per modeler of the suite that ships an editor, and the editors beyond it", () => {
     expect(modelers).toHaveLength(7);
     expect(sorted(SUITE_SUFFIXES.map((entry) => entry.notation))).toEqual(
-      sorted(modelers.map((modeler) => NOTATION_OF_FOLDER[modeler] ?? modeler)),
+      sorted([
+        ...modelers.map((modeler) => NOTATION_OF_FOLDER[modeler] ?? modeler),
+        ...Object.keys(BEYOND_THE_SUITE),
+      ]),
     );
   });
+
+  it.each(Object.entries(BEYOND_THE_SUITE))(
+    "names the files the %s editor opens",
+    (notation, opened) => {
+      const entry = SUITE_SUFFIXES.find((one) => one.notation === notation);
+      expect(sorted(entry?.suffixes ?? [])).toEqual(sorted(opened));
+    },
+  );
 
   it.each(modelers)("names the files the %s extension opens", (modeler) => {
     const notation = NOTATION_OF_FOLDER[modeler] ?? modeler;

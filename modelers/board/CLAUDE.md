@@ -82,7 +82,13 @@ New Empty Board, New Board from Example and Open Source to the Side with a walkt
 setting `miragon.board.saveModelsWithBoard` (off by default), which makes a person's save of a board
 also save the models that board made dirty; and in the root the hold that keeps a release from
 publishing anything of the board. No increment changed a file of `packages/renderer/src` or
-`packages/schema-model/src` until the npm packages, which added the end signal `board.unmounted`. 80 unit files with 1647 tests, 27 browser files with 957 tests, 36
+`packages/schema-model/src` until the npm packages, which added the end signal
+`board.unmounted`. After the four increments BPMN came in as an eighth editor of model
+nodes: `@miragon/bpmn-modeler` from npm, the modeler of Miragon's BPMN extension for VS Code,
+under an adapter to the contract in `apps/editors/src/bpmn` that the contract's kit holds, its
+sheet held to its editors by `@scope` at build time
+([`docs/editors.md`](docs/editors.md#the-suites-editors-appseditors)); the example shows no BPMN
+file yet. 81 unit files with 1662 tests, 28 browser files with 1002 tests, 37
 Playwright tests, and the smoke of the extension in a real VS Code, with steps for daily use. **The
 fourth increment was walked through in a real VS Code, in the suite's Docker runner on 1.146.0 and
 1.96.0 on Linux, and by no person yet**: of the sixteen things it takes for granted about VS Code
@@ -100,9 +106,10 @@ recording stand-in of `createTestHost` and every input is synthetic, which ignor
 them can fail when a preview takes real input or when the pointer math of an armed editor is off.
 That is held outside the renderer, with real mouse and keyboard input (`commands.realInput`): 140
 tests of `packages/host` (8 of the command itself, 132 on a stand-in modeler of the contract that
-draws boxes, alone and on the real board), 62 of `apps/editors` (58 with the seven real modelers on
-a board, among them a renamed folder that moves all seven and Wardley Maps renamed while it is
-armed, 2 for the order of their sheets, 2 for the watch the battery ends every test on), 40 of
+draws boxes, alone and on the real board), 107 of `apps/editors` (67 with the seven real modelers
+and BPMN on a board, among them a renamed folder that moves all eight and Wardley Maps renamed
+while it is armed, 36 of the contract's kit on the BPMN adapter, 2 for the order of their sheets,
+2 for the watch the battery ends every test on), 40 of
 `apps/webapp` and 47 of `apps/ide-editor` (the board under the shell's real `mountShell`, in the
 IDE column and in the web column).
 
@@ -123,7 +130,13 @@ deviations](docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end
 a demo and screenshots under `docs/` and the board's page on the docs site, a README of
 `packages/files` and of `packages/host`, `.miragon/product-shots.yaml` with the store images,
 `netlify.toml` and a site, a folder of the person's own behind the web app, and, after the first
-publish, the entry in the modeler collection with its walkthrough step.
+publish, the entry in the modeler collection with its walkthrough step. Of BPMN: the owner's word on the two
+licences it brought (bpmn-js's, which keeps the bpmn.io watermark in sight, and CC0-1.0) and on
+the texts supplied for five packages that ship none; a BPMN file in the example; the kit's ten
+pinned skips (a viewer on `@miragon/bpmn-modeler/viewer`, the gesture, pan and label-editor hooks,
+the `appearance` surface) before the adapter leaves for a package of its own; and the webview
+bundle, which holds the BPMN modeler (about 3.9 of its 6.7 MB of script) for every board, since
+the extension's page loads one script without a dynamic import.
 
 **Without a test**: the gestures and behaviours the test README lists under "Without a test",
 among them the group that takes a dragged node, the resize of a model and of an image node, and
@@ -159,7 +172,7 @@ imports one.
 
 | Workspace                               | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `board-suite-editors` (`apps/editors`)  | The seven modelers of the suite as the editors of a board's model nodes: the suffix table (`./suffixes`, plain data without an import, for a host in Node), the registry `SUITE_EDITORS` (`.`), the shared sheet base (`./base`), `./zod-jitless` for a page under a CSP without eval, and the build helpers (`./build/*`). The one workspace of the board that imports another modeler                                                                                                                                 |
+| `board-suite-editors` (`apps/editors`)  | The seven modelers of the suite and Miragon's BPMN modeler (`@miragon/bpmn-modeler` under an adapter to the contract, `src/bpmn`) as the editors of a board's model nodes: the suffix table (`./suffixes`, plain data without an import, for a host in Node), the registry `SUITE_EDITORS` (`.`), the shared sheet base (`./base`), `./zod-jitless` for a page under a CSP without eval, and the build helpers (`./build/*`). The one workspace of the board that imports another modeler                               |
 | `board-ide-editor` (`apps/ide-editor`)  | The board inside the suite's shell for an IDE host: `mountBoardEditor(host, options)` (`.`) and the sheet that makes one picture of the shell's chrome and the board's toolbar (`./app.css`). It imports the shell and is handed its editors: no source of it imports `apps/editors`                                                                                                                                                                                                                                    |
 | `board-modeler` (`apps/vscode`)         | The VS Code extension `miragon-gmbh.board-modeler` (a preview, `engines.vscode` `^1.96.0`): the custom editor `board.boardEditor` for `*.board`. Its host half is every source outside `src/webview` and runs in Node; `src/webview` is the page, bundled into one script and one sheet. It contributes three commands (New Empty Board, New Board from Example, Open Source to the Side), the setting `miragon.board.saveModelsWithBoard`, a walkthrough and the language `board`, which gives `*.board` its file icon |
 | `@miragon/board-webapp` (`apps/webapp`) | The board inside the shell's web column: a start screen, a board that is made new or opened from a file, the example repository `example/` held in memory, and the board as a download; a Vite app on port 5184 (strict)                                                                                                                                                                                                                                                                                                |
@@ -244,7 +257,10 @@ imports one.
   `apps/editors` pins thirteen packages of the other modelers (the seven renderers and the six
   packages its text rules call: `wardley-dsl`, `wardley-schema-model`, `value-chain-schema-model`,
   `business-model-canvas-dsl`, `team-topologies-schema-model`, `context-maps-schema-model`) beside
-  `diagram-js`, `didi`, `tiny-svg` and `zod`. Every pin on a release component has its
+  `diagram-js`, `didi`, `tiny-svg` and `zod`, and for BPMN `@miragon/bpmn-modeler` (npm, not of
+  this repository, so a new version comes through Dependabot and not through `reaches_board`),
+  `moddle-xml` (the writer its exports go through, the one copy bpmn-js uses) and
+  `@miragon/modeler-api`. Every pin on a release component has its
   `extra-files` entries in `release-please-config.json` (see the release components below).
   The tests of `apps/editors` import
   `@miragon/board-files`, `@miragon/board-renderer` and `@miragon/board-schema-model` without a
@@ -271,9 +287,9 @@ imports one.
   `.release-please-manifest.json` and in its `package.json`. `e2e` and the workspace root are no
   components. The eight carry 28 `extra-files` entries: a component's version in the lockfile and
   the lockfile's copy of every pin on it; the pins in the manifests are moved by release-please's
-  `node-workspace` plugin, since both ends are components. Under other components 22 entries name
-  a workspace of the board: the lockfile's copy of the two pins on the contract (the renderer's
-  and the host package's) and of the three pins of `apps/ide-editor`, `apps/vscode` and
+  `node-workspace` plugin, since both ends are components. Under other components 23 entries name
+  a workspace of the board: the lockfile's copy of the three pins on the contract (the renderer's,
+  the host package's and `apps/editors`') and of the three pins of `apps/ide-editor`, `apps/vscode` and
   `apps/webapp` on the shell; both entries, manifest and lockfile, for the shell pin of `e2e`,
   which is no component; and for the thirteen pins of `apps/editors` on the other modelers the
   lockfile's copy of each, with the manifest's as well for the two on Team Topologies, whose
@@ -506,7 +522,7 @@ browser test of the board has to know (synthetic input, the lazy parts, the modu
 the window). Read it before you write a test. Here are the two projects and the rules.
 
 - `npm run board test` (project `unit`, Node) runs `packages/*/test/**/*.test.ts` and
-  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 80 files, 1647 tests. The module
+  `apps/*/test/**/*.test.ts` without the `test/browser` folders: 81 files, 1662 tests. The module
   `vscode`, which exists only inside the editor, resolves there to
   `apps/vscode/test/__mocks__/vscode.ts`: the module a test imports by its path for the control
   surface `vscodeMock`, so a registration of the host and a test's question share one state. The
@@ -526,7 +542,7 @@ the window). Read it before you write a test. Here are the two projects and the 
     "Tests of this part" ([The parts and their documents](#the-parts-and-their-documents)).
 - `npm run board test:browser` (project `browser`, Chromium, a window of 1280 x 800) runs
   `packages/renderer/test/browser`, `packages/host/test/browser` and `apps/*/test/browser`, each
-  `**/*.test.{ts,tsx}`: 27 files, 957 tests. React Flow measures its nodes, so nothing of the
+  `**/*.test.{ts,tsx}`: 28 files, 1002 tests. React Flow measures its nodes, so nothing of the
   canvas runs in jsdom or Node, and no diagram-js renderer mounts there either (Business Model
   Canvas's import throws `activeLayer.getBBox is not a function` under jsdom).
   - The renderer's fifteen files (668 tests): the arm rules on a bench of fakes (`arming`), the
@@ -540,8 +556,8 @@ the window). Read it before you write a test. Here are the two projects and the 
   `apps/editors/build/aliases.mjs`, so no other modeler is built first, and the browser project
   pre-bundles what `apps/editors/build/prebundle.mjs` reads from those sources.
   `vitest.config.ts` exports the browser project as `browserProject`.
-- `npm run board test:e2e` (Playwright) runs 36 tests in two projects, `webapp` (10) and
-  `vscode-webview` (26): [`docs/e2e.md`](docs/e2e.md#tests-of-this-part).
+- `npm run board test:e2e` (Playwright) runs 37 tests in two projects, `webapp` (10) and
+  `vscode-webview` (27): [`docs/e2e.md`](docs/e2e.md#tests-of-this-part).
 - `npm run board test:vscode` runs the smoke: one test, the packed extension in a real VS Code
   ([The smoke in a real VS Code](docs/vscode.md#the-smoke-in-a-real-vs-code-test-smoke)). Its files are in
   `apps/vscode/test-smoke`, which no other project collects.

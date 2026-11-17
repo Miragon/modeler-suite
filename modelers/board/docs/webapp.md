@@ -104,8 +104,8 @@ no drop zone: the board takes a dropped picture itself.
   person goes to it, by a press or by the keyboard: "This board has no repository behind it, so
   there is no model to add. Show the example to try models on a board." A file that names a model
   or a picture is opened with the warning "“<name>” was opened as a single file: the models and
-  pictures of its repository are not shown." A node whose file no notation of the suite covers
-  (a `.bpmn` of a board that comes from another tool) is the host package's card with the file's
+  pictures of its repository are not shown." A node whose file no editor of the board covers
+  (a `.dmn` of a board that comes from another tool) is the host package's card with the file's
   name and no button, and says "This app cannot show this file.": neither backend of the page
   has a `showFile`, so the files port tells the page that its host shows no file
   ([The host package](host.md#the-host-package-packageshost)). The same card stands on the
@@ -295,7 +295,7 @@ no drop zone: the board takes a dropped picture itself.
 The two projects and their rules are under [Tests](../CLAUDE.md#tests). This part's files:
 
 - `npm run board test`, the unit project:
-  - `apps/webapp/test` (9 files, 144 tests): `storage` (what is kept, what is left out, a storage
+  - `apps/webapp/test` (9 files, 145 tests): `storage` (what is kept, what is left out, a storage
     that refuses, the reset and the way back from it, the open document, what its editor keeps of
     it by key, the pictures a board shows and the kept ones it does not), `keeping` (the
     repository in memory with its writes kept),

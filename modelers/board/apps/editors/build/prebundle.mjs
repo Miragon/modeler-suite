@@ -1,9 +1,11 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { sourceAliases } from "./aliases.mjs";
 
 /**
- * Every third-party module the modelers' packages load, read from their sources. Vite pre-bundles
+ * Every third-party module the modelers' packages and the editors' own modules load, read from
+ * their sources. Vite pre-bundles
  * a dependency when it first meets it and then reloads the page; with the modelers taken from
  * source it meets most of them only when a notation loads, in the middle of a test run or of
  * somebody's edit. Named up front, they are bundled before the first page.
@@ -50,6 +52,10 @@ function collect(folder, found) {
   }
 }
 
+// The editors' own modules, for what they take from npm and not from a modeler of the suite
+// (`@miragon/bpmn-modeler`).
+const EDITORS_SOURCE = fileURLToPath(new URL("../src", import.meta.url));
+
 /** @returns {string[]} */
 function thirdPartyImports() {
   /** @type {Set<string>} */
@@ -57,6 +63,7 @@ function thirdPartyImports() {
   for (const { replacement } of sourceAliases) {
     if (replacement.endsWith("/src/index.ts")) collect(dirname(replacement), found);
   }
+  collect(EDITORS_SOURCE, found);
   return [...found].filter(isThirdParty).sort();
 }
 

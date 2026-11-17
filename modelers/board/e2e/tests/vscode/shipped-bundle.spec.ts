@@ -38,6 +38,23 @@ const EXAMPLE_FOLDER = fileURLToPath(new URL("../../../example/", import.meta.ur
 const PICTURE = "assets/miragon-komet-blau.svg";
 const OPTIONS = boardEditorOptions(() => undefined);
 
+/** A BPMN process beside the example: BPMN is the board's editor from outside the suite. */
+const PROCESS = "processes/order-to-cash.bpmn";
+const PROCESS_NODE = "n_zz_process";
+const PROCESS_TEXT = readFileSync(
+  fileURLToPath(new URL("../../../apps/editors/test/fixtures/order-to-cash.bpmn", import.meta.url)),
+  "utf8",
+);
+const PROCESS_LINE = `{"file":"${PROCESS}","height":540,"id":"${PROCESS_NODE}","kind":"node","type":"model","width":800,"x":2640,"y":640,"z":"l"}`;
+
+/** What the extension's folder holds: the example, and what a test adds to it. */
+interface Repository {
+  board: string;
+  texts: Readonly<Record<string, string>>;
+}
+
+const EXAMPLE_REPOSITORY: Repository = { board: EXAMPLE_BOARD, texts: {} };
+
 // One build for the file, and its tests one after the other in one worker: two builds at once
 // would write the same dist.
 test.describe.configure({ mode: "serial", timeout: 2 * MODELS_READY_MS });
@@ -62,16 +79,19 @@ async function openShipped(page: Page): Promise<void> {
 }
 
 /** What the extension answers a message of the page with, for the example folder. */
-function answersTo(message: PostedMessage): PostedMessage[] {
+function answersTo(message: PostedMessage, repository: Repository): PostedMessage[] {
   const { requestId, path } = message;
   switch (message.type) {
     case "ready":
-      return [{ type: "init", text: EXAMPLE_BOARD }];
+      return [{ type: "init", text: repository.board }];
     case "board.hello":
       // the welcome first, then the list: VS Code has editors to show a file in
       return [
         { type: "board.welcome", shows: true },
-        { type: "board.paths", paths: [PICTURE, ...EXAMPLE_MODELS] },
+        {
+          type: "board.paths",
+          paths: [PICTURE, ...EXAMPLE_MODELS, ...Object.keys(repository.texts)],
+        },
       ];
     case "board.text.open":
       return [
@@ -79,7 +99,7 @@ function answersTo(message: PostedMessage): PostedMessage[] {
           type: "board.text.opened",
           requestId,
           path,
-          text: exampleText(String(path)),
+          text: repository.texts[String(path)] ?? exampleText(String(path)),
           readOnly: false,
           version: 1,
         },
@@ -100,18 +120,18 @@ function answersTo(message: PostedMessage): PostedMessage[] {
 }
 
 /** Answers every message the page posted since the last call, in the page's order. */
-function extensionFor(page: Page): () => Promise<void> {
+function extensionFor(page: Page, repository = EXAMPLE_REPOSITORY): () => Promise<void> {
   let answered = 0;
   return async () => {
     const posted = await postedMessages(page);
     for (const message of posted.slice(answered)) {
-      for (const answer of answersTo(message)) await postFromHost(page, answer);
+      for (const answer of answersTo(message, repository)) await postFromHost(page, answer);
     }
     answered = posted.length;
   };
 }
 
-async function allModelsReady(page: Page, answer: () => Promise<void>): Promise<void> {
+async function allModelsReady(page: Page, answer: () => Promise<void>, count = 7): Promise<void> {
   await expect
     .poll(
       async () => {
@@ -120,7 +140,7 @@ async function allModelsReady(page: Page, answer: () => Promise<void>): Promise<
       },
       { timeout: MODELS_READY_MS },
     )
-    .toBe(7);
+    .toBe(count);
 }
 
 test("the shipped bundle comes up without an answer, and shows the board with its seven models under the extension's policy", async ({
@@ -195,6 +215,51 @@ test("an edit in the shipped bundle is one message for that model's file, and no
   const [edit] = posted.filter((message) => message.type === "board.text.edit");
   expect(edit).toMatchObject({ type: "board.text.edit", path: TEA, version: 1 });
   expect(String(edit?.text)).not.toContain("component Water");
+  expect(posted.filter((message) => message.type === "edit")).toEqual([]);
+
+  const { csp, errors } = await stubFailures(page);
+  expect(csp).toEqual([]);
+  expect(errors).toEqual([]);
+  expect(problems).toEqual([]);
+});
+
+test("a BPMN process in the shipped bundle is drawn and edited under the extension's policy", async ({
+  page,
+}) => {
+  const problems = problemsOf(page);
+  await openShipped(page);
+  const answer = extensionFor(page, {
+    board: `${EXAMPLE_BOARD}${PROCESS_LINE}\n`,
+    texts: { [PROCESS]: PROCESS_TEXT },
+  });
+  await allModelsReady(page, answer, 8);
+  const preview = page.locator(`.react-flow__node[data-id="${PROCESS_NODE}"] .board-engine`);
+  await expect(preview).toHaveAttribute("data-notation", "bpmn");
+  // the bpmn.io watermark stays in sight in the preview, as bpmn-js's licence asks
+  await expect(preview.locator(".bjs-powered-by")).toBeVisible();
+
+  const engine = await arm(page, PROCESS_NODE);
+  const task = engine.locator('.djs-shape[data-element-id="Task_check_order"]');
+  const at = await centreAtRest(task.locator(".djs-hit"));
+  await page.mouse.click(at.x, at.y);
+  await expect(
+    engine.locator('.djs-shape.selected[data-element-id="Task_check_order"]'),
+  ).toHaveCount(1);
+  await page.keyboard.press("Delete");
+  await expect(task).toHaveCount(0);
+
+  await expect
+    .poll(async () =>
+      (await postedMessages(page)).filter(
+        (message) => message.type === "board.text.edit" && message.path === PROCESS,
+      ),
+    )
+    .toHaveLength(1);
+  const posted = await postedMessages(page);
+  const [edit] = posted.filter((message) => message.type === "board.text.edit");
+  expect(edit).toMatchObject({ type: "board.text.edit", path: PROCESS, version: 1 });
+  expect(String(edit?.text)).not.toContain('id="Task_check_order"');
+  expect(String(edit?.text)).toContain('id="Task_ship_order"');
   expect(posted.filter((message) => message.type === "edit")).toEqual([]);
 
   const { csp, errors } = await stubFailures(page);

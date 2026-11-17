@@ -1,3 +1,4 @@
+import type { EmbeddableModeler } from "@miragon/board-host";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { commands } from "vitest/browser";
 import "../../src/base.js";
@@ -97,6 +98,17 @@ function previews(mounted: () => MountedBoard, zoom: () => number): void {
   it.each(NOTATIONS)("%s: a preview shows none of the editor's chrome", (notation) => {
     expect(shownChrome(mounted().engine(nodeOf(notation).id))).toEqual([]);
   });
+
+  it("bpmn: the preview keeps the bpmn.io watermark in sight, as bpmn-js's licence asks", () => {
+    const engine = mounted().engine(nodeOf("bpmn").id);
+    const watermark = engine.querySelector<HTMLElement>(".bjs-powered-by");
+    expect(watermark?.checkVisibility()).toBe(true);
+    const box = watermark!.getBoundingClientRect();
+    const node = engine.getBoundingClientRect();
+    expect(box.width).toBeGreaterThan(0);
+    expect(box.left >= node.left && box.right <= node.right).toBe(true);
+    expect(box.top >= node.top && box.bottom <= node.bottom).toBe(true);
+  });
 }
 
 describe("seven model nodes, opened while the board is at its fitted zoom", () => {
@@ -182,8 +194,16 @@ describe("seven model nodes, opened while the board is at a zoom of 0.5", () => 
   const openPads = (engine: HTMLElement): number =>
     engine.querySelectorAll(".djs-context-pad.open").length;
 
-  async function clickShape(engine: HTMLElement, selection: () => readonly string[]) {
-    const shape = reachableShapes(engine)[0];
+  async function clickShape(engine: HTMLElement, modeler: EmbeddableModeler) {
+    const selection = (): readonly string[] => modeler.elements?.selection() ?? [];
+    // BPMN selects the next element after a delete, and a click on a selected element takes it
+    // out of the selection again: the click goes to one that is not selected. A shape that only
+    // labels another element (BPMN's external labels) selects that element.
+    const selected = selection();
+    const listed = new Set(modeler.elements?.list().map((element) => element.id));
+    const shape = reachableShapes(engine).find(
+      (one) => listed.has(one.id) && !selected.includes(one.id),
+    );
     if (!shape) throw new Error("no shape of the editor is clear of its chrome");
     await commands.realInput([{ type: "click", x: shape.x, y: shape.y }]);
     await expect.poll(selection, WAIT).toEqual([shape.id]);
@@ -246,7 +266,7 @@ describe("seven model nodes, opened while the board is at a zoom of 0.5", () => 
       expect(backend.writes).toHaveLength(writesBefore);
 
       // One edit by hand: a click on a shape, then Delete.
-      const removed = await clickShape(engine, selection);
+      const removed = await clickShape(engine, modeler);
       expect(backend.writes).toHaveLength(writesBefore);
       await commands.realInput([{ type: "press", key: "Delete" }]);
       await expect.poll(() => backend.writes.length, WAIT).toBe(writesBefore + 1);
@@ -261,7 +281,7 @@ describe("seven model nodes, opened while the board is at a zoom of 0.5", () => 
       expect(mounted.boardChanges()).toBe(changesBefore);
 
       // Something for Done to release: a selection with its open pad.
-      await clickShape(engine, selection);
+      await clickShape(engine, modeler);
       const done = doneControl().getBoundingClientRect();
       await commands.realInput([
         { type: "click", x: done.left + done.width / 2, y: done.top + done.height / 2 },
@@ -306,7 +326,7 @@ describe("seven model nodes, opened while the board is at a zoom of 0.5", () => 
       await expect.poll(() => doneControl().dataset.boardDone, WAIT).toBe(node.id);
       expect(zoom()).toBe(1);
       // Something for the zoom to release: a selection with its open pad.
-      await clickShape(engine, selection);
+      await clickShape(engine, modeler);
 
       await commands.realInput([
         { type: "move", ...panePoint(mounted.element) },

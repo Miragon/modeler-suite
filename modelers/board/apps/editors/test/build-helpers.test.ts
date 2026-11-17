@@ -147,15 +147,21 @@ describe("prebundle", () => {
   });
 
   // An entry Vite cannot resolve is a warning on every start and a module it pre-bundles late.
+  // A package with no export for `require` (`@miragon/bpmn-modeler`) is resolved as an import.
   it("names only modules this workspace can resolve", () => {
-    const unresolved = prebundle.filter((specifier) => {
+    const resolves = (resolve: (specifier: string) => string, specifier: string): boolean => {
       try {
-        require.resolve(specifier);
-        return false;
-      } catch {
+        resolve(specifier);
         return true;
+      } catch {
+        return false;
       }
-    });
+    };
+    const unresolved = prebundle.filter(
+      (specifier) =>
+        !resolves(require.resolve, specifier) &&
+        !resolves((one) => import.meta.resolve(one), specifier),
+    );
     expect(unresolved).toEqual([]);
   });
 });

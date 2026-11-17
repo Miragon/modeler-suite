@@ -1,6 +1,6 @@
 /**
- * The example file of each of the seven modelers, as its own modeler ships it, under the path a
- * board's model node would name.
+ * The example file of each of the seven modelers, as its own modeler ships it, and a BPMN process
+ * of the board's own fixtures, under the path a board's model node would name.
  */
 import businessModelCanvas from "../../../../../../business-model-canvas/example/miragon.bmc?raw";
 import c4 from "../../../../../../c4/example/bookshop.c4?raw";
@@ -9,6 +9,7 @@ import eventStorming from "../../../../../../event-storming/example/order-checko
 import teamTopologies from "../../../../../../team-topologies/example/sample.tt?raw";
 import valueChain from "../../../../../../value-chain/example/porter.vc.json?raw";
 import wardley from "../../../../../../wardley-maps/example/tea.owm?raw";
+import bpmn from "../../fixtures/order-to-cash.bpmn?raw";
 
 export interface Example {
   /** the contract's `meta.notation` of the modeler that shows the file */
@@ -25,6 +26,7 @@ export const EXAMPLES: readonly Example[] = [
   { notation: "value-chain", path: "models/porter.vc.json", text: valueChain },
   { notation: "c4", path: "models/bookshop.c4", text: c4 },
   { notation: "business-model-canvas", path: "models/miragon.bmc", text: businessModelCanvas },
+  { notation: "bpmn", path: "models/order-to-cash.bpmn", text: bpmn },
 ];
 
 export function exampleOf(notation: string): Example {

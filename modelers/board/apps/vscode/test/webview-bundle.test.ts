@@ -36,6 +36,15 @@ async function buildProductionWebviewBundle(): Promise<Built> {
   return { outputs: result.outputFiles, inputs: Object.keys(result.metafile.inputs) };
 }
 
+/** The build's helper is untyped JavaScript, loaded by Node and not compiled by Vite. */
+async function topLevelStatements(css: string): Promise<string[]> {
+  const helper = new URL("../../editors/build/css-scope.mjs", import.meta.url).href;
+  const { topLevelStatements: split } = (await import(/* @vite-ignore */ helper)) as {
+    topLevelStatements(text: string): string[];
+  };
+  return split(css);
+}
+
 const RENDERER_ROOTS = [
   ".wardley-container",
   ".event-storming-container",
@@ -93,9 +102,18 @@ describe("the production webview bundle", () => {
     expect(count(script, "acquireVsCodeApi")).toBe(1);
   });
 
-  it("holds the page's sheets in their order: fonts, shell, board, the base once, the three rules, then each renderer's own", () => {
+  it("holds the page's sheets in their order: fonts, shell, board, the base once, the three rules, then each renderer's own", async () => {
+    // The BPMN modeler's sheet keeps a copy of the base of its own, held to its editors by
+    // `@scope`: the page-wide sheet is the rest.
+    const statements = await topLevelStatements(sheet);
+    const isBpmn = (statement: string): boolean =>
+      /^@scope\(\[data-notation=bpmn\],\s*\.am-overlay-root\)\{/.test(statement);
+    const scoped = statements.filter(isBpmn);
+    expect(scoped).toHaveLength(1);
+    expect(scoped[0]).toContain(BASE_RULE);
+    const pageWide = statements.filter((statement) => !isBpmn(statement)).join("");
     for (const once of [SHELL_RULE, BASE_RULE, PREVIEW_RULE, APP_RULE]) {
-      expect(count(sheet, once), once).toBe(1);
+      expect(count(pageWide, once), once).toBe(1);
     }
     const order = [
       sheet.indexOf("@font-face"),
@@ -110,6 +128,7 @@ describe("the production webview bundle", () => {
     for (const root of RENDERER_ROOTS) {
       expect(sheet.indexOf(root), root).toBeGreaterThan(sheet.indexOf(APP_RULE));
     }
+    expect(sheet.indexOf(scoped[0]!)).toBeGreaterThan(sheet.indexOf(APP_RULE));
   });
 
   it("holds one copy of each library its parts must share", () => {

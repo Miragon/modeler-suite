@@ -20,6 +20,7 @@ const LOADERS: Readonly<Record<string, EditorEntry["load"]>> = {
   "value-chain": () => import("./notations/value-chain.js"),
   c4: () => import("./notations/c4.js"),
   "business-model-canvas": () => import("./notations/business-model-canvas.js"),
+  bpmn: () => import("./notations/bpmn.js"),
 };
 
 function entryOf({ notation, kind, suffixes }: (typeof SUITE_SUFFIXES)[number]): EditorEntry {
@@ -29,5 +30,5 @@ function entryOf({ notation, kind, suffixes }: (typeof SUITE_SUFFIXES)[number]):
   return { notation, kind, suffixes, load, ...(insets ? { insets } : {}) };
 }
 
-/** The seven modelers of the suite as the editors of a board's model nodes. */
+/** The seven modelers of the suite and Miragon's BPMN modeler as the editors of a board's model nodes. */
 export const SUITE_EDITORS: readonly EditorEntry[] = SUITE_SUFFIXES.map(entryOf);

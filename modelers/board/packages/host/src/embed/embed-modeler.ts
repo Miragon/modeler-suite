@@ -76,8 +76,11 @@ export function embedModeler(
   let home = context;
   let leave = settleIn(home, root, notation, keys);
   modeler.attachTo(root);
-  const canvas = modeler.diagram?.get<CanvasLike>("canvas", false);
+  // Asked when it is needed: an editor that makes its engine with its first text has none before.
+  const canvasOf = (): CanvasLike | undefined =>
+    modeler.diagram?.get<CanvasLike | null>("canvas", false) ?? undefined;
   const fit = (): void => {
+    const canvas = canvasOf();
     const bounds = modeler.contentBounds?.();
     // layout px, never a client rect: the element is scaled while the model is a preview
     const box =
@@ -109,7 +112,7 @@ export function embedModeler(
     release: () => releaseDiagramJs(home.element),
     focus() {
       options.module.relayout?.(modeler);
-      canvas?.focus?.();
+      canvasOf()?.focus?.();
     },
     rehome(next) {
       if (next === home) return;

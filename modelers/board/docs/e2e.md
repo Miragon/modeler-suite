@@ -18,7 +18,7 @@ is described with the app it drives, and a change to one is written there:
 
 The other projects and the rules of a test are under [Tests](../CLAUDE.md#tests).
 
-- `npm run board test:e2e` (Playwright) runs 36 tests in two projects, the board's own specs in
+- `npm run board test:e2e` (Playwright) runs 37 tests in two projects, the board's own specs in
   the place of the shell's conformance kit
   ([Three deviations under the shell](ide-editor.md#three-deviations-under-the-shell-each-with-an-end)).
   `e2e/tests/webapp/board.spec.ts` (10 tests) is under
@@ -26,8 +26,8 @@ The other projects and the rules of a test are under [Tests](../CLAUDE.md#tests)
   example with seven engines ready and no page error, what is kept over a reload and the reset, a
   new board, a file opened through the browser's dialog, the download's bytes, the view kept
   over a reload, a picture dropped onto the example, and two narrow
-  windows. `e2e/tests/vscode` (26 tests: `document-sync` 4,
-  `files` 13, `shipped-bundle` 2, `view` 3, `drop` 3, `card` 1) is under
+  windows. `e2e/tests/vscode` (27 tests: `document-sync` 4,
+  `files` 13, `shipped-bundle` 3, `view` 3, `drop` 3, `card` 1) is under
   [The webview test page and the project `vscode-webview`](vscode.md#the-webview-test-page-and-the-project-vscode-webview-e2e).
   `e2e/tests/support/input.ts` is what both projects share: a point of the bare pane, and a
   real drag of a file.

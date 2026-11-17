@@ -80,6 +80,11 @@
           "type": "json",
           "path": "/package-lock.json",
           "jsonpath": "$.packages['modelers/board/packages/host'].dependencies['@miragon/modeler-api']"
+        },
+        {
+          "type": "json",
+          "path": "/package-lock.json",
+          "jsonpath": "$.packages['modelers/board/apps/editors'].dependencies['@miragon/modeler-api']"
         }
       ]
     },

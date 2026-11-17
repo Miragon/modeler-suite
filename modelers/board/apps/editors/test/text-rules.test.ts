@@ -14,6 +14,7 @@ import {
 import { parseDSL, serializeDSL } from "@miragon/wardley-dsl";
 import type { WardleyMap } from "@miragon/wardley-schema-model";
 import { describe, expect, it } from "vitest";
+import { bpmnTextRules } from "../src/bpmn/text-rules.js";
 import * as businessModelCanvas from "../src/notations/business-model-canvas.js";
 import * as c4 from "../src/notations/c4.js";
 import * as contextMaps from "../src/notations/context-maps.js";
@@ -298,6 +299,34 @@ describe("C4", () => {
     c4.relayout(modeler);
     await Promise.resolve();
     expect(calls).toEqual([]);
+  });
+});
+
+// The BPMN notation module loads `@miragon/bpmn-modeler`, which loads in a page only; its rules
+// stand in a module of their own, and the module is held in the browser battery.
+const bpmnModule: EditorModule = { create: () => standIn({ text: "" }), text: bpmnTextRules };
+
+describe("BPMN", () => {
+  const own = readFileSync(new URL("./fixtures/order-to-cash.bpmn", import.meta.url), "utf8");
+
+  it("writes what the modeler exports, which is the file's own text until the first edit", () => {
+    const canvas = { text: own };
+    const rules = rulesOf(bpmnModule, standIn(canvas));
+    expect(rules.exported(own)).toBe(own);
+    canvas.text = own.replace('name="Check order"', 'name="Check the order"');
+    expect(rules.exported(own)).toBe(canvas.text);
+  });
+
+  it("takes a text for the canvas that differs in its line endings and the space around it", () => {
+    const rules = rulesOf(bpmnModule, standIn({ text: own }));
+    expect(rules.same(`\n${own.replace(/\n/g, "\r\n")}  \n`, own)).toBe(true);
+    expect(rules.same(own.replace("Check order", "Check the order"), own)).toBe(false);
+  });
+
+  it("takes the text the canvas exports after an edit, whatever the file had", () => {
+    const edited = own.replace("Ship order", "Ship the order");
+    const rules = rulesOf(bpmnModule, standIn({ text: edited }));
+    expect(rules.same(edited, own)).toBe(true);
   });
 });
 

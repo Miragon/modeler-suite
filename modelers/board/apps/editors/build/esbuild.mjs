@@ -1,11 +1,13 @@
 import { esbuildAlias } from "./aliases.mjs";
 import { cssBaseOnce } from "./css-base.mjs";
+import { bpmnSheetScopeEsbuild } from "./css-scope.mjs";
 
 /**
  * The options of a page that esbuild bundles into one script and one sheet with the board and
  * the suite's editors in it, the VS Code webview: every package of the suite from its source, so
  * that no modeler is built first, and the base every renderer sheet brings along emptied there
- * (the page loads it once, `board-suite-editors/base`). The caller adds its entry, its output
+ * (the page loads it once, `board-suite-editors/base`), and the BPMN modeler's sheet held to its
+ * editors (`build/css-scope.mjs`). The caller adds its entry, its output
  * and the format; `minify` and `sourcemap` are its own as well.
  *
  * There is no `tsconfigRaw` on purpose: esbuild then reads the tsconfig next to each source file,
@@ -19,7 +21,7 @@ export const webviewBundle = {
   platform: "browser",
   target: "es2022",
   alias: esbuildAlias,
-  plugins: [cssBaseOnce],
+  plugins: [cssBaseOnce, bpmnSheetScopeEsbuild],
   // The board's renderer is TSX on the automatic runtime. Said here as well, so that it does not
   // hang on which tsconfig esbuild finds next to a source file.
   jsx: "automatic",
