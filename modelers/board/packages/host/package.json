@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-host",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "What every host of a board shares: a modeler of @miragon/modeler-api as an editor in a model node, and a board host built from the files of a repository and a registry of editors.",
   "license": "MIT",

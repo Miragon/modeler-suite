@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/Miragon/modeler-suite/compare/board-host-v0.2.0...board-host-v0.3.0) (2026-11-17)
+
+
+### Features
+
+* **board:** show BPMN files with Miragon's BPMN modeler ([#663](https://github.com/Miragon/modeler-suite/issues/663)) ([2e9e8b5](https://github.com/Miragon/modeler-suite/commit/2e9e8b595a3ce0b912bf877cd8e3570fefedfdcc))
+
 ## [0.2.0](https://github.com/Miragon/modeler-suite/compare/board-host-v0.1.0...board-host-v0.2.0) (2026-11-17)
 
 

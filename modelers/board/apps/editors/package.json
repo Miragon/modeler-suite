@@ -1,6 +1,6 @@
 {
   "name": "board-suite-editors",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "The seven modelers of the suite as editors in a board's model nodes: the registry, each notation's text rules, and the build helpers of the board's apps. The one workspace of the board that depends on another modeler.",
   "license": "MIT",
@@ -20,7 +20,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@miragon/board-host": "0.2.0",
+    "@miragon/board-host": "0.3.0",
     "@miragon/bpmn-modeler": "1.10.0",
     "@miragon/business-model-canvas-dsl": "0.2.0",
     "@miragon/business-model-canvas-renderer": "0.2.0",
