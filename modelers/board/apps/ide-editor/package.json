@@ -1,6 +1,6 @@
 {
   "name": "board-ide-editor",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "The board inside the suite's shell: the editor the VS Code extension mounts in its webview.",
   "license": "MIT",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@miragon/board-files": "0.1.0",
-    "@miragon/board-host": "0.2.0",
+    "@miragon/board-host": "0.3.0",
     "@miragon/board-renderer": "0.2.0",
     "@miragon/board-schema-model": "0.2.0",
     "@miragon/modeler-shell": "0.14.2",

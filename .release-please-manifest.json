@@ -47,10 +47,10 @@
   "modelers/board/packages/schema-model": "0.2.0",
   "modelers/board/packages/renderer": "0.2.0",
   "modelers/board/packages/files": "0.1.0",
-  "modelers/board/packages/host": "0.2.0",
-  "modelers/board/apps/editors": "0.2.0",
-  "modelers/board/apps/ide-editor": "0.2.0",
-  "modelers/board/apps/vscode": "0.3.0",
-  "modelers/board/apps/webapp": "0.2.0",
+  "modelers/board/packages/host": "0.3.0",
+  "modelers/board/apps/editors": "0.3.0",
+  "modelers/board/apps/ide-editor": "0.2.1",
+  "modelers/board/apps/vscode": "0.4.0",
+  "modelers/board/apps/webapp": "0.3.0",
   "extensions/modeler-collection": "1.6.0"
 }
