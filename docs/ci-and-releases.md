@@ -78,7 +78,7 @@ that cannot be fetched run everything; so does any path no rule names.
   `npx playwright install chromium` once). The drift test of `test:plugin` only type-checks the
   template against the sources.
 - **Docs** (`docs`): the VitePress site in `docs/` as [`docs.yml`](../.github/workflows/docs.yml)
-  deploys it from `main`: the vendored Miragon docs kit checked unchanged, and a build, which fails
+  deploys it from `main`: a build with the Miragon docs kit (`@miragon/docs-starter`), which fails
   on a dead link.
 - **VS Code smoke** ([`vscode-smoke.yml`](../.github/workflows/vscode-smoke.yml)), called once with
   the modelers the change reaches: each packaged extension in a real VS Code under `xvfb`, on the
