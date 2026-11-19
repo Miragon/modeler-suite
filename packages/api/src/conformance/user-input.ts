@@ -26,7 +26,7 @@ export const settledWithin = (promise: Promise<unknown>): Promise<BoundedOutcome
   raceTheBound(
     promise.then(
       (): BoundedOutcome => ({}),
-      (e: unknown): BoundedOutcome => ({ rejected: String(e) }),
+      (error: unknown): BoundedOutcome => ({ rejected: String(error) }),
     ),
     { unsettled: true },
     HELD_IMPORT_BOUND_MS,
@@ -44,15 +44,15 @@ export interface LegFindings {
 const doNothing = (): void => undefined;
 
 export async function importWhileHeld(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   text: string,
   onResolve: () => void = doNothing,
 ): Promise<{ calls: number; importing: Promise<unknown>; outcome: BoundedOutcome }> {
   let importing: Promise<unknown> = Promise.resolve();
   let outcome: BoundedOutcome = {};
-  const { calls } = await changeEvents(h, m, async () => {
-    importing = m.importText(text).then(onResolve);
+  const { calls } = await changeEvents(harness, modeler, async () => {
+    importing = modeler.importText(text).then(onResolve);
     outcome = await settledWithin(importing);
   });
   return { calls, importing, outcome };
@@ -100,8 +100,8 @@ export interface InteractionWatch {
   stop(): void;
 }
 
-export function watchInteraction(m: CollaborativeModeler): InteractionWatch | undefined {
-  const interaction = m.interaction;
+export function watchInteraction(modeler: CollaborativeModeler): InteractionWatch | undefined {
+  const interaction = modeler.interaction;
   if (!interaction) return undefined;
   const watch: InteractionWatch = { delivered: [], mismatches: 0, stop: doNothing };
   watch.stop = interaction.onChange((active) => {
@@ -117,18 +117,18 @@ export interface ImportedLeg {
 }
 
 /** a different document, which usually removes what the user holds, then the same one again */
-export function importedLegs(h: ConformanceHarness): ImportedLeg[] {
-  const second = h.canonicalTexts[1];
+export function importedLegs(harness: ConformanceHarness): ImportedLeg[] {
+  const second = harness.canonicalTexts[1];
   return [
     ...(second === undefined
       ? []
       : [{ text: second, what: "a different document (canonicalTexts[1])" }]),
-    { text: firstText(h), what: "the same document (canonicalTexts[0])" },
+    { text: firstText(harness), what: "the same document (canonicalTexts[0])" },
   ];
 }
 
-export const oneTextOnly = (h: ConformanceHarness, what: string): string[] =>
-  h.canonicalTexts[1] === undefined
+export const oneTextOnly = (harness: ConformanceHarness, what: string): string[] =>
+  harness.canonicalTexts[1] === undefined
     ? [
         `canonicalTexts holds one text — ${what} of a DIFFERENT document was not checked (add a second canonical text)`,
       ]
@@ -142,18 +142,18 @@ export type GestureStarter = NonNullable<ConformanceHarness["startGesture"]>;
  * as a harness whose drop never lands
  */
 export async function expectDropApplies(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   startGesture: GestureStarter,
   kind: GestureKind,
 ): Promise<void> {
-  await importFirstText(h, m);
-  await settleOf(h)();
-  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
-  const held = await startGesture(m, kind);
+  await importFirstText(harness, modeler);
+  await settleOf(harness)();
+  const doc = exportOrFail(modeler, "after importing canonicalTexts[0]");
+  const held = await startGesture(modeler, kind);
   await held.drop();
-  await settleOf(h)();
-  if (exportOrFail(m, `after startGesture(modeler, "${kind}") and its drop`) === doc) {
+  await settleOf(harness)();
+  if (exportOrFail(modeler, `after startGesture(modeler, "${kind}") and its drop`) === doc) {
     fail(
       `startGesture(modeler, "${kind}") and drop() left the document as it was — the case proves nothing (drop() releases the gesture where it applies, so a drop the modeler still runs changes the document)`,
     );
@@ -174,9 +174,9 @@ export const withinTheBound = (
  * `exportText()`, or `undefined` where it throws: read in a Promise's callback, where a throw
  * would reach no case
  */
-export function exportedNow(m: CollaborativeModeler): string | undefined {
+export function exportedNow(modeler: CollaborativeModeler): string | undefined {
   try {
-    return m.exportText();
+    return modeler.exportText();
   } catch {
     return undefined;
   }
@@ -187,18 +187,18 @@ export function exportedNow(m: CollaborativeModeler): string | undefined {
  * would reach the window as an unhandled one
  */
 export function importFromAListener(
-  m: CollaborativeModeler,
+  modeler: CollaborativeModeler,
   text: string,
   onSettled: () => void = doNothing,
 ): Promise<ListenerImportResult> {
-  return m.importText(text).then(
+  return modeler.importText(text).then(
     () => {
       onSettled();
-      return { exported: exportedNow(m) };
+      return { exported: exportedNow(modeler) };
     },
-    (e: unknown) => {
+    (error: unknown) => {
       onSettled();
-      return { rejected: String(e) };
+      return { rejected: String(error) };
     },
   );
 }
@@ -222,29 +222,29 @@ export interface ActionLegFindings extends LegFindings {
  * half done
  */
 export async function nextMutateApplies(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   after: string,
 ): Promise<string[]> {
-  const settle = settleOf(h);
-  const before = exportedNow(m);
+  const settle = settleOf(harness);
+  const before = exportedNow(modeler);
   if (before === undefined) return [`exportText() threw after ${after}`];
   let thrown: string | undefined;
-  const next = await changeEvents(h, m, async () => {
-    thrown = await errorOf(() => h.mutate(m));
+  const next = await changeEvents(harness, modeler, async () => {
+    thrown = await errorOf(() => harness.mutate(modeler));
   });
   if (thrown !== undefined) return [`the next mutate after ${after} threw ${thrown}`];
-  if (next.calls === 0 || exportedNow(m) === before) {
+  if (next.calls === 0 || exportedNow(modeler) === before) {
     return [`the next mutate after ${after} did not apply (wedged)`];
   }
-  const undo = h.undo;
+  const undo = harness.undo;
   if (!undo) return [];
-  const undoThrown = await errorOf(() => undo(m));
+  const undoThrown = await errorOf(() => undo(modeler));
   await settle();
   if (undoThrown !== undefined) {
     return [`an undo of the next mutate after ${after} threw ${undoThrown}`];
   }
-  return exportedNow(m) === before
+  return exportedNow(modeler) === before
     ? []
     : [`an undo of the next mutate after ${after} did not bring the document back (wedged)`];
 }
@@ -269,18 +269,18 @@ export async function nextMutateAppliesOrFail(
 }
 
 export async function undoAfterTheImport(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   imported: string,
   after: string,
   what: string,
 ): Promise<string[]> {
-  const undo = h.undo;
+  const undo = harness.undo;
   if (!undo) return [];
-  const thrown = await errorOf(() => undo(m));
-  await settleOf(h)();
+  const thrown = await errorOf(() => undo(modeler));
+  await settleOf(harness)();
   if (thrown !== undefined) return [`an undo after ${after} threw ${thrown}`];
-  return exportedNow(m) === imported
+  return exportedNow(modeler) === imported
     ? []
     : [
         `an undo after ${after} changed the document — ${what} stayed on the fresh undo history (L4)`,

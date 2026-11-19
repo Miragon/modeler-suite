@@ -18,35 +18,37 @@ import {
 } from "./user-input.js";
 
 /** every rule is stated by the contract, so each one fails */
-async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOutcome | void> {
-  const settle = settleOf(h);
-  const first = firstText(h);
+async function interactionFollowsGestures(
+  harness: ConformanceHarness,
+): Promise<CaseOutcome | void> {
+  const settle = settleOf(harness);
+  const first = firstText(harness);
   const others: CollaborativeModeler[] = [];
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    const interaction = m.interaction;
+    const interaction = modeler.interaction;
     if (!interaction) {
       return skip("the modeler exposes no interaction surface (optional, 1.5) — nothing to verify");
     }
-    if (!h.startGesture) {
+    if (!harness.startGesture) {
       return skip(
         "startGesture is undefined — that interaction.active() follows every gesture was not verified",
       );
     }
-    const startGesture = h.startGesture;
+    const startGesture = harness.startGesture;
     if (interaction.active()) fail("interaction.active() is true before the first import");
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
     await settle();
     if (interaction.active()) fail("interaction.active() is true at rest after an import");
-    const watch = watchInteraction(m);
+    const watch = watchInteraction(modeler);
     if (!watch) fail("the interaction surface went away");
     for (const kind of GESTURE_KINDS) {
       for (const end of ["drop", "cancel"] as const) {
-        await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+        await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
         await settle();
         const mark = watch.delivered.length;
         const since = (): string => JSON.stringify(watch.delivered.slice(mark));
-        const held = await startGesture(m, kind);
+        const held = await startGesture(modeler, kind);
         if (!interaction.active()) {
           fail(`interaction.active() is false while a ${kind} gesture is held`);
         }
@@ -75,23 +77,23 @@ async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOu
     const late: boolean[] = [];
     const unsubscribe = interaction.onChange((active) => late.push(active));
     unsubscribe();
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-    const held = await startGesture(m, "move");
+    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    const held = await startGesture(modeler, "move");
     await held.cancel();
     await settle();
     if (late.length > 0) fail("interaction.onChange delivered after its unsubscribe");
-    const armedToolUnverified = await armedToolIsNoGesture(h, m, interaction, watch);
-    await nothingDeliveredAfterADestroy(h, startGesture);
-    const later = await laterListenerAfterADestroy(h, startGesture);
+    const armedToolUnverified = await armedToolIsNoGesture(harness, modeler, interaction, watch);
+    await nothingDeliveredAfterADestroy(harness, startGesture);
+    const later = await laterListenerAfterADestroy(harness, startGesture);
     if (later.length > 0) {
       fail(
         `interaction.onChange delivered ${JSON.stringify(later)} to a later listener once an earlier listener of the same delivery had called destroy() at the start of a move — nothing is called after destroy()`,
       );
     }
-    await viewerHoldsNoGesture(h, others);
+    await viewerHoldsNoGesture(harness, others);
     if (armedToolUnverified !== undefined) return skip(armedToolUnverified);
   } finally {
-    m.destroy();
+    modeler.destroy();
     for (const other of others) other.destroy();
   }
 }
@@ -188,22 +190,22 @@ async function viewerHoldsNoGesture(
  * what the second heard before the destroy counts for nothing
  */
 async function laterListenerAfterADestroy(
-  h: ConformanceHarness,
+  harness: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<boolean[]> {
-  const settle = settleOf(h);
+  const settle = settleOf(harness);
   const later: boolean[] = [];
   let destroyed = false;
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    await importFirstText(h, m);
+    await importFirstText(harness, modeler);
     await settle();
-    const interaction = m.interaction;
+    const interaction = modeler.interaction;
     if (!interaction) return later;
     interaction.onChange((active) => {
       if (!active || destroyed) return;
       destroyed = true;
-      m.destroy();
+      modeler.destroy();
     });
     interaction.onChange((active) => {
       if (destroyed) later.push(active);
@@ -213,14 +215,14 @@ async function laterListenerAfterADestroy(
     const errors = listenForWindowErrors();
     try {
       await errorOf(async () => {
-        await startGesture(m, "move");
+        await startGesture(modeler, "move");
       });
       await settle();
     } finally {
       errors.stop();
     }
   } finally {
-    if (!destroyed) m.destroy();
+    if (!destroyed) modeler.destroy();
   }
   return later;
 }

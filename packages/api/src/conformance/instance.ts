@@ -23,37 +23,39 @@ const toleratedCall = (action: () => Promise<void> | void): Promise<void> =>
 export const instanceCases: ConformanceCase[] = [
   {
     name: "meta declares the notation, editability and a compatible apiVersion",
-    async run(h) {
-      const m = await h.create();
+    async run(harness) {
+      const modeler = await harness.create();
       try {
-        if (!m.meta.notation) fail("meta.notation is empty");
-        if (m.meta.editable !== true)
+        if (!modeler.meta.notation) fail("meta.notation is empty");
+        if (modeler.meta.editable !== true)
           fail("create() must return an EDITABLE modeler (meta.editable === true)");
-        if (!apiVersionsCompatible(m.meta.apiVersion, MODELER_API_VERSION)) {
-          fail(`apiVersion ${m.meta.apiVersion} is not compatible with ${MODELER_API_VERSION}`);
+        if (!apiVersionsCompatible(modeler.meta.apiVersion, MODELER_API_VERSION)) {
+          fail(
+            `apiVersion ${modeler.meta.apiVersion} is not compatible with ${MODELER_API_VERSION}`,
+          );
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
       }
     },
   },
   {
     name: "calls before the first import never wedge the instance",
-    async run(h) {
-      const m = await h.create();
+    async run(harness) {
+      const modeler = await harness.create();
       let control: CollaborativeModeler | undefined;
       try {
         // what these return without a document is the modeler's choice —
         // only the instance has to survive them
         try {
-          m.exportText();
+          modeler.exportText();
         } catch {
           // a throw before the first import is allowed
         }
-        await toleratedCall(() => h.mutate(m));
-        await settleOf(h)();
-        control = await h.create();
-        const texts = h.canonicalTexts.length > 0 ? h.canonicalTexts.slice(0, 2) : [""];
+        await toleratedCall(() => harness.mutate(modeler));
+        await settleOf(harness)();
+        control = await harness.create();
+        const texts = harness.canonicalTexts.length > 0 ? harness.canonicalTexts.slice(0, 2) : [""];
         let last = "";
         for (const [index, text] of texts.entries()) {
           const source = `canonicalTexts[${index}]`;
@@ -63,12 +65,12 @@ export const instanceCases: ConformanceCase[] = [
           await control.importText(text);
           const expected = exportOrFail(control, `after importing ${source} into a fresh instance`);
           await importOrFail(
-            m,
+            modeler,
             text,
             `importText(${source}) rejected on an instance that ran exportText() and a user command before its first import (wedged)`,
           );
           last = exportOrFail(
-            m,
+            modeler,
             `after importing ${source} into an instance used before its first import`,
           );
           if (last !== expected) {
@@ -77,22 +79,24 @@ export const instanceCases: ConformanceCase[] = [
             );
           }
         }
-        const { calls } = await changeEvents(h, m, () => h.mutate(m));
+        const { calls } = await changeEvents(harness, modeler, () => harness.mutate(modeler));
         if (calls === 0) {
           fail(
             "a user mutation fired no onContentChanged on an instance used before its first import (wedged)",
           );
         }
         if (
-          exportOrFail(m, "after a user mutation on an instance used before its first import") ===
-          last
+          exportOrFail(
+            modeler,
+            "after a user mutation on an instance used before its first import",
+          ) === last
         ) {
           fail(
             "a user mutation did not apply on an instance used before its first import (wedged)",
           );
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
         control?.destroy();
       }
     },

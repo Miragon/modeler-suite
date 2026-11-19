@@ -11,17 +11,18 @@ export const skip = (reason: string): CaseOutcome => ({ skipped: reason });
 export function exportOrFail(modeler: CollaborativeModeler, when: string): string {
   try {
     return modeler.exportText();
-  } catch (e) {
-    fail(`exportText threw ${when}: ${String(e)}`);
+  } catch (error) {
+    fail(`exportText threw ${when}: ${String(error)}`);
   }
 }
 
-export const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+export const same = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
 
 /** a view state with NaN/Infinity is what a detached or 0×0 host produces */
 export function assertFinite(state: unknown, when: string): void {
-  const json = JSON.stringify(state, (_k, v: unknown) =>
-    typeof v === "number" && !Number.isFinite(v) ? "__non_finite__" : v,
+  const json = JSON.stringify(state, (_key, value: unknown) =>
+    typeof value === "number" && !Number.isFinite(value) ? "__non_finite__" : value,
   );
   if (json?.includes("__non_finite__")) {
     fail(
@@ -63,20 +64,20 @@ export async function changeEvents(
 
 export const firstText = (harness: ConformanceHarness): string => harness.canonicalTexts[0] ?? "";
 
-export const secondText = (h: ConformanceHarness): string =>
-  h.canonicalTexts[1] ?? h.canonicalTexts[0] ?? "";
+export const secondText = (harness: ConformanceHarness): string =>
+  harness.canonicalTexts[1] ?? harness.canonicalTexts[0] ?? "";
 
 export const UNKNOWN_ELEMENT_ID = "__modeler_api_no_such_id__";
 
-export const sortedIds = (m: CollaborativeModeler): string[] | undefined =>
-  m.elements ? [...m.elements.list().map((e) => e.id)].sort() : undefined;
+export const sortedIds = (modeler: CollaborativeModeler): string[] | undefined =>
+  modeler.elements ? [...modeler.elements.list().map((element) => element.id)].sort() : undefined;
 
 export async function importOrFail(
-  m: CollaborativeModeler,
+  modeler: CollaborativeModeler,
   text: string,
   failure: string,
 ): Promise<void> {
-  await m.importText(text).catch((e: unknown) => fail(`${failure}: ${String(e)}`));
+  await modeler.importText(text).catch((error: unknown) => fail(`${failure}: ${String(error)}`));
 }
 
 export const importFirstText = (
@@ -91,12 +92,12 @@ export const importFirstText = (
  * and return it; without an elements surface the first text is used
  */
 export async function importContentText(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
 ): Promise<string> {
-  for (const text of h.canonicalTexts) {
-    await m.importText(text);
-    if (!m.elements || m.elements.list().length > 0) return text;
+  for (const text of harness.canonicalTexts) {
+    await modeler.importText(text);
+    if (!modeler.elements || modeler.elements.list().length > 0) return text;
   }
   fail(
     "L5 needs a canonical text that renders at least one element — an empty document has no fitted view",
@@ -104,21 +105,24 @@ export async function importContentText(
 }
 
 export async function foreignRoundTrips(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   who: string,
 ): Promise<void> {
-  for (const { text, mustSurvive } of h.foreignTexts ?? []) {
+  for (const { text, mustSurvive } of harness.foreignTexts ?? []) {
     if (mustSurvive.length === 0)
       fail("a foreignTexts entry must name at least one fragment in mustSurvive");
-    await m.importText(text); // warnings allowed — a throw is the violation
-    const first = exportOrFail(m, `${who}after importing a document with foreign content`);
+    await modeler.importText(text); // warnings allowed — a throw is the violation
+    const first = exportOrFail(modeler, `${who}after importing a document with foreign content`);
     for (const fragment of mustSurvive) {
       if (!first.includes(fragment))
         fail(`${who}foreign content was dropped on import → export: '${fragment}' is missing`);
     }
-    await m.importText(first);
-    const second = exportOrFail(m, `${who}after re-importing its own export of foreign content`);
+    await modeler.importText(first);
+    const second = exportOrFail(
+      modeler,
+      `${who}after re-importing its own export of foreign content`,
+    );
     if (second !== first)
       fail(`${who}foreign content did not survive a second import → export round-trip`);
   }
@@ -134,8 +138,8 @@ export const focusOn = (element: Element): void => {
 
 const SHOWN_FINDINGS = 12;
 
-export const selectionOf = (m: CollaborativeModeler): string =>
-  m.elements ? JSON.stringify([...m.elements.selection()].sort()) : "";
+export const selectionOf = (modeler: CollaborativeModeler): string =>
+  modeler.elements ? JSON.stringify([...modeler.elements.selection()].sort()) : "";
 
 export type KeyedInstance = "modeler" | "viewer";
 
@@ -151,13 +155,15 @@ interface MountedCanvas {
  * ending in what `unverified` names
  */
 export function mountedCanvas(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   instance: KeyedInstance,
   firstSerial: number,
   unverified = "keys were not verified",
 ): MountedCanvas | string {
-  const search = hostMadeSince(h, m, firstSerial, (host) => host.querySelector(CANVAS_SELECTOR));
+  const search = hostMadeSince(harness, modeler, firstSerial, (host) =>
+    host.querySelector(CANVAS_SELECTOR),
+  );
   switch (search.kind) {
     case "found":
       return { canvas: search.element, host: search.mount.host, wrapper: search.mount.wrapper };
@@ -232,7 +238,7 @@ export async function errorOf(step: () => Promise<void> | void): Promise<string 
   try {
     await step();
     return undefined;
-  } catch (e) {
-    return String(e);
+  } catch (error) {
+    return String(error);
   }
 }

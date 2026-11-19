@@ -39,7 +39,7 @@ interface DestroyLeg {
    * surface, or returns why the leg cannot run; `selected` is the first listed element
    */
   listen(
-    m: CollaborativeModeler,
+    modeler: CollaborativeModeler,
     destroyer: Destroyer,
     selected: string | undefined,
   ): string | undefined;
@@ -48,7 +48,7 @@ interface DestroyLeg {
    * goes to `destroyer.note`
    */
   act(
-    m: CollaborativeModeler,
+    modeler: CollaborativeModeler,
     selected: string | undefined,
     destroyer: Destroyer,
   ): Promise<void> | void;
@@ -58,10 +58,14 @@ interface DestroyLeg {
  * a listener on every surface the modeler has, behind the destroying one: later listeners of the
  * same delivery, which hear nothing once `destroy()` has been called
  */
-function listenBehindTheDestroy(m: CollaborativeModeler, destroyer: Destroyer): void {
-  m.onContentChanged(() => destroyer.heard("onContentChanged"));
-  m.elements?.onSelection((ids) => destroyer.heard(`elements.onSelection(${JSON.stringify(ids)})`));
-  m.interaction?.onChange((active) => destroyer.heard(`interaction.onChange(${String(active)})`));
+function listenBehindTheDestroy(modeler: CollaborativeModeler, destroyer: Destroyer): void {
+  modeler.onContentChanged(() => destroyer.heard("onContentChanged"));
+  modeler.elements?.onSelection((ids) =>
+    destroyer.heard(`elements.onSelection(${JSON.stringify(ids)})`),
+  );
+  modeler.interaction?.onChange((active) =>
+    destroyer.heard(`interaction.onChange(${String(active)})`),
+  );
 }
 
 /**
@@ -70,18 +74,21 @@ function listenBehindTheDestroy(m: CollaborativeModeler, destroyer: Destroyer): 
  * The leg inside `reveal()` starts from the selection the import left and reveals that element
  * itself. The modeler is not touched after the destroy, apart from a second `destroy()`
  */
-async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<ActionLegFindings> {
-  const settle = settleOf(h);
+async function destroyDuring(
+  harness: ConformanceHarness,
+  leg: DestroyLeg,
+): Promise<ActionLegFindings> {
+  const settle = settleOf(harness);
   const findings: string[] = [];
   const heardAfter: string[] = [];
   let called = false;
   let thrownByDestroy: string | undefined;
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    await importFirstText(h, m);
+    await importFirstText(harness, modeler);
     await settle();
-    const selected = m.elements?.list()[0]?.id;
-    if (selected !== undefined && leg.startsRevealed) m.elements?.reveal(selected);
+    const selected = modeler.elements?.list()[0]?.id;
+    if (selected !== undefined && leg.startsRevealed) modeler.elements?.reveal(selected);
     await settle();
     const destroyer: Destroyer = {
       get called() {
@@ -91,9 +98,9 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
         if (called) return;
         called = true;
         try {
-          m.destroy();
-        } catch (e) {
-          thrownByDestroy = String(e);
+          modeler.destroy();
+        } catch (error) {
+          thrownByDestroy = String(error);
         }
       },
       heard(call) {
@@ -103,14 +110,14 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
         findings.push(finding);
       },
     };
-    const unavailable = leg.listen(m, destroyer, selected);
+    const unavailable = leg.listen(modeler, destroyer, selected);
     if (unavailable !== undefined) {
       return { findings, unverified: `${unavailable} — a destroy() ${leg.where} was not checked` };
     }
-    listenBehindTheDestroy(m, destroyer);
+    listenBehindTheDestroy(modeler, destroyer);
     const errors = listenForWindowErrors();
     try {
-      const thrown = await errorOf(() => leg.act(m, selected, destroyer));
+      const thrown = await errorOf(() => leg.act(modeler, selected, destroyer));
       // the teardown may wait until the input's handler or the host's call has returned, and a
       // step the input scheduled (a create's name editor) runs a task after it
       await settle();
@@ -139,7 +146,7 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
       errors.stop();
     }
   } finally {
-    const again = await errorOf(() => m.destroy());
+    const again = await errorOf(() => modeler.destroy());
     if (called && again !== undefined) {
       findings.push(`a second destroy() after the one ${leg.where} threw ${again}`);
     }
@@ -154,8 +161,8 @@ function destroyAtTheStart(startGesture: GestureStarter, kind: GestureKind): Des
     input: "the input",
     unheard: `the selection listener heard nothing at the start of a ${kind} with an element revealed`,
     startsRevealed: true,
-    listen(m, destroyer, selected) {
-      const elements = m.elements;
+    listen(modeler, destroyer, selected) {
+      const elements = modeler.elements;
       if (!elements) return "the modeler exposes no elements surface (optional)";
       if (selected === undefined || elements.selection().length === 0) {
         return "elements.list() reports no element of canonicalTexts[0] that reveal() selects";
@@ -174,8 +181,8 @@ function destroyAtTheStart(startGesture: GestureStarter, kind: GestureKind): Des
       });
       return undefined;
     },
-    act: async (m) => {
-      await startGesture(m, kind);
+    act: async (modeler) => {
+      await startGesture(modeler, kind);
     },
   };
 }
@@ -188,15 +195,15 @@ function destroyAtTheDrop(startGesture: GestureStarter): DestroyLeg {
     input: "the input",
     unheard: "the drop of a move fired no onContentChanged",
     startsRevealed: true,
-    listen(m, destroyer) {
-      m.onContentChanged(() => {
+    listen(modeler, destroyer) {
+      modeler.onContentChanged(() => {
         if (destroyer.called) destroyer.heard("the destroying onContentChanged listener again");
         else if (dropping) destroyer.destroy();
       });
       return undefined;
     },
-    act: async (m) => {
-      const held = await startGesture(m, "move");
+    act: async (modeler) => {
+      const held = await startGesture(modeler, "move");
       dropping = true;
       await held.drop();
     },
@@ -228,8 +235,8 @@ function destroyAtEscape(startGesture: GestureStarter): DestroyLeg {
     unheard: "interaction.onChange did not report the end of a move at its cancel (Escape)",
     startsRevealed: true,
     listen: destroyWhenTheInteractionEnds,
-    act: async (m) => {
-      const held = await startGesture(m, "move");
+    act: async (modeler) => {
+      const held = await startGesture(modeler, "move");
       await held.cancel();
     },
   };
@@ -246,8 +253,8 @@ function destroyInsideReveal(): DestroyLeg {
     input: "reveal()",
     unheard: "the selection listener heard nothing at reveal() of the first listed element",
     startsRevealed: false,
-    listen(m, destroyer, selected) {
-      const elements = m.elements;
+    listen(modeler, destroyer, selected) {
+      const elements = modeler.elements;
       if (!elements) return "the modeler exposes no elements surface (optional)";
       if (selected === undefined) {
         return "elements.list() reports no element of canonicalTexts[0] to reveal";
@@ -261,8 +268,8 @@ function destroyInsideReveal(): DestroyLeg {
       });
       return undefined;
     },
-    act: (m, selected) => {
-      if (selected !== undefined) m.elements?.reveal(selected);
+    act: (modeler, selected) => {
+      if (selected !== undefined) modeler.elements?.reveal(selected);
     },
   };
 }
@@ -286,10 +293,10 @@ function destroyInsideAnImport(startGesture: GestureStarter, text: string): Dest
     unheard: "interaction.onChange did not report the end of a held move inside importText()",
     startsRevealed: true,
     listen: destroyWhenTheInteractionEnds,
-    act: async (m, _selected, destroyer) => {
-      await startGesture(m, "move");
+    act: async (modeler, _selected, destroyer) => {
+      await startGesture(modeler, "move");
       reached = "importText()";
-      const outcome = await settledWithin(m.importText(text));
+      const outcome = await settledWithin(modeler.importText(text));
       if (!destroyer.called) return;
       if (outcome.unsettled) {
         destroyer.note(
@@ -309,15 +316,15 @@ function destroyInsideAnImport(startGesture: GestureStarter, text: string): Dest
  * nothing
  */
 async function unsubscribeDuringADelivery(
-  h: ConformanceHarness,
+  harness: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<ActionLegFindings> {
-  const settle = settleOf(h);
-  const m = await h.create();
+  const settle = settleOf(harness);
+  const modeler = await harness.create();
   try {
-    await importFirstText(h, m);
+    await importFirstText(harness, modeler);
     await settle();
-    const interaction = m.interaction;
+    const interaction = modeler.interaction;
     if (!interaction) {
       return {
         findings: [],
@@ -338,7 +345,7 @@ async function unsubscribeDuringADelivery(
         if (started) heard.push(active);
       }),
     );
-    const held = await startGesture(m, "move");
+    const held = await startGesture(modeler, "move");
     await held.cancel();
     await settle();
     if (!started) {
@@ -357,12 +364,12 @@ async function unsubscribeDuringADelivery(
             ],
     };
   } finally {
-    m.destroy();
+    modeler.destroy();
   }
 }
 
-async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome> {
-  const startGesture = h.startGesture;
+async function destroyFromAListener(harness: ConformanceHarness): Promise<CaseOutcome> {
+  const startGesture = harness.startGesture;
   const findings: string[] = [];
   const unverified: string[] = [];
   const legs: DestroyLeg[] = [];
@@ -371,7 +378,7 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
       ...DRAG_START_KINDS.map((kind) => destroyAtTheStart(startGesture, kind)),
       destroyAtTheDrop(startGesture),
       destroyAtEscape(startGesture),
-      destroyInsideAnImport(startGesture, firstText(h)),
+      destroyInsideAnImport(startGesture, firstText(harness)),
     );
   } else {
     unverified.push(
@@ -380,8 +387,8 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
   }
   legs.push(destroyInsideReveal());
   const outcomes: ActionLegFindings[] = [];
-  for (const leg of legs) outcomes.push(await destroyDuring(h, leg));
-  if (startGesture) outcomes.push(await unsubscribeDuringADelivery(h, startGesture));
+  for (const leg of legs) outcomes.push(await destroyDuring(harness, leg));
+  if (startGesture) outcomes.push(await unsubscribeDuringADelivery(harness, startGesture));
   for (const outcome of outcomes) {
     findings.push(...outcome.findings);
     if (outcome.unverified !== undefined && !unverified.includes(outcome.unverified)) {
@@ -405,9 +412,9 @@ export const destroyFromAListenerCase: ConformanceCase = {
 
 export const destroyTwiceCase: ConformanceCase = {
   name: "destroy is safe to call twice",
-  async run(h) {
-    const m = await h.create();
-    m.destroy();
-    m.destroy();
+  async run(harness) {
+    const modeler = await harness.create();
+    modeler.destroy();
+    modeler.destroy();
   },
 };

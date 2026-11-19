@@ -27,24 +27,24 @@ import {
 interface DropLeg {
   what: string;
   /** the text, read inside the listener: an echo imports the drop's own document */
-  text(m: CollaborativeModeler): string;
+  text(modeler: CollaborativeModeler): string;
   expected?: string;
 }
 
 async function importFromTheDrop(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   startGesture: GestureStarter,
   leg: DropLeg,
 ): Promise<LegFindings> {
-  const settle = settleOf(h);
+  const settle = settleOf(harness);
   const during = `importing ${leg.what} from the change listener of a drop`;
   const findings: string[] = [];
-  await importFirstText(h, m);
+  await importFirstText(harness, modeler);
   // a selection from before the drag: diagram-js restores it once the move has run, on the
   // shapes it held, which an import from the listener removes (#248)
-  const selected = m.elements?.list()[0]?.id;
-  if (selected !== undefined) m.elements?.reveal(selected);
+  const selected = modeler.elements?.list()[0]?.id;
+  if (selected !== undefined) modeler.elements?.reveal(selected);
   await settle();
   let called:
     | {
@@ -57,20 +57,20 @@ async function importFromTheDrop(
   let settled = false;
   let changesAfterTheImport = 0;
   const unsubscribe = once(
-    m.onContentChanged(() => {
+    modeler.onContentChanged(() => {
       if (settled) changesAfterTheImport += 1;
       if (called !== undefined) return;
-      const before = m.exportText();
-      const text = leg.text(m);
-      const result = importFromAListener(m, text, () => {
+      const before = modeler.exportText();
+      const text = leg.text(modeler);
+      const result = importFromAListener(modeler, text, () => {
         settled = true;
       });
-      called = { text, before, after: m.exportText(), result };
+      called = { text, before, after: modeler.exportText(), result };
     }),
   );
   const errors = listenForWindowErrors();
   try {
-    const held = await startGesture(m, "move");
+    const held = await startGesture(modeler, "move");
     const thrown = await errorOf(() => held.drop());
     await settle();
     if (called === undefined) {
@@ -102,27 +102,27 @@ async function importFromTheDrop(
         `when the Promise of ${during} settled, exportText() did not return the imported document — the Promise settled before the import had run`,
       );
     }
-    const out = exportOrFail(m, `once ${during} had settled`);
+    const out = exportOrFail(modeler, `once ${during} had settled`);
     if (result.exported === expected && out !== expected) {
       findings.push(`a step of the drop changed the document after ${during}`);
     }
     if (changesAfterTheImport > 0) {
       findings.push(`onContentChanged fired ${changesAfterTheImport}x once ${during} had settled`);
     }
-    if (m.interaction?.active()) {
+    if (modeler.interaction?.active()) {
       findings.push(`interaction.active() was still true after the drop and ${during}`);
     }
-    if (h.undo && result.rejected === undefined) {
-      await h.undo(m);
+    if (harness.undo && result.rejected === undefined) {
+      await harness.undo(modeler);
       await settle();
-      if (exportOrFail(m, `after an undo that followed ${during}`) !== out) {
+      if (exportOrFail(modeler, `after an undo that followed ${during}`) !== out) {
         findings.push(
           `an undo after ${during} changed the document — the drop's command stayed on the fresh undo history (L4)`,
         );
       }
     }
     unsubscribe();
-    findings.push(...(await nextMutateAppliesOrFail(h, m, during, during)));
+    findings.push(...(await nextMutateAppliesOrFail(harness, modeler, during, during)));
   } finally {
     unsubscribe();
     errors.stop();
@@ -131,24 +131,24 @@ async function importFromTheDrop(
 }
 
 /** the import waits until the drop has ended (#248): 1.6 only RECOMMENDS it */
-async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome> {
-  if (!h.startGesture) {
+async function importWaitsForTheDrop(harness: ConformanceHarness): Promise<CaseOutcome> {
+  if (!harness.startGesture) {
     return skip(
       "startGesture is undefined — that an import from the change listener of a drop waits until the drop has ended (RECOMMENDED since 1.6) was not checked",
     );
   }
-  const startGesture = h.startGesture;
-  const second = h.canonicalTexts[1];
+  const startGesture = harness.startGesture;
+  const second = harness.canonicalTexts[1];
   const findings: string[] = [];
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
     const legs: DropLeg[] = [];
     if (second !== undefined) {
-      await importOrFail(m, second, "importText(canonicalTexts[1]) rejected");
+      await importOrFail(modeler, second, "importText(canonicalTexts[1]) rejected");
       legs.push({
         what: "a different document (canonicalTexts[1])",
         text: () => second,
-        expected: exportOrFail(m, "after importing canonicalTexts[1]"),
+        expected: exportOrFail(modeler, "after importing canonicalTexts[1]"),
       });
     }
     legs.push({
@@ -156,7 +156,7 @@ async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome
       text: (modeler) => modeler.exportText(),
     });
     for (const leg of legs) {
-      const outcome = await importFromTheDrop(h, m, startGesture, leg);
+      const outcome = await importFromTheDrop(harness, modeler, startGesture, leg);
       findings.push(...outcome.findings);
       if (outcome.stop) break;
     }
@@ -167,8 +167,8 @@ async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome
         "RECOMMENDED (since 1.6): an importText called during a running drop (from onContentChanged, a selection held from before the drag) waits until the drop has ended, so no step of the drop meets a replaced document, and its Promise settles once the import has run",
       ),
       [
-        ...oneTextOnly(h, "an import from the change listener of a drop"),
-        ...(m.elements
+        ...oneTextOnly(harness, "an import from the change listener of a drop"),
+        ...(modeler.elements
           ? []
           : [
               "the modeler exposes no elements surface (optional) — the drop ran without a selection from before the drag",
@@ -176,7 +176,7 @@ async function importWaitsForTheDrop(h: ConformanceHarness): Promise<CaseOutcome
       ],
     );
   } finally {
-    m.destroy();
+    modeler.destroy();
   }
 }
 

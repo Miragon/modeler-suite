@@ -31,27 +31,27 @@ import {
 } from "./user-input.js";
 
 async function importDuringGesture(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   startGesture: GestureStarter,
   kind: GestureKind,
   leg: ImportedLeg,
   expected: string,
 ): Promise<LegFindings> {
-  const settle = settleOf(h);
+  const settle = settleOf(harness);
   const during = `${leg.what} imported during a ${kind} gesture`;
   const findings: string[] = [];
-  const watch = watchInteraction(m);
+  const watch = watchInteraction(modeler);
   const errors = listenForWindowErrors();
   try {
-    const held = await startGesture(m, kind);
+    const held = await startGesture(modeler, kind);
     const mark = watch?.delivered.length ?? 0;
     let beforeResolve: boolean[] = [];
     const {
       calls,
       importing,
       outcome: imported,
-    } = await importWhileHeld(h, m, leg.text, () => {
+    } = await importWhileHeld(harness, modeler, leg.text, () => {
       beforeResolve = watch?.delivered.slice(mark) ?? [];
     });
     if (calls > 0) {
@@ -78,7 +78,7 @@ async function importDuringGesture(
     if (imported.rejected !== undefined) {
       fail(`importText(${leg.what}) rejected during a ${kind} gesture: ${imported.rejected}`);
     }
-    if (m.interaction?.active()) {
+    if (modeler.interaction?.active()) {
       findings.push(`interaction.active() was still true after ${during}`);
     } else if (watch && !same(beforeResolve, [false])) {
       findings.push(
@@ -86,28 +86,33 @@ async function importDuringGesture(
       );
     }
     let thrown: string | undefined;
-    const dropped = await changeEvents(h, m, async () => {
+    const dropped = await changeEvents(harness, modeler, async () => {
       thrown = await errorOf(() => held.drop());
     });
     if (thrown !== undefined) findings.push(`the drop after ${during} threw ${thrown}`);
     findings.push(...errors.findings(`around ${during} and its drop`));
-    const out = exportOrFail(m, `after the drop that followed ${during}`);
+    const out = exportOrFail(modeler, `after the drop that followed ${during}`);
     if (dropped.calls > 0 || out !== expected) {
       findings.push(
         `the drop after ${during} applied the ${kind}${dropped.calls > 0 ? ` (onContentChanged ${dropped.calls}x)` : ""}, so the export is no longer the imported document`,
       );
     }
-    if (h.undo && out === expected) {
-      await h.undo(m);
+    if (harness.undo && out === expected) {
+      await harness.undo(modeler);
       await settle();
-      if (exportOrFail(m, `after an undo that followed ${during}`) !== expected) {
+      if (exportOrFail(modeler, `after an undo that followed ${during}`) !== expected) {
         findings.push(
           `an undo after the drop that followed ${during} changed the document — the gesture left a command on the fresh undo history (L4)`,
         );
       }
     }
     findings.push(
-      ...(await nextMutateAppliesOrFail(h, m, during, `the drop that followed ${during}`)),
+      ...(await nextMutateAppliesOrFail(
+        harness,
+        modeler,
+        during,
+        `the drop that followed ${during}`,
+      )),
     );
   } finally {
     errors.stop();
@@ -117,22 +122,26 @@ async function importDuringGesture(
 }
 
 async function rejectionDuringGesture(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   startGesture: GestureStarter,
   kind: GestureKind,
   invalid: string,
 ): Promise<LegFindings> {
   const findings: string[] = [];
-  await importFirstText(h, m);
-  await settleOf(h)();
-  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
-  const watch = watchInteraction(m);
+  await importFirstText(harness, modeler);
+  await settleOf(harness)();
+  const doc = exportOrFail(modeler, "after importing canonicalTexts[0]");
+  const watch = watchInteraction(modeler);
   const errors = listenForWindowErrors();
   try {
-    const held = await startGesture(m, kind);
+    const held = await startGesture(modeler, kind);
     const mark = watch?.delivered.length ?? 0;
-    const { calls, importing, outcome: rejection } = await importWhileHeld(h, m, invalid);
+    const {
+      calls,
+      importing,
+      outcome: rejection,
+    } = await importWhileHeld(harness, modeler, invalid);
     if (rejection.unsettled) {
       findings.push(
         `importing invalidTexts[0] during a ${kind} gesture had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the gesture to end instead of rejecting and leaving it running`,
@@ -154,11 +163,11 @@ async function rejectionDuringGesture(
     if (calls > 0) {
       fail(`a rejected import during a ${kind} gesture fired onContentChanged ${calls}x (L7)`);
     }
-    if (exportOrFail(m, `after a rejected import during a ${kind} gesture`) !== doc) {
+    if (exportOrFail(modeler, `after a rejected import during a ${kind} gesture`) !== doc) {
       fail(`a rejected import during a ${kind} gesture changed the document (L7)`);
     }
     let ended = false;
-    if (m.interaction && !m.interaction.active()) {
+    if (modeler.interaction && !modeler.interaction.active()) {
       ended = true;
       findings.push(
         `a rejected import ended a ${kind} gesture (interaction.active() turned false)`,
@@ -169,7 +178,7 @@ async function rejectionDuringGesture(
       );
     }
     let thrown: string | undefined;
-    const dropped = await changeEvents(h, m, async () => {
+    const dropped = await changeEvents(harness, modeler, async () => {
       thrown = await errorOf(() => held.drop());
     });
     if (thrown !== undefined) {
@@ -179,7 +188,7 @@ async function rejectionDuringGesture(
       ...errors.findings(`around a rejected import during a ${kind} gesture and its drop`),
     );
     const applied =
-      dropped.calls > 0 && exportOrFail(m, `after the drop of a ${kind} gesture`) !== doc;
+      dropped.calls > 0 && exportOrFail(modeler, `after the drop of a ${kind} gesture`) !== doc;
     if (!applied && !ended) {
       findings.push(
         `the drop of a ${kind} gesture after a rejected import applied nothing — the rejected import ended the gesture`,
@@ -196,39 +205,46 @@ async function rejectionDuringGesture(
  * a change event before the drop fails (L1, L7); what the drop does, and what `interaction`
  * reports around the import, is one advisory, since 1.5 only RECOMMENDS the cancel
  */
-async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome> {
-  if (!h.startGesture) {
+async function importCancelsGestures(harness: ConformanceHarness): Promise<CaseOutcome> {
+  if (!harness.startGesture) {
     return skip(
       "startGesture is undefined — that an import cancels a running gesture (L1, RECOMMENDED since 1.5) was not checked",
     );
   }
-  const startGesture = h.startGesture;
-  const first = firstText(h);
-  const invalid = h.invalidTexts?.[0];
+  const startGesture = harness.startGesture;
+  const first = firstText(harness);
+  const invalid = harness.invalidTexts?.[0];
   const findings: string[] = [];
   let stopped = false;
   for (const kind of GESTURE_KINDS) {
     if (stopped) break;
-    const m = await h.create();
+    const modeler = await harness.create();
     try {
-      await expectDropApplies(h, m, startGesture, kind);
-      for (const leg of importedLegs(h)) {
-        await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
-        const expected = exportOrFail(m, `after importing ${leg.what}`);
-        await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-        await settleOf(h)();
-        const outcome = await importDuringGesture(h, m, startGesture, kind, leg, expected);
+      await expectDropApplies(harness, modeler, startGesture, kind);
+      for (const leg of importedLegs(harness)) {
+        await importOrFail(modeler, leg.text, `importText(${leg.what}) rejected`);
+        const expected = exportOrFail(modeler, `after importing ${leg.what}`);
+        await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+        await settleOf(harness)();
+        const outcome = await importDuringGesture(
+          harness,
+          modeler,
+          startGesture,
+          kind,
+          leg,
+          expected,
+        );
         findings.push(...outcome.findings);
         stopped = outcome.stop === true;
         if (stopped) break;
       }
       if (!stopped && invalid !== undefined) {
-        const outcome = await rejectionDuringGesture(h, m, startGesture, kind, invalid);
+        const outcome = await rejectionDuringGesture(harness, modeler, startGesture, kind, invalid);
         findings.push(...outcome.findings);
         stopped = outcome.stop === true;
       }
     } finally {
-      m.destroy();
+      modeler.destroy();
     }
   }
   return outcomeOf(
@@ -238,8 +254,8 @@ async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome
       "RECOMMENDED (L1, since 1.5): an accepted import first cancels a running gesture the way Escape does, with no change event and no exception, the release after the import included, nothing applied to an element the import removed, and interaction.active() false with one onChange(false) before importText resolves; a rejected import leaves the gesture running",
     ),
     [
-      ...oneTextOnly(h, "an import during a gesture"),
-      ...(h.invalidTexts === undefined
+      ...oneTextOnly(harness, "an import during a gesture"),
+      ...(harness.invalidTexts === undefined
         ? [
             "invalidTexts is undefined — that a rejected import leaves a running gesture running was not checked (pass [] if the notation has no non-importable text)",
           ]

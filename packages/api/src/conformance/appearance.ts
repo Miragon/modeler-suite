@@ -120,11 +120,11 @@ function colourDifference(
 }
 
 function hostOfTheModeler(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   firstSerial: number,
 ): HTMLElement | string {
-  const search = hostMadeSince(h, m, firstSerial, (host) => host.firstElementChild);
+  const search = hostMadeSince(harness, modeler, firstSerial, (host) => host.firstElementChild);
   switch (search.kind) {
     case "found":
       return search.mount.host;
@@ -156,7 +156,7 @@ function pageMode(theme: string | null, contrast: string | null): void {
  * other than `themes[0]` must draw something else. Returns why the colours were not compared
  */
 async function coloursFollowTheRequest(
-  h: ConformanceHarness,
+  harness: ConformanceHarness,
   themes: AppearanceTheme[],
 ): Promise<string | undefined> {
   if (typeof document === "undefined") {
@@ -168,18 +168,18 @@ async function coloursFollowTheRequest(
     contrast: root.getAttribute("data-cd-kontrast"),
   };
   const firstSerial = nextHostSerial();
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    const appearance = m.appearance;
+    const appearance = modeler.appearance;
     if (!appearance) fail("the appearance surface went away on a second instance");
-    const host = hostOfTheModeler(h, m, firstSerial);
+    const host = hostOfTheModeler(harness, modeler, firstSerial);
     if (typeof host === "string") return host;
     const [lead = "light"] = themes;
     const other: AppearanceTheme = lead === "light" ? "dark" : "light";
-    const first = firstText(h);
+    const first = firstText(harness);
     pageMode(null, null);
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-    await settleOf(h)();
+    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    await settleOf(harness)();
     const paintedFor = (contrast: "normal" | "high"): PaintedElement[] => {
       appearance.set({ theme: lead, contrast });
       return paintedIn(host);
@@ -209,8 +209,8 @@ async function coloursFollowTheRequest(
       const request = { theme: unlisted[0] ?? UNKNOWN_THEME, contrast };
       pageMode(other, "hoch");
       appearance.set(request);
-      await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
-      await settleOf(h)();
+      await importOrFail(modeler, first, "re-importing canonicalTexts[0] rejected");
+      await settleOf(harness)();
       const reimported = paintedIn(host);
       pageMode(null, null);
       appearance.set({ theme: lead, contrast });
@@ -223,8 +223,8 @@ async function coloursFollowTheRequest(
     }
     pageMode(null, null);
     for (const theme of themes.filter((listed) => listed !== lead)) {
-      const doc = exportOrFail(m, "before a request for a listed theme");
-      const image = h.exportImage ? await h.exportImage(m) : undefined;
+      const doc = exportOrFail(modeler, "before a request for a listed theme");
+      const image = harness.exportImage ? await harness.exportImage(modeler) : undefined;
       // the re-imports above drew the canvas anew, so its light reference is drawn again first
       const leadOnThisCanvas = paintedFor("normal");
       appearance.set({ theme, contrast: "normal" });
@@ -233,64 +233,64 @@ async function coloursFollowTheRequest(
           `appearance.themes lists "${theme}", but ${describeRequest({ theme })} drew the colours of "${lead}" — a modeler draws every theme it lists`,
         );
       }
-      if (exportOrFail(m, `after ${describeRequest({ theme })}`) !== doc) {
+      if (exportOrFail(modeler, `after ${describeRequest({ theme })}`) !== doc) {
         fail(`${describeRequest({ theme })} changed exportText() — exports are always light`);
       }
-      if (h.exportImage && (await h.exportImage(m)) !== image) {
+      if (harness.exportImage && (await harness.exportImage(modeler)) !== image) {
         fail(`${describeRequest({ theme })} changed the image export — exports are always light`);
       }
     }
     return undefined;
   } finally {
     pageMode(page.theme, page.contrast);
-    m.destroy();
+    modeler.destroy();
   }
 }
 
 async function appearanceOverAnInteraction(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   appearance: AppearanceSurface,
   themes: AppearanceTheme[],
 ): Promise<string | undefined> {
-  const openInteraction = h.openInteraction;
+  const openInteraction = harness.openInteraction;
   if (!openInteraction) return undefined;
-  const settle = settleOf(h);
-  const first = firstText(h);
+  const settle = settleOf(harness);
+  const first = firstText(harness);
   const request: AppearanceRequest = { theme: themes[0] ?? "light", contrast: "high" };
-  await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
+  await importOrFail(modeler, first, "re-importing canonicalTexts[0] rejected");
   appearance.set({ theme: request.theme, contrast: "normal" });
-  const doc = exportOrFail(m, "after importing canonicalTexts[0]");
+  const doc = exportOrFail(modeler, "after importing canonicalTexts[0]");
   let committed: string | undefined;
-  if (h.commitInteraction) {
-    await openInteraction(m);
+  if (harness.commitInteraction) {
+    await openInteraction(modeler);
     await settle();
-    await h.commitInteraction(m);
+    await harness.commitInteraction(modeler);
     await settle();
-    committed = exportOrFail(m, "after committing the interaction");
-    await importOrFail(m, first, "re-importing canonicalTexts[0] after the commit rejected");
+    committed = exportOrFail(modeler, "after committing the interaction");
+    await importOrFail(modeler, first, "re-importing canonicalTexts[0] after the commit rejected");
   }
-  await openInteraction(m);
+  await openInteraction(modeler);
   await settle();
-  const opened = h.interactionState?.(m);
-  const { calls } = await changeEvents(h, m, () => appearance.set(request));
+  const opened = harness.interactionState?.(modeler);
+  const { calls } = await changeEvents(harness, modeler, () => appearance.set(request));
   if (
     calls > 0 ||
-    exportOrFail(m, `after ${describeRequest(request)} over an open interaction`) !== doc
+    exportOrFail(modeler, `after ${describeRequest(request)} over an open interaction`) !== doc
   ) {
     fail(
       `${describeRequest(request)} over an open interaction committed it${calls > 0 ? ` (onContentChanged ${calls}x)` : ""} — like a host's view change, a request never commits an interaction in progress`,
     );
   }
-  const after = h.interactionState?.(m);
+  const after = harness.interactionState?.(modeler);
   if (opened !== undefined && !interactionKept(opened, after)) {
     return `an interaction on '${opened.elementId}' did not survive ${describeRequest(request)} (the request ${leftOpen(after)}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the request`;
   }
-  if (h.commitInteraction && committed !== undefined && committed !== doc) {
-    await h.commitInteraction(m);
+  if (harness.commitInteraction && committed !== undefined && committed !== doc) {
+    await harness.commitInteraction(modeler);
     await settle();
     const out = exportOrFail(
-      m,
+      modeler,
       `after committing the interaction after ${describeRequest(request)}`,
     );
     if (out !== committed) {
@@ -301,13 +301,13 @@ async function appearanceOverAnInteraction(
 }
 
 /** every rule but the keep-open of an interaction is stated by the contract, so each one fails */
-async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome> {
-  const settle = settleOf(h);
-  const first = firstText(h);
+async function appearanceIsViewState(harness: ConformanceHarness): Promise<CaseOutcome> {
+  const settle = settleOf(harness);
+  const first = firstText(harness);
   const others: CollaborativeModeler[] = [];
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    const appearance = m.appearance;
+    const appearance = modeler.appearance;
     if (!appearance) {
       return skip("the modeler exposes no appearance surface (optional, 1.5) — nothing to verify");
     }
@@ -316,15 +316,15 @@ async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome
       fail("appearance.themes changed between two reads — it is fixed before the modeler runs");
     }
     const unverified: string[] = [];
-    const another = await h.create();
+    const another = await harness.create();
     others.push(another);
     if (!another.appearance || !same(themesOf(another.appearance, "another instance's "), themes)) {
       fail(
         "another instance of the modeler reports other appearance.themes — they are the same on every instance",
       );
     }
-    if (h.createReadonly) {
-      const viewer = await h.createReadonly();
+    if (harness.createReadonly) {
+      const viewer = await harness.createReadonly();
       others.push(viewer);
       if (viewer.appearance) {
         if (!same(themesOf(viewer.appearance, "the viewer's "), themes)) {
@@ -343,18 +343,18 @@ async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome
     if (beforeImport !== undefined) {
       fail(`${describeRequest({ theme: lead })} threw before the first import: ${beforeImport}`);
     }
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-    const imported = exportOrFail(m, "after importing canonicalTexts[0]");
-    await h.mutate(m);
+    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    const imported = exportOrFail(modeler, "after importing canonicalTexts[0]");
+    await harness.mutate(modeler);
     await settle();
-    const revealed = m.elements?.list()[0]?.id;
-    if (revealed !== undefined) m.elements?.reveal(revealed);
-    if (h.viewState !== undefined) m.setViewState(h.viewState);
+    const revealed = modeler.elements?.list()[0]?.id;
+    if (revealed !== undefined) modeler.elements?.reveal(revealed);
+    if (harness.viewState !== undefined) modeler.setViewState(harness.viewState);
     await settle();
-    const doc = exportOrFail(m, "after a user mutation");
-    const image = h.exportImage ? await h.exportImage(m) : undefined;
-    const view = m.getViewState();
-    const selection = selectionOf(m);
+    const doc = exportOrFail(modeler, "after a user mutation");
+    const image = harness.exportImage ? await harness.exportImage(modeler) : undefined;
+    const view = modeler.getViewState();
+    const selection = selectionOf(modeler);
     const requests: AppearanceRequest[] = [
       { theme: "light" },
       { theme: "dark" },
@@ -367,7 +367,7 @@ async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome
     for (const request of requests) {
       const what = describeRequest(request);
       let thrown: string | undefined;
-      const { calls } = await changeEvents(h, m, async () => {
+      const { calls } = await changeEvents(harness, modeler, async () => {
         thrown = await errorOf(() => appearance.set(request));
       });
       if (thrown !== undefined) fail(`${what} threw: ${thrown} — set never throws`);
@@ -376,40 +376,40 @@ async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome
           `${what} fired onContentChanged ${calls}x — the appearance is view state, never document (L3)`,
         );
       }
-      if (exportOrFail(m, `after ${what}`) !== doc) fail(`${what} changed exportText()`);
-      if (h.exportImage && (await h.exportImage(m)) !== image) {
+      if (exportOrFail(modeler, `after ${what}`) !== doc) fail(`${what} changed exportText()`);
+      if (harness.exportImage && (await harness.exportImage(modeler)) !== image) {
         fail(
           `${what} changed the image export — exports are always light, whatever the modeler draws`,
         );
       }
-      if (!same(m.getViewState(), view)) fail(`${what} changed the view state`);
-      if (selectionOf(m) !== selection) fail(`${what} changed the selection`);
+      if (!same(modeler.getViewState(), view)) fail(`${what} changed the view state`);
+      if (selectionOf(modeler) !== selection) fail(`${what} changed the selection`);
     }
-    if (h.undo) {
-      await h.undo(m);
+    if (harness.undo) {
+      await harness.undo(modeler);
       await settle();
-      if (exportOrFail(m, "after an undo that followed the requests") !== imported) {
+      if (exportOrFail(modeler, "after an undo that followed the requests") !== imported) {
         fail(
           "an undo after the appearance requests did not undo the user mutation before them — the requests changed the undo history",
         );
       }
     }
-    if (!h.exportImage) {
+    if (!harness.exportImage) {
       unverified.push(
         "exportImage is undefined — that the image export stays byte-identical was not verified",
       );
     }
-    const advice = await appearanceOverAnInteraction(h, m, appearance, themes);
-    if (!h.openInteraction) {
+    const advice = await appearanceOverAnInteraction(harness, modeler, appearance, themes);
+    if (!harness.openInteraction) {
       unverified.push(
         "openInteraction is undefined — that a request never commits an open interaction was not verified",
       );
     }
-    const colourGap = await coloursFollowTheRequest(h, themes);
+    const colourGap = await coloursFollowTheRequest(harness, themes);
     if (colourGap !== undefined) unverified.push(colourGap);
     return outcomeOf(advice === undefined ? {} : { advisories: [advice] }, unverified);
   } finally {
-    m.destroy();
+    modeler.destroy();
     for (const other of others) other.destroy();
   }
 }
