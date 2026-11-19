@@ -3,14 +3,16 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness
 import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
-  defaultSettle,
   errorOf,
   exportOrFail,
+  firstText,
   focusOn,
+  importFirstText,
   importOrFail,
   mountedCanvas,
   outcomeOf,
   same,
+  settleOf,
 } from "./support.js";
 import {
   type ActionLegFindings,
@@ -60,7 +62,7 @@ async function theDocumentToImport(
   h: ConformanceHarness,
   m: CollaborativeModeler,
 ): Promise<ImportedDocument> {
-  const [leg = { text: h.canonicalTexts[0] ?? "", what: "canonicalTexts[0]" }] = importedLegs(h);
+  const [leg = { text: firstText(h), what: "canonicalTexts[0]" }] = importedLegs(h);
   await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
   return { ...leg, expected: exportOrFail(m, `after importing ${leg.what}`) };
 }
@@ -83,7 +85,7 @@ async function importFromTheSelectionListener(
   elements: ElementsSurface,
   leg: ActionLeg,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const { text, expected } = leg.imported;
   const during = `importing ${leg.imported.what} from the selection listener during ${leg.what}`;
   const findings: string[] = [];
@@ -129,9 +131,7 @@ async function importFromTheSelectionListener(
         `${leg.what} threw ${thrown} once its selection listener had called importText(${leg.imported.what})`,
       );
     }
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during}`));
     if (outcome.unsettled) {
       findings.push(
         `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — it waits for something the action never ends`,
@@ -185,8 +185,8 @@ async function revealTheFirstElement(
   m: CollaborativeModeler,
   elements: ElementsSurface,
 ): Promise<string | ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  const settle = settleOf(h);
+  await importFirstText(h, m);
   await settle();
   const target = elements.list()[0]?.id;
   if (target === undefined) {
@@ -210,7 +210,7 @@ async function deleteWithAKey(
   canvas: Element,
   target: string,
 ): Promise<{ key: string; left: string } | ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const unfocused = focusTheCanvas(canvas);
   if (unfocused !== undefined) return { findings: [], unverified: unfocused };
   const before = exportOrFail(m, `with '${target}' revealed`);
@@ -262,9 +262,9 @@ async function undoOfASelectedCreate(
   elements: ElementsSurface,
   undo: NonNullable<ConformanceHarness["undo"]>,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const imported = await theDocumentToImport(h, m);
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await importFirstText(h, m);
   await settle();
   const left = exportOrFail(m, "before mutate");
   const listed = new Set(elements.list().map((element) => element.id));
@@ -295,7 +295,7 @@ async function redoOfADelete(
   undo: NonNullable<ConformanceHarness["undo"]>,
   redo: NonNullable<ConformanceHarness["redo"]>,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const imported = await theDocumentToImport(h, m);
   const target = await revealTheFirstElement(h, m, elements);
   if (typeof target !== "string") return target;
@@ -331,8 +331,8 @@ async function importsKeepTheirCallOrder(
   h: ConformanceHarness,
   m: CollaborativeModeler,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  const settle = settleOf(h);
+  await importFirstText(h, m);
   await settle();
   const text = exportOrFail(m, "before mutate");
   const during =
@@ -382,9 +382,7 @@ async function importsKeepTheirCallOrder(
     settled = true;
     await settle();
     if (thrown !== undefined) findings.push(`mutate threw ${thrown} during ${during}`);
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during}`));
     if (both.unsettled) {
       findings.push(
         `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — they wait for something the command never ends`,
@@ -471,7 +469,7 @@ async function importWaitsForTheUsersCommand(h: ConformanceHarness): Promise<Cas
     async (m: CollaborativeModeler, firstSerial: number): Promise<ActionLegFindings> => {
       const elements = m.elements;
       if (!elements) return noElements;
-      await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+      await importFirstText(h, m);
       const mount = mountedCanvas(h, m, "modeler", firstSerial, NO_DELETE);
       if (typeof mount === "string") return { findings: [], unverified: mount };
       return leg(m, elements, mount.canvas);

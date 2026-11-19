@@ -1,12 +1,13 @@
 import type { ConformanceCase, ConformanceHarness } from "./harness.js";
 import {
   changeEvents,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
   importOrFail,
   same,
   secondText,
+  settleOf,
   skip,
   sortedIds,
 } from "./support.js";
@@ -64,14 +65,14 @@ export const rejectedImportCases: ConformanceCase[] = [
       if (h.invalidTexts.length === 0) return;
       const m = await h.create();
       try {
-        const text = h.canonicalTexts[0] ?? "";
+        const text = firstText(h);
         await m.importText(text);
         const beforeEdit = m.exportText();
         // with undo history on the stack: a rejected import must leave it
         // intact too (an engine that erases history BEFORE parsing does not)
         if (h.undo) {
           await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
+          await settleOf(h)();
         }
         const doc = m.exportText();
         const ids = sortedIds(m);
@@ -120,17 +121,13 @@ export const rejectedImportCases: ConformanceCase[] = [
       if (bad === undefined) return;
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         await m.importText(bad).then(
           () => fail("importText resolved for a non-importable input — it must REJECT"),
           () => undefined,
         );
         const next = secondText(h);
-        await m
-          .importText(next)
-          .catch((e) =>
-            fail(`the next VALID import after a rejection did not render: ${String(e)}`),
-          );
+        await importOrFail(m, next, "the next VALID import after a rejection did not render");
         if (m.exportText() !== next)
           fail("the next valid import after a rejection did not replace the document");
         const before = m.exportText();
@@ -152,7 +149,7 @@ export const rejectedImportCases: ConformanceCase[] = [
   {
     name: "L7: every rejection of a derived probe leaves no trace",
     async run(h) {
-      const base = h.canonicalTexts[0] ?? "";
+      const base = firstText(h);
       const m = await h.create();
       try {
         await m.importText(base);
@@ -170,7 +167,7 @@ export const rejectedImportCases: ConformanceCase[] = [
         };
         const mutateAndExpectApplied = async (): Promise<string> => {
           await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
+          await settleOf(h)();
           const doc = exportOrFail(m, "after a user mutation");
           if (doc === baseline) {
             fail(

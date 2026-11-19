@@ -30,7 +30,10 @@ export function assertFinite(state: unknown, when: string): void {
   }
 }
 
-export const defaultSettle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+const defaultSettle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+export const settleOf = (harness: ConformanceHarness): (() => Promise<void>) =>
+  harness.settle ?? defaultSettle;
 
 /**
  * count invocations of onContentChanged around an action — settle-aware, so
@@ -42,7 +45,7 @@ export async function changeEvents(
   modeler: CollaborativeModeler,
   action: () => Promise<void> | void,
 ): Promise<{ calls: number; exportAtEmit: string | undefined }> {
-  const settle = harness.settle ?? defaultSettle;
+  const settle = settleOf(harness);
   let calls = 0;
   let exportAtEmit: string | undefined;
   const off = modeler.onContentChanged(() => {
@@ -58,8 +61,12 @@ export async function changeEvents(
   return { calls, exportAtEmit };
 }
 
+export const firstText = (harness: ConformanceHarness): string => harness.canonicalTexts[0] ?? "";
+
 export const secondText = (h: ConformanceHarness): string =>
   h.canonicalTexts[1] ?? h.canonicalTexts[0] ?? "";
+
+export const UNKNOWN_ELEMENT_ID = "__modeler_api_no_such_id__";
 
 export const sortedIds = (m: CollaborativeModeler): string[] | undefined =>
   m.elements ? [...m.elements.list().map((e) => e.id)].sort() : undefined;
@@ -71,6 +78,12 @@ export async function importOrFail(
 ): Promise<void> {
   await m.importText(text).catch((e: unknown) => fail(`${failure}: ${String(e)}`));
 }
+
+export const importFirstText = (
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  failure = "importText(canonicalTexts[0]) rejected",
+): Promise<void> => importOrFail(modeler, firstText(harness), failure);
 
 /**
  * import the first canonical text that renders at least one element (an
@@ -174,6 +187,19 @@ export const outcomeOf = (advised: CaseOutcome, unverified: string[]): CaseOutco
   ...(unverified.length === 0 ? {} : { skipped: unverified.join("; ") }),
   ...advised,
 });
+
+/** what `promise` settles with, or `onTimeout` once `ms` have passed without it settling */
+export async function raceTheBound<T>(promise: Promise<T>, onTimeout: T, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(onTimeout), ms);
+  });
+  try {
+    return await Promise.race([promise, bound]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 export async function errorOf(step: () => Promise<void> | void): Promise<string | undefined> {
   try {

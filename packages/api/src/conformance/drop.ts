@@ -3,12 +3,13 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness
 import {
   adviseOn,
   changeEvents,
-  defaultSettle,
   errorOf,
   exportOrFail,
   fail,
+  importFirstText,
   importOrFail,
   outcomeOf,
+  settleOf,
   skip,
 } from "./support.js";
 import {
@@ -35,10 +36,10 @@ async function importFromTheDrop(
   startGesture: GestureStarter,
   leg: DropLeg,
 ): Promise<LegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const during = `importing ${leg.what} from the change listener of a drop`;
   const findings: string[] = [];
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  await importFirstText(h, m);
   // a selection from before the drag: diagram-js restores it once the move has run, on the
   // shapes it held, which an import from the listener removes (#248)
   const selected = m.elements?.list()[0]?.id;
@@ -79,9 +80,7 @@ async function importFromTheDrop(
     const result = await withinTheBound(call.result);
     await settle();
     if (thrown !== undefined) findings.push(`the drop threw ${thrown} while ${during}`);
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window while ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`while ${during}`));
     if (result.unsettled) {
       findings.push(
         `${during} did not settle within ${HELD_IMPORT_BOUND_MS / 1000} s of the drop — it waits for something the drop never ends`,

@@ -1,5 +1,13 @@
 import type { ConformanceCase } from "./harness.js";
-import { changeEvents, defaultSettle, exportOrFail, fail, secondText, skip } from "./support.js";
+import {
+  changeEvents,
+  exportOrFail,
+  fail,
+  firstText,
+  secondText,
+  settleOf,
+  skip,
+} from "./support.js";
 
 export const silentImportCases: ConformanceCase[] = [
   {
@@ -31,9 +39,9 @@ export const silentImportCases: ConformanceCase[] = [
       // to clear would pass the fresh-instance case above
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         const { calls } = await changeEvents(h, m, () =>
           m.importText(secondText(h)).then(() => undefined),
         );
@@ -53,7 +61,7 @@ export const silentImportCases: ConformanceCase[] = [
         );
       }
       const openInteraction = h.openInteraction;
-      const first = h.canonicalTexts[0] ?? "";
+      const first = firstText(h);
       const second = h.canonicalTexts[1];
       const m = await h.create();
       try {
@@ -77,7 +85,7 @@ export const silentImportCases: ConformanceCase[] = [
         for (const [index, leg] of legs.entries()) {
           await m.importText(first);
           await openInteraction(m);
-          await (h.settle ?? defaultSettle)();
+          await settleOf(h)();
           const opened = h.interactionState?.(m);
           if (h.interactionState && opened === undefined) {
             fail(
@@ -102,7 +110,7 @@ export const silentImportCases: ConformanceCase[] = [
           }
           if (h.undo) {
             await h.undo(m);
-            await (h.settle ?? defaultSettle)();
+            await settleOf(h)();
             if (
               exportOrFail(m, `after an undo that followed importing ${leg.what}`) !== leg.expected
             ) {

@@ -3,9 +3,9 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness
 import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
   type Focusable,
   focusOn,
   importOrFail,
@@ -13,8 +13,10 @@ import {
   mountedCanvas,
   outcomeOf,
   selectionOf,
+  settleOf,
   skip,
 } from "./support.js";
+import { listenForWindowErrors } from "./user-input.js";
 
 interface KeyStroke {
   key: string;
@@ -260,18 +262,13 @@ function keyboardOn(view: Window & typeof globalThis, cleanups: Array<() => void
   // only while the kit dispatches: an error the modeler throws from a key listener reaches no
   // caller, so the window's error event is the one place to see it
   const thrownBy = (dispatch: () => void): string[] => {
-    const thrown: string[] = [];
-    const onError = (event: ErrorEvent): void => {
-      thrown.push(String(event.error ?? event.message));
-      event.preventDefault();
-    };
-    view.addEventListener("error", onError);
+    const errors = listenForWindowErrors(view);
     try {
       dispatch();
     } finally {
-      view.removeEventListener("error", onError);
+      errors.stop();
     }
-    return thrown;
+    return errors.errors;
   };
   const press = (
     target: Element,
@@ -327,8 +324,8 @@ async function aimKeysAt(
   create: () => Promise<CollaborativeModeler>,
   findings: string[],
 ): Promise<string | undefined> {
-  const settle = h.settle ?? defaultSettle;
-  const text = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(h);
+  const text = firstText(h);
   const editable = instance === "modeler";
   const found = (finding: string): void => {
     findings.push(editable ? finding : `the viewer: ${finding}`);

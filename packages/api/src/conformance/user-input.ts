@@ -2,11 +2,13 @@ import type { CollaborativeModeler } from "../index.js";
 import type { ConformanceHarness, GestureKind } from "./harness.js";
 import {
   changeEvents,
-  defaultSettle,
   errorOf,
   exportOrFail,
   fail,
-  importOrFail,
+  firstText,
+  importFirstText,
+  raceTheBound,
+  settleOf,
 } from "./support.js";
 
 export const GESTURE_KINDS: readonly GestureKind[] = ["move", "create", "createOffCanvas"];
@@ -20,26 +22,15 @@ export const HELD_IMPORT_BOUND_MS = 2000;
 type BoundedOutcome =
   { unsettled: true; rejected?: undefined } | { unsettled?: undefined; rejected?: string };
 
-export async function settledWithin(
-  promise: Promise<unknown>,
-  ms: number,
-): Promise<BoundedOutcome> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const bound = new Promise<BoundedOutcome>((resolve) => {
-    timer = setTimeout(() => resolve({ unsettled: true }), ms);
-  });
-  try {
-    return await Promise.race([
-      promise.then(
-        (): BoundedOutcome => ({}),
-        (e: unknown): BoundedOutcome => ({ rejected: String(e) }),
-      ),
-      bound,
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+export const settledWithin = (promise: Promise<unknown>): Promise<BoundedOutcome> =>
+  raceTheBound(
+    promise.then(
+      (): BoundedOutcome => ({}),
+      (e: unknown): BoundedOutcome => ({ rejected: String(e) }),
+    ),
+    { unsettled: true },
+    HELD_IMPORT_BOUND_MS,
+  );
 
 export interface LegFindings {
   findings: string[];
@@ -62,7 +53,7 @@ export async function importWhileHeld(
   let outcome: BoundedOutcome = {};
   const { calls } = await changeEvents(h, m, async () => {
     importing = m.importText(text).then(onResolve);
-    outcome = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+    outcome = await settledWithin(importing);
   });
   return { calls, importing, outcome };
 }
@@ -70,12 +61,18 @@ export async function importWhileHeld(
 /** errors that reached the window while the kit listened: a throw in a pointer listener reaches no caller */
 interface WindowErrors {
   readonly errors: string[];
+  /** one finding per error, `around` saying when the errors came */
+  findings(around: string): string[];
   stop(): void;
 }
 
-export function listenForWindowErrors(): WindowErrors {
+export function listenForWindowErrors(
+  view: Window | undefined = typeof window === "undefined" ? undefined : window,
+): WindowErrors {
   const errors: string[] = [];
-  if (typeof window === "undefined") return { errors, stop: doNothing };
+  const findings = (around: string): string[] =>
+    errors.map((error) => `an error reached the window ${around}: ${error}`);
+  if (view === undefined) return { errors, findings, stop: doNothing };
   const onError = (event: ErrorEvent): void => {
     errors.push(String(event.error ?? event.message));
     event.preventDefault();
@@ -84,13 +81,14 @@ export function listenForWindowErrors(): WindowErrors {
     errors.push(String(event.reason));
     event.preventDefault();
   };
-  window.addEventListener("error", onError);
-  window.addEventListener("unhandledrejection", onRejection);
+  view.addEventListener("error", onError);
+  view.addEventListener("unhandledrejection", onRejection);
   return {
     errors,
+    findings,
     stop: () => {
-      window.removeEventListener("error", onError);
-      window.removeEventListener("unhandledrejection", onRejection);
+      view.removeEventListener("error", onError);
+      view.removeEventListener("unhandledrejection", onRejection);
     },
   };
 }
@@ -125,7 +123,7 @@ export function importedLegs(h: ConformanceHarness): ImportedLeg[] {
     ...(second === undefined
       ? []
       : [{ text: second, what: "a different document (canonicalTexts[1])" }]),
-    { text: h.canonicalTexts[0] ?? "", what: "the same document (canonicalTexts[0])" },
+    { text: firstText(h), what: "the same document (canonicalTexts[0])" },
   ];
 }
 
@@ -149,12 +147,12 @@ export async function expectDropApplies(
   startGesture: GestureStarter,
   kind: GestureKind,
 ): Promise<void> {
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-  await (h.settle ?? defaultSettle)();
+  await importFirstText(h, m);
+  await settleOf(h)();
   const doc = exportOrFail(m, "after importing canonicalTexts[0]");
   const held = await startGesture(m, kind);
   await held.drop();
-  await (h.settle ?? defaultSettle)();
+  await settleOf(h)();
   if (exportOrFail(m, `after startGesture(modeler, "${kind}") and its drop`) === doc) {
     fail(
       `startGesture(modeler, "${kind}") and drop() left the document as it was — the case proves nothing (drop() releases the gesture where it applies, so a drop the modeler still runs changes the document)`,
@@ -168,21 +166,9 @@ export interface ListenerImportResult {
   unsettled?: true;
 }
 
-export async function withinTheBound(
+export const withinTheBound = (
   result: Promise<ListenerImportResult>,
-): Promise<ListenerImportResult> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      result,
-      new Promise<ListenerImportResult>((resolve) => {
-        timer = setTimeout(() => resolve({ unsettled: true }), HELD_IMPORT_BOUND_MS);
-      }),
-    ]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+): Promise<ListenerImportResult> => raceTheBound(result, { unsettled: true }, HELD_IMPORT_BOUND_MS);
 
 /**
  * `exportText()`, or `undefined` where it throws: read in a Promise's callback, where a throw
@@ -240,7 +226,7 @@ export async function nextMutateApplies(
   m: CollaborativeModeler,
   after: string,
 ): Promise<string[]> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const before = exportedNow(m);
   if (before === undefined) return [`exportText() threw after ${after}`];
   let thrown: string | undefined;
@@ -273,7 +259,7 @@ export async function undoAfterTheImport(
   const undo = h.undo;
   if (!undo) return [];
   const thrown = await errorOf(() => undo(m));
-  await (h.settle ?? defaultSettle)();
+  await settleOf(h)();
   if (thrown !== undefined) return [`an undo after ${after} threw ${thrown}`];
   return exportedNow(m) === imported
     ? []

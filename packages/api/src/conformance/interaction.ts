@@ -1,6 +1,14 @@
 import type { CollaborativeModeler } from "../index.js";
 import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
-import { defaultSettle, errorOf, fail, importOrFail, skip } from "./support.js";
+import {
+  errorOf,
+  fail,
+  firstText,
+  importFirstText,
+  importOrFail,
+  settleOf,
+  skip,
+} from "./support.js";
 import {
   GESTURE_KINDS,
   type GestureStarter,
@@ -11,8 +19,8 @@ import {
 
 /** every rule is stated by the contract, so each one fails */
 async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOutcome | void> {
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(h);
+  const first = firstText(h);
   const others: CollaborativeModeler[] = [];
   const m = await h.create();
   try {
@@ -150,12 +158,12 @@ async function laterListenerAfterADestroy(
   h: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<boolean[]> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const later: boolean[] = [];
   let destroyed = false;
   const m = await h.create();
   try {
-    await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+    await importFirstText(h, m);
     await settle();
     const interaction = m.interaction;
     if (!interaction) return later;

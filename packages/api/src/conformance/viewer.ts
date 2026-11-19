@@ -1,14 +1,16 @@
 import type { ConformanceCase } from "./harness.js";
 import {
   assertFinite,
-  defaultSettle,
   exportOrFail,
   fail,
   foreignRoundTrips,
   importContentText,
+  importOrFail,
   same,
+  settleOf,
   skip,
   sortedIds,
+  UNKNOWN_ELEMENT_ID,
 } from "./support.js";
 
 export const viewerCase: ConformanceCase = {
@@ -32,9 +34,7 @@ export const viewerCase: ConformanceCase = {
       });
       try {
         for (const text of h.canonicalTexts) {
-          await v
-            .importText(text)
-            .catch((e) => fail(`the viewer rejected a canonical text: ${String(e)}`));
+          await importOrFail(v, text, "the viewer rejected a canonical text");
           if (exportOrFail(v, "on the viewer") !== text)
             fail("the viewer's export is not the canonical text");
         }
@@ -47,14 +47,14 @@ export const viewerCase: ConformanceCase = {
             const offSel = v.elements.onSelection((s) => deliveries.push([...s]));
             if (v.elements.reveal(firstId) !== true)
               fail("the viewer's reveal(known id) must return true");
-            await (h.settle ?? defaultSettle)();
+            await settleOf(h)();
             if (!deliveries.some((d) => d.includes(firstId)))
               fail("the viewer's reveal delivered no selection containing the id");
             if (!v.elements.selection().includes(firstId))
               fail("the viewer's selection() does not contain the revealed id");
             offSel();
           }
-          if (v.elements.reveal("__modeler_api_no_such_id__") !== false)
+          if (v.elements.reveal(UNKNOWN_ELEMENT_ID) !== false)
             fail("the viewer's reveal(unknown id) must return false");
         }
         for (const bad of h.invalidTexts ?? []) {
@@ -81,7 +81,7 @@ export const viewerCase: ConformanceCase = {
           if (!same(v.getViewState(), applied))
             fail("setting the viewer's own readback did not yield that readback");
         }
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         if (calls > 0)
           fail(`the viewer fired onContentChanged ${calls}x — a viewer never changes content`);
       } finally {

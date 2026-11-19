@@ -8,11 +8,12 @@ import type {
 } from "./harness.js";
 import {
   adviseOn,
-  defaultSettle,
   errorOf,
   exportOrFail,
+  firstText,
   importOrFail,
   outcomeOf,
+  settleOf,
   skip,
 } from "./support.js";
 import {
@@ -40,8 +41,8 @@ async function importAtTheStart(
   startGesture: GestureStarter,
   kind: GestureKind,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(h);
+  const first = firstText(h);
   const [leg] = importedLegs(h);
   if (leg === undefined) return { findings: [] };
   await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
@@ -101,9 +102,7 @@ async function importAtTheStart(
           `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the drop either`,
         );
       }
-      for (const error of errors.errors) {
-        findings.push(`an error reached the window around ${during}: ${error}`);
-      }
+      findings.push(...errors.findings(`around ${during}`));
       return { findings, stop: true };
     }
     if (outcome.rejected !== undefined) {
@@ -130,9 +129,7 @@ async function importAtTheStart(
     }
     await settle();
     const dropped = changes - beforeTheDrop;
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during}`));
     const out = exportedNow(m);
     if (out === undefined) {
       findings.push(`exportText() threw after the drop that followed ${during}`);

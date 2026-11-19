@@ -1,5 +1,5 @@
 import type { ConformanceCase } from "./harness.js";
-import { changeEvents, defaultSettle, fail, skip } from "./support.js";
+import { changeEvents, fail, firstText, settleOf, skip } from "./support.js";
 
 export const changeEventCases: ConformanceCase[] = [
   {
@@ -7,7 +7,7 @@ export const changeEventCases: ConformanceCase[] = [
     async run(h) {
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         const before = m.exportText();
         const { calls, exportAtEmit } = await changeEvents(h, m, () => h.mutate(m));
         if (calls === 0) fail("a user mutation fired no onContentChanged");
@@ -35,7 +35,7 @@ export const changeEventCases: ConformanceCase[] = [
       for (const mutation of h.configMutations) {
         const m = await h.create();
         try {
-          await m.importText(h.canonicalTexts[0] ?? "");
+          await m.importText(firstText(h));
           const before = m.exportText();
           const { calls, exportAtEmit } = await changeEvents(h, m, () => mutation.run(m));
           if (calls === 0) fail(`config mutation "${mutation.name}" fired no onContentChanged`);
@@ -61,14 +61,14 @@ export const changeEventCases: ConformanceCase[] = [
     async run(h) {
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         let calls = 0;
         const off = m.onContentChanged(() => {
           calls += 1;
         });
         off();
         await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         if (calls > 0) fail("onContentChanged delivered after unsubscribe");
       } finally {
         m.destroy();
@@ -82,10 +82,10 @@ export const changeEventCases: ConformanceCase[] = [
       const undo = h.undo;
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         const before = m.exportText();
         await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         const mutated = m.exportText();
         const undone = await changeEvents(h, m, () => undo(m));
         if (undone.calls === 0)

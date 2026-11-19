@@ -3,13 +3,15 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness, GestureKind } fr
 import {
   adviseOn,
   changeEvents,
-  defaultSettle,
   errorOf,
   exportOrFail,
   fail,
+  firstText,
+  importFirstText,
   importOrFail,
   outcomeOf,
   same,
+  settleOf,
   skip,
 } from "./support.js";
 import {
@@ -35,7 +37,7 @@ async function importDuringGesture(
   leg: ImportedLeg,
   expected: string,
 ): Promise<LegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const during = `${leg.what} imported during a ${kind} gesture`;
   const findings: string[] = [];
   const watch = watchInteraction(m);
@@ -62,7 +64,7 @@ async function importDuringGesture(
       );
       const thrown = await errorOf(() => held.drop());
       if (thrown !== undefined) findings.push(`the drop after ${during} threw ${thrown}`);
-      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      const released = await settledWithin(importing);
       if (released.unsettled) {
         findings.push(
           `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the drop either`,
@@ -87,9 +89,7 @@ async function importDuringGesture(
       thrown = await errorOf(() => held.drop());
     });
     if (thrown !== undefined) findings.push(`the drop after ${during} threw ${thrown}`);
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during} and its drop: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during} and its drop`));
     const out = exportOrFail(m, `after the drop that followed ${during}`);
     if (dropped.calls > 0 || out !== expected) {
       findings.push(
@@ -127,8 +127,8 @@ async function rejectionDuringGesture(
   invalid: string,
 ): Promise<LegFindings> {
   const findings: string[] = [];
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-  await (h.settle ?? defaultSettle)();
+  await importFirstText(h, m);
+  await settleOf(h)();
   const doc = exportOrFail(m, "after importing canonicalTexts[0]");
   const watch = watchInteraction(m);
   const errors = listenForWindowErrors();
@@ -141,7 +141,7 @@ async function rejectionDuringGesture(
         `importing invalidTexts[0] during a ${kind} gesture had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the gesture to end instead of rejecting and leaving it running`,
       );
       await errorOf(() => held.drop());
-      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      const released = await settledWithin(importing);
       if (!released.unsettled && released.rejected === undefined) {
         fail(
           `importText(invalidTexts[0]) resolved after a ${kind} gesture it waited for — a non-importable input REJECTS (L7)`,
@@ -178,11 +178,9 @@ async function rejectionDuringGesture(
     if (thrown !== undefined) {
       findings.push(`the drop of a ${kind} gesture after a rejected import threw ${thrown}`);
     }
-    for (const error of errors.errors) {
-      findings.push(
-        `an error reached the window around a rejected import during a ${kind} gesture and its drop: ${error}`,
-      );
-    }
+    findings.push(
+      ...errors.findings(`around a rejected import during a ${kind} gesture and its drop`),
+    );
     const applied =
       dropped.calls > 0 && exportOrFail(m, `after the drop of a ${kind} gesture`) !== doc;
     if (!applied && !ended) {
@@ -208,7 +206,7 @@ async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome
     );
   }
   const startGesture = h.startGesture;
-  const first = h.canonicalTexts[0] ?? "";
+  const first = firstText(h);
   const invalid = h.invalidTexts?.[0];
   const findings: string[] = [];
   let stopped = false;
@@ -221,7 +219,7 @@ async function importCancelsGestures(h: ConformanceHarness): Promise<CaseOutcome
         await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
         const expected = exportOrFail(m, `after importing ${leg.what}`);
         await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         const outcome = await importDuringGesture(h, m, startGesture, kind, leg, expected);
         findings.push(...outcome.findings);
         stopped = outcome.stop === true;

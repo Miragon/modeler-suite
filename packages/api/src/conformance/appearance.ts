@@ -8,14 +8,15 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness
 import { hostMadeSince, nextHostSerial } from "./hosts.js";
 import {
   changeEvents,
-  defaultSettle,
   errorOf,
   exportOrFail,
   fail,
+  firstText,
   importOrFail,
   outcomeOf,
   same,
   selectionOf,
+  settleOf,
   skip,
 } from "./support.js";
 
@@ -173,10 +174,10 @@ async function coloursFollowTheRequest(
     if (typeof host === "string") return host;
     const [lead = "light"] = themes;
     const other: AppearanceTheme = lead === "light" ? "dark" : "light";
-    const first = h.canonicalTexts[0] ?? "";
+    const first = firstText(h);
     pageMode(null, null);
     await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-    await (h.settle ?? defaultSettle)();
+    await settleOf(h)();
     const paintedFor = (contrast: "normal" | "high"): PaintedElement[] => {
       appearance.set({ theme: lead, contrast });
       return paintedIn(host);
@@ -207,7 +208,7 @@ async function coloursFollowTheRequest(
       pageMode(other, "hoch");
       appearance.set(request);
       await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
-      await (h.settle ?? defaultSettle)();
+      await settleOf(h)();
       const reimported = paintedIn(host);
       pageMode(null, null);
       appearance.set({ theme: lead, contrast });
@@ -252,8 +253,8 @@ async function appearanceOverAnInteraction(
 ): Promise<string | undefined> {
   const openInteraction = h.openInteraction;
   if (!openInteraction) return undefined;
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(h);
+  const first = firstText(h);
   const request: AppearanceRequest = { theme: themes[0] ?? "light", contrast: "high" };
   await importOrFail(m, first, "re-importing canonicalTexts[0] rejected");
   appearance.set({ theme: request.theme, contrast: "normal" });
@@ -303,8 +304,8 @@ async function appearanceOverAnInteraction(
 
 /** every rule but the keep-open of an interaction is stated by the contract, so each one fails */
 async function appearanceIsViewState(h: ConformanceHarness): Promise<CaseOutcome> {
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(h);
+  const first = firstText(h);
   const others: CollaborativeModeler[] = [];
   const m = await h.create();
   try {

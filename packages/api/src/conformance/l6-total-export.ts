@@ -1,5 +1,5 @@
 import type { ConformanceCase, ConformanceHarness, UserMutation } from "./harness.js";
-import { exportOrFail, foreignRoundTrips, skip } from "./support.js";
+import { exportOrFail, firstText, foreignRoundTrips, skip } from "./support.js";
 
 const mutationsOf = (h: ConformanceHarness): UserMutation[] => [
   { name: "mutate (element command)", run: (m) => h.mutate(m) },
@@ -12,7 +12,7 @@ export const totalExportCases: ConformanceCase[] = [
     async run(h) {
       const m = await h.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         for (const mutation of mutationsOf(h)) {
           await mutation.run(m);
           exportOrFail(m, `after ${mutation.name}`);

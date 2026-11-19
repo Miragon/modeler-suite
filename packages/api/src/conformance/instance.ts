@@ -1,23 +1,24 @@
 import { apiVersionsCompatible, type CollaborativeModeler, MODELER_API_VERSION } from "../index.js";
 import type { ConformanceCase } from "./harness.js";
-import { changeEvents, defaultSettle, exportOrFail, fail, importOrFail } from "./support.js";
+import {
+  changeEvents,
+  exportOrFail,
+  fail,
+  importOrFail,
+  raceTheBound,
+  settleOf,
+} from "./support.js";
 
 const PRE_IMPORT_CALL_BOUND_MS = 2000;
 
-async function toleratedCall(action: () => Promise<void> | void, ms: number): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const call = Promise.resolve()
-    .then(action)
-    .catch(() => undefined);
-  const bound = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ms);
-  });
-  try {
-    await Promise.race([call, bound]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+const toleratedCall = (action: () => Promise<void> | void): Promise<void> =>
+  raceTheBound(
+    Promise.resolve()
+      .then(action)
+      .catch(() => undefined),
+    undefined,
+    PRE_IMPORT_CALL_BOUND_MS,
+  );
 
 export const instanceCases: ConformanceCase[] = [
   {
@@ -49,8 +50,8 @@ export const instanceCases: ConformanceCase[] = [
         } catch {
           // a throw before the first import is allowed
         }
-        await toleratedCall(() => h.mutate(m), PRE_IMPORT_CALL_BOUND_MS);
-        await (h.settle ?? defaultSettle)();
+        await toleratedCall(() => h.mutate(m));
+        await settleOf(h)();
         control = await h.create();
         const texts = h.canonicalTexts.length > 0 ? h.canonicalTexts.slice(0, 2) : [""];
         let last = "";

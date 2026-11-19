@@ -2,12 +2,15 @@ import type { CollaborativeModeler, ElementBounds, ElementsSurface } from "../in
 import type { ConformanceCase } from "./harness.js";
 import {
   changeEvents,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
+  importFirstText,
   importOrFail,
   same,
+  settleOf,
   skip,
+  UNKNOWN_ELEMENT_ID,
 } from "./support.js";
 
 type BoundedElements = ElementsSurface & { bounds(id: string): ElementBounds | undefined };
@@ -122,7 +125,7 @@ export const elementsCases: ConformanceCase[] = [
     async run(h) {
       const m = await h.create();
       try {
-        const text = h.canonicalTexts[0] ?? "";
+        const text = firstText(h);
         await m.importText(text);
         const elements = m.elements;
         if (!elements)
@@ -133,7 +136,7 @@ export const elementsCases: ConformanceCase[] = [
         const again = elements.list().map((e) => e.id);
         if (!same([...ids].sort(), [...again].sort()))
           fail("element ids are not stable across re-imports of the same text");
-        if (elements.reveal("__modeler_api_no_such_id__") !== false)
+        if (elements.reveal(UNKNOWN_ELEMENT_ID) !== false)
           fail("reveal(unknown id) must return false");
         const firstId = ids[0];
         if (firstId !== undefined) {
@@ -167,7 +170,7 @@ export const elementsCases: ConformanceCase[] = [
           const otherId = ids[1];
           if (otherId !== undefined) elements.reveal(otherId);
           else await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
+          await settleOf(h)();
           if (deliveries.length !== seen) fail("onSelection delivered after unsubscribe");
         }
         // an edit to ANOTHER element must not renumber existing ids: every id
@@ -176,7 +179,7 @@ export const elementsCases: ConformanceCase[] = [
         // shifting what they point at
         const namesBefore = new Map(elements.list().map((e) => [e.id, e.name]));
         await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         const afterEdit = new Map(elements.list().map((e) => [e.id, e.name]));
         if (afterEdit.size <= namesBefore.size) {
           fail(
@@ -206,14 +209,14 @@ export const elementsCases: ConformanceCase[] = [
       const m = await h.create();
       const others: CollaborativeModeler[] = [];
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
+        await m.importText(firstText(h));
         const elements = m.elements;
         if (!elements)
           return skip("the modeler exposes no elements surface (optional) — nothing to verify");
         // the element the session just created is the one an in-memory id
         // scheme gives away: its id was never read back from a text
         await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
+        await settleOf(h)();
         const session = new Map(elements.list().map((e) => [e.id, e.name]));
         const exported = exportOrFail(m, "after a user mutation");
         const expectSessionIds = (target: CollaborativeModeler, where: string): void => {
@@ -256,7 +259,7 @@ export const elementsCases: ConformanceCase[] = [
   {
     name: "elements (when present, recommended): ids created on two peers at the same time do not collide",
     async run(h) {
-      const text = h.canonicalTexts[0] ?? "";
+      const text = firstText(h);
       const peers: CollaborativeModeler[] = [];
       try {
         const created: Array<Map<string, string | undefined>> = [];
@@ -268,7 +271,7 @@ export const elementsCases: ConformanceCase[] = [
             return skip("the modeler exposes no elements surface (optional) — nothing to verify");
           const before = new Set(peer.elements.list().map((e) => e.id));
           await h.mutate(peer);
-          await (h.settle ?? defaultSettle)();
+          await settleOf(h)();
           const added = new Map(
             peer.elements
               .list()
@@ -320,8 +323,8 @@ export const elementsCases: ConformanceCase[] = [
   {
     name: "elements.bounds (when present): a finite box in diagram coordinates for every listed id, undefined for an unknown one, live after a new element and a move",
     async run(h) {
-      const text = h.canonicalTexts[0] ?? "";
-      const settle = h.settle ?? defaultSettle;
+      const text = firstText(h);
+      const settle = settleOf(h);
       const m = await h.create();
       let viewer: CollaborativeModeler | undefined;
       try {
@@ -332,7 +335,7 @@ export const elementsCases: ConformanceCase[] = [
         if (!hasBounds(elements))
           return skip("the modeler exposes no elements.bounds (optional) — nothing to verify");
         boxesOf(elements, "after an import");
-        if (elements.bounds("__modeler_api_no_such_id__") !== undefined)
+        if (elements.bounds(UNKNOWN_ELEMENT_ID) !== undefined)
           fail("elements.bounds(unknown id) must return undefined");
         // what a box cached at the last import gives away: an element the
         // session created has none, a moved one keeps its old position
@@ -388,7 +391,7 @@ export const elementsCases: ConformanceCase[] = [
           await importOrFail(viewer, text, "the viewer rejected canonicalTexts[0]");
           if (viewer.elements && hasBounds(viewer.elements)) {
             boxesOf(viewer.elements, "on the viewer after an import");
-            if (viewer.elements.bounds("__modeler_api_no_such_id__") !== undefined)
+            if (viewer.elements.bounds(UNKNOWN_ELEMENT_ID) !== undefined)
               fail("the viewer's elements.bounds(unknown id) must return undefined");
           }
         }
@@ -402,7 +405,7 @@ export const elementsCases: ConformanceCase[] = [
   {
     name: "contentBounds (when present): a finite box in diagram coordinates around every listed element, live after a new element, unchanged by zoom and scroll",
     async run(h) {
-      const settle = h.settle ?? defaultSettle;
+      const settle = settleOf(h);
       const m = await h.create();
       let viewer: CollaborativeModeler | undefined;
       try {
@@ -415,7 +418,7 @@ export const elementsCases: ConformanceCase[] = [
         }
         // a box cached at the last import gives itself away here: the
         // element the session created lies outside it, or it has none
-        await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+        await importFirstText(h, m);
         await h.mutate(m);
         await settle();
         const atRest = expectContentAroundElements(m, "after a user mutation added an element");
@@ -442,11 +445,7 @@ export const elementsCases: ConformanceCase[] = [
           viewer = await h.createReadonly();
           if (hasContentBounds(viewer)) {
             contentBoxOf(viewer, "on the viewer before the first import");
-            await importOrFail(
-              viewer,
-              h.canonicalTexts[0] ?? "",
-              "the viewer rejected canonicalTexts[0]",
-            );
+            await importFirstText(h, viewer, "the viewer rejected canonicalTexts[0]");
             expectContentAroundElements(viewer, "on the viewer after an import");
           }
         }

@@ -2,12 +2,13 @@ import type { ConformanceCase, InteractionState } from "./harness.js";
 import {
   assertFinite,
   changeEvents,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
   importContentText,
   importOrFail,
   same,
+  settleOf,
   skip,
 } from "./support.js";
 
@@ -94,8 +95,8 @@ export const viewStateCases: ConformanceCase[] = [
       const openInteraction = h.openInteraction;
       const commitInteraction = h.commitInteraction;
       const viewState = h.viewState;
-      const settle = h.settle ?? defaultSettle;
-      const first = h.canonicalTexts[0] ?? "";
+      const settle = settleOf(h);
+      const first = firstText(h);
       const m = await h.create();
       try {
         await m.importText(first);

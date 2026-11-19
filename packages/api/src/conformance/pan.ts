@@ -3,13 +3,14 @@ import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness
 import {
   adviseOn,
   changeEvents,
-  defaultSettle,
   errorOf,
   exportOrFail,
   fail,
+  importFirstText,
   importOrFail,
   outcomeOf,
   same,
+  settleOf,
   skip,
 } from "./support.js";
 import {
@@ -109,8 +110,8 @@ async function panOverAnImport(
   const findings: string[] = [];
   await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
   const expected = exportOrFail(m, `after importing ${leg.what}`);
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-  await (h.settle ?? defaultSettle)();
+  await importFirstText(h, m);
+  await settleOf(h)();
   const atRest = m.getViewState();
   const watch = watchInteraction(m);
   const errors = listenForWindowErrors();
@@ -134,7 +135,7 @@ async function panOverAnImport(
         `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — the import waited for the pan to end instead of leaving it running`,
       );
       await errorOf(() => pan.drop());
-      const released = await settledWithin(importing, HELD_IMPORT_BOUND_MS);
+      const released = await settledWithin(importing);
       if (released.unsettled) {
         findings.push(
           `importing ${leg.what} during a pan had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the pan's release either`,
@@ -188,11 +189,7 @@ async function panOverAnImport(
     if (dropThrown !== undefined) {
       findings.push(`releasing a pan after an import of ${leg.what} threw ${dropThrown}`);
     }
-    for (const error of errors.errors) {
-      findings.push(
-        `an error reached the window during a pan over an import of ${leg.what}: ${error}`,
-      );
-    }
+    findings.push(...errors.findings(`during a pan over an import of ${leg.what}`));
     if (activeDuringPan) findings.push("interaction.active() was true during a pan");
     else if (watch && watch.delivered.length > 0) {
       findings.push(

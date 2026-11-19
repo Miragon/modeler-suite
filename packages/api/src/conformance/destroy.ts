@@ -1,6 +1,6 @@
 import type { CollaborativeModeler } from "../index.js";
 import type { CaseOutcome, ConformanceCase, ConformanceHarness, GestureKind } from "./harness.js";
-import { adviseOn, defaultSettle, errorOf, importOrFail, outcomeOf } from "./support.js";
+import { adviseOn, errorOf, firstText, importFirstText, outcomeOf, settleOf } from "./support.js";
 import {
   type ActionLegFindings,
   DRAG_START_KINDS,
@@ -71,14 +71,14 @@ function listenBehindTheDestroy(m: CollaborativeModeler, destroyer: Destroyer): 
  * itself. The modeler is not touched after the destroy, apart from a second `destroy()`
  */
 async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const findings: string[] = [];
   const heardAfter: string[] = [];
   let called = false;
   let thrownByDestroy: string | undefined;
   const m = await h.create();
   try {
-    await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+    await importFirstText(h, m);
     await settle();
     const selected = m.elements?.list()[0]?.id;
     if (selected !== undefined && leg.startsRevealed) m.elements?.reveal(selected);
@@ -129,9 +129,7 @@ async function destroyDuring(h: ConformanceHarness, leg: DestroyLeg): Promise<Ac
           `${leg.input} threw ${thrown} once a listener had called destroy() ${leg.where}`,
         );
       }
-      for (const error of errors.errors) {
-        findings.push(`an error reached the window after destroy() ${leg.where}: ${error}`);
-      }
+      findings.push(...errors.findings(`after destroy() ${leg.where}`));
       if (heardAfter.length > 0) {
         findings.push(
           `${heardAfter.join(", ")} came after destroy() ${leg.where} (no listener of the host is called after it, also not a later listener of the same delivery)`,
@@ -205,6 +203,23 @@ function destroyAtTheDrop(startGesture: GestureStarter): DestroyLeg {
   };
 }
 
+/** an interaction listener that destroys the modeler when the interaction reports its end (false) */
+function destroyWhenTheInteractionEnds(
+  modeler: CollaborativeModeler,
+  destroyer: Destroyer,
+): string | undefined {
+  const interaction = modeler.interaction;
+  if (!interaction) return "the modeler exposes no interaction surface (optional, 1.5)";
+  interaction.onChange((active) => {
+    if (destroyer.called) {
+      destroyer.heard(`the destroying listener again with ${String(active)}`);
+    } else if (!active) {
+      destroyer.destroy();
+    }
+  });
+  return undefined;
+}
+
 /** the interaction listener destroys the modeler when Escape cancels a move */
 function destroyAtEscape(startGesture: GestureStarter): DestroyLeg {
   return {
@@ -212,18 +227,7 @@ function destroyAtEscape(startGesture: GestureStarter): DestroyLeg {
     input: "the input",
     unheard: "interaction.onChange did not report the end of a move at its cancel (Escape)",
     startsRevealed: true,
-    listen(m, destroyer) {
-      const interaction = m.interaction;
-      if (!interaction) return "the modeler exposes no interaction surface (optional, 1.5)";
-      interaction.onChange((active) => {
-        if (destroyer.called) {
-          destroyer.heard(`the destroying listener again with ${String(active)}`);
-        } else if (!active) {
-          destroyer.destroy();
-        }
-      });
-      return undefined;
-    },
+    listen: destroyWhenTheInteractionEnds,
     act: async (m) => {
       const held = await startGesture(m, "move");
       await held.cancel();
@@ -281,22 +285,11 @@ function destroyInsideAnImport(startGesture: GestureStarter, text: string): Dest
     },
     unheard: "interaction.onChange did not report the end of a held move inside importText()",
     startsRevealed: true,
-    listen(m, destroyer) {
-      const interaction = m.interaction;
-      if (!interaction) return "the modeler exposes no interaction surface (optional, 1.5)";
-      interaction.onChange((active) => {
-        if (destroyer.called) {
-          destroyer.heard(`the destroying listener again with ${String(active)}`);
-        } else if (!active) {
-          destroyer.destroy();
-        }
-      });
-      return undefined;
-    },
+    listen: destroyWhenTheInteractionEnds,
     act: async (m, _selected, destroyer) => {
       await startGesture(m, "move");
       reached = "importText()";
-      const outcome = await settledWithin(m.importText(text), HELD_IMPORT_BOUND_MS);
+      const outcome = await settledWithin(m.importText(text));
       if (!destroyer.called) return;
       if (outcome.unsettled) {
         destroyer.note(
@@ -319,10 +312,10 @@ async function unsubscribeDuringADelivery(
   h: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(h);
   const m = await h.create();
   try {
-    await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+    await importFirstText(h, m);
     await settle();
     const interaction = m.interaction;
     if (!interaction) {
@@ -378,7 +371,7 @@ async function destroyFromAListener(h: ConformanceHarness): Promise<CaseOutcome>
       ...DRAG_START_KINDS.map((kind) => destroyAtTheStart(startGesture, kind)),
       destroyAtTheDrop(startGesture),
       destroyAtEscape(startGesture),
-      destroyInsideAnImport(startGesture, h.canonicalTexts[0] ?? ""),
+      destroyInsideAnImport(startGesture, firstText(h)),
     );
   } else {
     unverified.push(
