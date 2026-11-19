@@ -4,7 +4,7 @@ The contract is what every host binds: Design IQ's live sync, its MCP widgets, a
 modeler itself. Its laws, the kit and the versioning are documented in the
 [package README](https://github.com/Miragon/modeler-suite/blob/main/packages/api/README.md) and as
 JSDoc in [`src/index.ts`](https://github.com/Miragon/modeler-suite/blob/main/packages/api/src/index.ts);
-this page is what they mean for a renderer, from the five that implement them.
+this page is what they mean for a renderer, from the renderers that implement them.
 
 ## The factories
 

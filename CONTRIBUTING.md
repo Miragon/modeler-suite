@@ -268,7 +268,9 @@ is held today; the board was, until the pull request that made it public.
 `@miragon/modeler-api` is on 1.x: a new optional surface of the contract or kit is a `feat`; a new
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).
 A requirement the contract text does not state yet ships as a RECOMMENDATION whose kit case only
-advises, and becomes a law in the next major.
+advises, and becomes a law in the next major. A change to the contract text edits its JSDoc in
+`packages/api/src/` and its section of the [package README](packages/api/README.md) together: an
+editor shows the one, npm and GitHub the other.
 
 A kit case lives in the module of its law or surface under `packages/api/src/conformance/`
 (`l1-silent-import.ts` to `l7-no-trace.ts`, `elements.ts`, `keys.ts`, `destroy.ts`, …), the helpers

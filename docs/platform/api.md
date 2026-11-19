@@ -16,4 +16,6 @@
 npm i --save-exact @miragon/modeler-api
 ```
 
+Since 1.7 the package also carries a three-way text merge: `ModelTextMerge`, `MergeConflictError` and pure helpers such as `mergeItemsById`. An IDE host such as Orca calls a renderer's merge when an agent writes a file while the editor holds unsaved edits: changes to different elements are all kept, and two different changes of one element, or a change against its removal, throw a `MergeConflictError` that the host shows to the person. The diagram-js renderers implement it, and the kit's `registerMergeConformance` checks its [laws M1 to M5](https://github.com/Miragon/modeler-suite/blob/main/packages/api/README.md#the-text-merge-17); the board has no text merge.
+
 The full laws, the kit and the versioning rules are in the [package README](https://github.com/Miragon/modeler-suite/tree/main/packages/api#readme).

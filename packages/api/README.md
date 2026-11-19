@@ -35,7 +35,7 @@ import type { CollaborativeModeler } from "@miragon/modeler-api";
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | L1  | `importText` is **silent**: no change events, undo history erased without emitting, also over existing history and foreign content; an interaction open during an import (a label editor with typed input) never commits; RECOMMENDED (1.5): an accepted import first cancels a running gesture; RECOMMENDED (1.6): an import called during a running user action (a drop, the start of a drag, a command) waits until the action has finished, imports keep their call order, and a pan runs on through an import |
 | L2  | `exportText` is **canonical**: deterministic, a byte fixpoint on canonical input, idempotent otherwise                                                                                                                                                                                                                                                                                                                                                                                                             |
-| L3  | `onContentChanged` fires for **every** user-visible change (element commands, config/axis/title edits, undo/redo) and nothing else; inside a listener `exportText()` already returns the new document                                                                                                                                                                                                                                                                                                              |
+| L3  | `onContentChanged` fires for **every** user-visible change (element commands, config/axis/title/style edits that live in the document, undo/redo) and nothing else; inside a listener `exportText()` already returns the new document                                                                                                                                                                                                                                                                              |
 | L4  | undo directly after an import is a defined **no-op**, never a stale-history mutation                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | L5  | view state survives a re-import; an import leaves the view **fitted** to the content; the readback may be a normalised form of what was set; a host's view change (`setViewState`, a fit) never **commits** an open interaction                                                                                                                                                                                                                                                                                    |
 | L6  | `exportText` is total after a successful import; foreign content is **preserved** through import → export, never dropped, never a throw                                                                                                                                                                                                                                                                                                                                                                            |
@@ -266,11 +266,10 @@ A view change the HOST makes (`setViewState`, or a fit its chrome applies to
 the canvas) never commits an interaction in progress either (L5, since 1.2):
 no change event, the export unchanged. Hosts restore the viewport after every
 remote re-import and refit when their chrome changes; a modeler that completes
-its label editor on every viewbox change (diagram-js's direct-editing pattern,
-which every renderer built against contract 1.1 follows) writes the half-typed
-label into the shared document for every peer. RECOMMENDED: the interaction
-stays open with its typed input, so the user's commit afterwards writes what it
-would have written without the view change.
+its label editor on every viewbox change (diagram-js's direct-editing pattern)
+writes the half-typed label into the shared document for every peer.
+RECOMMENDED: the interaction stays open with its typed input, so the user's
+commit afterwards writes what it would have written without the view change.
 
 **A destroy from a listener** (1.6, RECOMMENDED). A host may call `destroy()`
 from any listener the modeler calls (`onContentChanged`, `elements.onSelection`,
@@ -395,13 +394,10 @@ alone (guide §13.5).
 `CollaborativeModelerOptions` (1.2) names the options a host has to feed a
 renderer's contract factory (`createCollaborativeModeler`,
 `createCollaborativeViewer`), the same for every notation, so a host can pass
-every notation one object. The contract defines them; each renderer adopts
-them in its own release, next to its own options (diagram-js
-`additionalModules`). Adopting them is part of moving a renderer to contract
-1.2: `meta.apiVersion` follows the `@miragon/modeler-api` version the renderer
-pins, and no kit case checks the options (the harness's `create()` builds the
-instance), so a renderer that reports 1.2.0 without them silently ignores a
-host's aligned options.
+every notation one object. The contract defines them, and a renderer takes
+them next to its own options (diagram-js `additionalModules`). No kit case
+checks the options (the harness's `create()` builds the instance), so
+`meta.apiVersion` alone does not tell a host that a renderer honours them.
 
 | Option         | Meaning                                                                                                                                                                                                                                                          | Default             |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
@@ -419,27 +415,24 @@ const options: CollaborativeModelerOptions = {
 };
 ```
 
-Every Miragon renderer takes these names and no others. The renderers' own
-earlier names (`freeRectInsets`, `freeRectCenter` and Wardley's
-`keyboard: { undoRedo }`) are gone since wardley-renderer 0.12.0,
-event-storming-renderer 0.6.0, team-topologies-renderer 0.15.0,
-context-maps-renderer 0.7.0 and value-chain-renderer 0.8.0: a host that still
-passes one gets the option's default (TypeScript rejects the name in an object
-literal). A renderer given only `center` that needs the rectangle itself (a pan
+Every Miragon renderer takes these names and no others; a host that passes
+another name gets the option's default, and TypeScript rejects it in an object
+literal. A renderer given only `center` that needs the rectangle itself (a pan
 constraint) works there as it does without the option: no host chrome, with
 whatever margins of its own it uses then. A viewer factory takes the same type
 and ignores `undoRedoKeys`. The kit's `create()` keeps `fitOnImport` at its
 default: L5 checks the modeler's own fit.
 
 The post-import fit (`fitOnImport`, L5's fitted view) MAY use the free area:
-given `insets` a renderer may fit into the free rectangle (Wardley, Context
-Maps) or keep its own fit (Event Storming, Team Topologies, Value Chain), and
-given only `center`, which names no rectangle, it MAY fit as it does without
-the option, keeping the padding it uses then (Context Maps keeps the room its
-palette needs, and a test pins it). All five published renderers conform to
-this reading; no kit case checks it, since `create()` takes no options. A host
-whose first view must leave its chrome free passes `fitOnImport: false` and
-fits itself, to `contentBounds()` where the renderer has it.
+given `insets` a renderer may fit into the free rectangle (Wardley Maps,
+Context Maps, the board) or keep its own fit (Event Storming, Team Topologies,
+Value Chain, C4, Business Model Canvas), and given only `center`, which names
+no rectangle, it MAY fit as it does without the option, keeping the padding it
+uses then (Context Maps keeps the room its palette needs, and a test pins it).
+Every Miragon renderer conforms to this reading; no kit case checks it, since
+`create()` takes no options. A host whose first view must leave its chrome
+free passes `fitOnImport: false` and fits itself, to `contentBounds()` where
+the renderer has it.
 
 ## The text merge (1.7)
 
@@ -449,7 +442,7 @@ writes the file while the draft has unsaved edits, the host calls a three-way me
 ```ts
 import { MergeConflictError, mergeItemsById, type ModelTextMerge } from "@miragon/modeler-api";
 
-export const mergeBoardText: ModelTextMerge = (lastSyncedText, externalText, draftText) => {
+export const mergeDiagramText: ModelTextMerge = (lastSyncedText, externalText, draftText) => {
   const [base, external, draft] = [lastSyncedText, externalText, draftText].map(parseOrConflict);
   const elements = mergeItemsById(base.elements, external.elements, draft.elements);
   if (elements.conflictingIds) throw new MergeConflictError(elements.conflictingIds);
@@ -482,7 +475,8 @@ The helpers are pure and have no dependencies, so a renderer imports them at run
   than its `id` (an arrow by its ends), `isSameItem` compares two of them (default:
   `sameJsonValue`, structural equality).
 - `mergeValue(lastSynced, external, draft, isSame?)` is the same rule for one value (a title, a
-  config block), `undefined` standing for an absent one.
+  config block), `undefined` standing for an absent one. It returns `{ merged }`, with `merged`
+  undefined for an absent value, or `{ conflict: true }`: a single value has no id to name.
 - `mergeRecord(lastSynced, external, draft, { keyedLists })` merges a JSON document: the fields
   named in `keyedLists` by element id, every other field, a foreign one included, as one value.
 - `mergeTextLines(lastSynced, external, draft)` merges two texts line by line (diff3): the side that
@@ -497,7 +491,7 @@ import { registerMergeConformance } from "@miragon/modeler-api/conformance";
 import { test } from "vitest";
 
 registerMergeConformance(
-  mergeBoardText,
+  mergeDiagramText,
   {
     base: CANONICAL_SAMPLE,
     disjoint: [{ name: "a rename outside, a new element in the draft", external, draft, merged }],
@@ -510,11 +504,14 @@ registerMergeConformance(
 ```
 
 Each disjoint fixture names the exact merged text, so a reviewer sees where both sides end up.
+`mergeConformanceCases()` lists the merge cases for a runner that binds them itself: each is
+`{ name, run(merge, fixtures) }`, synchronous, and throws on a violation, with no skips or
+advisories.
 
 ## The conformance kit
 
 ```ts
-// e.g. test/conformance.browser.test.ts in a modeler repo (any (name, fn) runner that runs the cases one after another)
+// e.g. packages/renderer/test/browser/conformance.browser.test.ts in a modeler repo (any (name, fn) runner that runs the cases one after another)
 import { attachedHost, registerConformance } from "@miragon/modeler-api/conformance";
 import { test } from "vitest";
 
@@ -548,6 +545,13 @@ registerConformance(
   { onSkip: reportSkip, onAdvisory: reportAdvisory }, // optional: both default to console.warn
 );
 ```
+
+A runner that binds cases itself (a subset, or one case alone, as the board's
+harness does for the drop case) iterates `conformanceCases()`, the cases in the
+order `registerConformance` registers them. Each case is `{ name, run(harness) }`
+and resolves to `{ skipped?, advisories? }` or nothing; `registerConformance`
+reports these through `onSkip` and `onAdvisory`, and a runner that binds cases
+itself reports them on its own.
 
 **Run it in a real browser.** diagram-js engines compute viewboxes from the
 host's client size and use `getBBox`, which jsdom lacks and a detached or 0×0
@@ -722,15 +726,21 @@ not every individual assertion has a saboteur, every case does), and one
 variant per recommendation fails nothing and advises exactly once
 ([`test/recommendations.conformance.test.ts`](test/recommendations.conformance.test.ts)).
 These three suites run without a DOM, which proves the other cases need none;
-the keys case, the colour half of the appearance case and the delete of the
-user-action case need one, so three more suites (jsdom) mount the reference
-into `attachedHost()`:
+the keys case, the colour half of the appearance case, the delete of the
+user-action case and the window-error findings of the cases that run the user's
+input (gesture, drop, drag start, pan, user action, interaction, destroy) need
+one, so four more suites (jsdom) mount the reference into
+`attachedHost()`:
 [`test/keys.conformance.test.ts`](test/keys.conformance.test.ts) runs every case
 on it and holds the keys saboteurs,
 [`test/appearance.conformance.test.ts`](test/appearance.conformance.test.ts)
-holds the saboteurs that leave the page's mode through, and
+holds the saboteurs that leave the page's mode through,
 [`test/user-action.conformance.test.ts`](test/user-action.conformance.test.ts)
-those whose import runs inside a delete.
+those whose import runs inside a delete, and
+[`test/destroy.conformance.test.ts`](test/destroy.conformance.test.ts) runs the
+interaction and destroy cases with the gesture started inside a DOM pointer
+handler, where a teardown's error reaches the window: the interaction case
+keeps it from the page, the destroy case advises it.
 
 ### Cases for the 1.5 surfaces and the gesture rules of 1.6
 
@@ -1034,9 +1044,7 @@ called afterwards, that import rejected and no listener called that an earlier
 one of the same delivery unsubscribed. 1.6 also names `visibility: hidden` next
 to `display: none` and `inert` as a way a host hides the canvas while a key
 aimed at `<body>` stays the page's (RECOMMENDED since 1.4). A 1.5 modeler
-stays a conforming 1.6 modeler. The Miragon renderers and the new-modeler template,
-whose harnesses fail on every skip and every advisory, fill the four fields
-before the cases land, and every one of them passes the cases.
+stays a conforming 1.6 modeler.
 
 1.7 adds the text merge: `ModelTextMerge`, `MergeConflictError` and the pure helpers in the
 package root, `registerMergeConformance` in the kit. Nothing in the contract of 1.6 changes, and a
@@ -1087,7 +1095,8 @@ Recommendations today, proposed as hard laws for the next major:
   `interaction.active()` false, on the viewer too; an import leaves it running,
   and it goes on from the current view: the one the import left, or one the
   host sets after it under L5 (today: RECOMMENDED since 1.6, advisory in the
-  pan case; 1.5 said a pan MAY count as a gesture).
+  pan case for the editable mount; no case checks the viewer during a pan; 1.5
+  said a pan MAY count as a gesture).
 - **A destroy from any listener:** `destroy()` called from a listener the
   modeler calls, also while the user's input runs (a drag's start, a drop, an
   Escape, a command) or inside a method of the contract that calls the listener
@@ -1102,21 +1111,12 @@ Recommendations today, proposed as hard laws for the next major:
 
 ## Roadmap
 
-- Next, in wave 4 ([#170](https://github.com/Miragon/modeler-suite/issues/170)):
-  designIQ replaces the DOM reading of gestures and the synthetic Escape that
-  [Miragon/design-iq#307](https://github.com/Miragon/design-iq/pull/307) added
-  with the host snippet under `interaction`, which imports the shared
-  document's current text after a gesture and so keeps the user's own drop
-  ([#287](https://github.com/Miragon/modeler-suite/issues/287)). designIQ's
-  change listener writes a local change after an `await` today; with the
-  snippet it writes before the listener returns, or flushes that write before
-  the import reads the text.
 - Dark mode, on hold since 2026-10-29 and a topic of its own later:
   [#331](https://github.com/Miragon/modeler-suite/issues/331) collects what the
   first attempt found and how to start again, and is the open tracker (#47 and
   its sub-issues are closed). Each renderer draws a dark canvas while its
-  `themes` stays `["light"]`; then one release moves all five to
-  `["light", "dark"]` together, with the `miragon.<modeler>.colorTheme` setting
+  `themes` stays `["light"]`; then one release moves every renderer with an
+  appearance surface to `["light", "dark"]` together, with the `miragon.<modeler>.colorTheme` setting
   of each VS Code extension.
 - Dropped from the roadmap:
   - a channel for messages to the host (an `onNotify` with severity, text and

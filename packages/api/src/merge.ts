@@ -3,15 +3,15 @@
  * unsaved edits (an agent writing the file an IDE editor shows) calls it with the text both sides
  * started from, the outside text and the user's draft, and writes the result.
  *
- * Laws (the kit's merge cases check each one):
+ * Laws M1 to M5, as the package README numbers them (the kit's merge cases check each one):
  *
- * - `merge(base, base, draft) === draft` and `merge(base, external, base) === external`;
- * - `merge(base, same, same) === same`;
- * - changes to different elements are all kept, in a text the modeler imports;
- * - two different changes to the same element (or a change on one side and a delete on the
+ * - M1: `merge(base, base, draft) === draft`, `merge(base, external, base) === external` and
+ *   `merge(base, same, same) === same`;
+ * - M2: changes to different elements are all kept, in a text the modeler imports;
+ * - M3: two different changes to the same element (or a change on one side and a delete on the
  *   other) throw a {@link MergeConflictError}, so the host lets the person decide;
- * - a text that does not parse throws a {@link MergeConflictError} too;
- * - the result is deterministic: the same three texts give the same text.
+ * - M4: a text that does not parse throws a {@link MergeConflictError} too;
+ * - M5: the result is deterministic: the same three texts give the same text.
  *
  * Every text it gets and returns is canonical (`exportText` output); the result is canonical too.
  */
@@ -23,7 +23,11 @@ export type ModelTextMerge = (
 
 const MERGE_CONFLICT = "MergeConflictError";
 
-/** A merge that cannot keep both sides. `conflictingIds` names the elements both sides changed. */
+/**
+ * A merge that cannot keep both sides. `conflictingIds` names what could not be merged (element
+ * ids, field names or line regions, as the merge chooses); it may be empty, as for a text that
+ * does not parse.
+ */
 export class MergeConflictError extends Error {
   override readonly name = MERGE_CONFLICT;
   readonly conflictingIds: readonly string[];
