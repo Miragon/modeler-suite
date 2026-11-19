@@ -71,7 +71,8 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
   in a real VS Code), `depcruise`, `format`, `format:check`, `dev:webapp`, `dev:webapp:plain` (not
   in value-chain, business-model-canvas and board, whose `dev:webapp` is plain Vite), `dev:vscode`.
 - Root: `npm run build` (shared, modelers, apps), `npm test` (shared packages, plugin drift test,
-  every modeler's unit tests), `npm run lint`, `npm run typecheck`, `npm run format` /
+  every modeler's unit tests), `npm run lint` (`lint:shared`: ESLint and the type check of the
+  shared packages, then every modeler's `lint`), `npm run typecheck`, `npm run format` /
   `format:check`, `npm run depcruise`, `npm run publint`, `npm run test:plugin`,
   `npm run test:browser`, `npm run test:e2e`, `npm run package:vscode`.
 - **Never run `test:vscode` on the user's Mac**: it opens a VS Code window that takes the focus.
@@ -82,10 +83,10 @@ Requirements: Node `^22.22.2 || >=24.15.0`, npm. Everything runs from the reposi
 - The pre-commit hook runs lint-staged with the root config only (`--config package.json`: ESLint
   and Prettier on staged files under the root `.prettierignore`, which keeps the new-modeler
   template's Markdown placeholders; the template's own config is for the repository it starts),
-  `npm run lint` of every modeler whose files are staged and the shared type check when `packages/`
-  or `test/` change. It runs **no** tests, builds or dependency-cruiser: run `npm test` (and the
-  affected modeler's `test:browser`, `test:e2e` and `depcruise`) yourself before pushing. Never
-  bypass it with `--no-verify`.
+  `npm run lint` of every modeler whose files are staged and `npm run lint:shared` when `packages/`,
+  `test/` or `tooling/` change. It runs **no** tests, builds or dependency-cruiser: run `npm test`
+  (and the affected modeler's `test:browser`, `test:e2e` and `depcruise`) yourself before pushing.
+  Never bypass it with `--no-verify`.
 
 ## Boundaries
 
@@ -291,4 +292,10 @@ Install once: `/plugin marketplace add Miragon/corporate-identity` then
 - Write comments only when explicitly requested. Otherwise write self-explanatory code: descriptive
   function and parameter names, no abbreviations.
 - If comments are needed, make them **why**-driven, not **how**.
+- ESLint holds the sources (not the tests) of every modeler and both shared packages to complexity
+  40, depth 6, 150 lines per function and 1000 lines per file (`complexityRatchet` in
+  `tooling/eslint.mjs`, the lines without blanks and comments). A file that was over a limit when
+  it came keeps a ceiling of its own in its `eslint.config.js` (`grandfatheredCeilings`), at the
+  size it had: lower it when a change shrinks the file, never raise it, and split a function or a
+  file instead of adding a ceiling.
 - Docs are English; German stays only where a file already is German.

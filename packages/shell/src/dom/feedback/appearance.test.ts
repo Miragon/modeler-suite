@@ -12,7 +12,7 @@ const themeColors = { light: "#335DE5", dark: "#1D1D1D" };
 const DARK_CAPABLE: readonly Theme[] = ["light", "dark"];
 const LIGHT_ONLY: readonly Theme[] = ["light"];
 
-let controllers: WebAppearanceController[] = [];
+const controllers: WebAppearanceController[] = [];
 let frames: FrameRequestCallback[] = [];
 let contrastQuery: FakeMediaQuery;
 

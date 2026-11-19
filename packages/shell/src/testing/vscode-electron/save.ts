@@ -165,7 +165,7 @@ export async function readSaveOnceClean<T>(
   const intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
   const settleMs = options.settleMs ?? DEFAULT_SETTLE_MS;
   const deadline = performance.now() + options.timeoutMs;
-  let clean = false;
+  let clean: boolean;
   for (;;) {
     clean = !(await options.dirty());
     if (clean || performance.now() >= deadline) break;

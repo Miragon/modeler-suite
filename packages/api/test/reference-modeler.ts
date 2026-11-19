@@ -61,8 +61,10 @@ export interface Flaws {
   nonCanonicalExport?: boolean;
   /** keep the undo stack across imports; undo RESTORES a snapshot (the tt stale-undo, snapshot form) */
   staleUndo?: boolean;
-  /** keep the undo stack across imports; undo REMOVES the created element by id — a diagram-js style
-   *  delta revert that is a silent no-op unless the re-imported document contains the id */
+  /**
+   * keep the undo stack across imports; undo REMOVES the created element by id — a diagram-js style
+   * delta revert that is a silent no-op unless the re-imported document contains the id
+   */
   staleUndoDelta?: boolean;
   /** undo on an EMPTY stack still emits onContentChanged */
   undoOnEmptyEmits?: boolean;
@@ -124,179 +126,271 @@ export interface Flaws {
   viewerDropsForeign?: boolean;
   /** the viewer selects but never delivers onSelection */
   viewerDeadSelectionEvents?: boolean;
-  /** an element created in the session gets an in-memory id the serializer never writes back — after
-   *  export → import it carries the id its text derives */
+  /**
+   * an element created in the session gets an in-memory id the serializer never writes back — after
+   * export → import it carries the id its text derives
+   */
   idsChangeOnExport?: boolean;
-  /** NOT a law violation, a missed recommendation: created elements get ids from a per-instance counter
-   *  (`line_1` on every peer) — written back, so they round-trip, but two peers collide */
+  /**
+   * NOT a law violation, a missed recommendation: created elements get ids from a per-instance counter
+   * (`line_1` on every peer) — written back, so they round-trip, but two peers collide
+   */
   counterIds?: boolean;
   /** exportText() or a command before the first import wedges the parser for good */
   wedgeOnPreImportCall?: boolean;
-  /** a truncated text (no trailing newline) rejects, but blanks the document first — invisible to the
-   *  L7 cases while invalidTexts is [] */
+  /**
+   * a truncated text (no trailing newline) rejects, but blanks the document first — invisible to the
+   * L7 cases while invalidTexts is []
+   */
   probeRejectionLeavesTrace?: boolean;
-  /** an import commits the open label editor once it has rendered (diagram-js directEditing completing
-   *  on the viewbox change) — onto the re-imported element, or onto a removed one */
+  /**
+   * an import commits the open label editor once it has rendered (diagram-js directEditing completing
+   * on the viewbox change) — onto the re-imported element, or onto a removed one
+   */
   commitInteractionOnImport?: boolean;
-  /** NOT a law violation, a missed recommendation: an import closes the open label editor and drops
-   *  the typed input instead of reopening it on the element with the same id */
+  /**
+   * NOT a law violation, a missed recommendation: an import closes the open label editor and drops
+   * the typed input instead of reopening it on the element with the same id
+   */
   dropInteractionOnImport?: boolean;
-  /** a host's view change commits the open label editor (diagram-js directEditing completing on
-   *  `canvas.viewbox.changing` — the drift every renderer built against contract 1.1 ships: a restore
-   *  after a peer's re-import writes the half-typed label into the shared text) */
+  /**
+   * a host's view change commits the open label editor (diagram-js directEditing completing on
+   * `canvas.viewbox.changing` — the drift every renderer built against contract 1.1 ships: a restore
+   * after a peer's re-import writes the half-typed label into the shared text)
+   */
   commitInteractionOnViewChange?: boolean;
-  /** a host's view change commits the open label editor while the change events are muted, the way
-   *  a renderer mutes them for its own programmatic updates: no event, but the export changed */
+  /**
+   * a host's view change commits the open label editor while the change events are muted, the way
+   * a renderer mutes them for its own programmatic updates: no event, but the export changed
+   */
   silentCommitInteractionOnViewChange?: boolean;
-  /** NOT a law violation, a missed recommendation: a host's view change closes the open label editor
-   *  and drops the typed input */
+  /**
+   * NOT a law violation, a missed recommendation: a host's view change closes the open label editor
+   * and drops the typed input
+   */
   dropInteractionOnViewChange?: boolean;
-  /** NOT a flaw: a command before the first import does nothing — no element, no change event (a
-   *  harness mutate that waits for that event never settles) */
+  /**
+   * NOT a flaw: a command before the first import does nothing — no element, no change event (a
+   * harness mutate that waits for that event never settles)
+   */
   ignoresCommandsBeforeImport?: boolean;
-  /** NOT a flaw: an element without a label (a `~` line) reports the name "" when created in the
-   *  session and no name at all when read from a text */
+  /**
+   * NOT a flaw: an element without a label (a `~` line) reports the name "" when created in the
+   * session and no name at all when read from a text
+   */
   blankNamesReadBackAbsent?: boolean;
-  /** elements.bounds answers from a table filled at the last import — an element created in the
-   *  session has no box until the next import (the host workaround the surface replaces) */
+  /**
+   * elements.bounds answers from a table filled at the last import — an element created in the
+   * session has no box until the next import (the host workaround the surface replaces)
+   */
   boundsOfImportedOnly?: boolean;
-  /** elements.bounds keeps the box each element had when it was first asked for — a moved
-   *  element is outlined where it was */
+  /**
+   * elements.bounds keeps the box each element had when it was first asked for — a moved
+   * element is outlined where it was
+   */
   boundsFrozenAtFirstRead?: boolean;
   /** elements.bounds answers an empty box for an id it does not know */
   boundsForUnknownIds?: boolean;
   /** elements.bounds reports screen coordinates — the box moves with zoom and scroll */
   boundsInViewCoordinates?: boolean;
-  /** an import reads each element's box before its layout placed it: an element read from a text
-   *  has a NaN position, one created in the session is placed live */
+  /**
+   * an import reads each element's box before its layout placed it: an element read from a text
+   * has a NaN position, one created in the session is placed live
+   */
   boundsUnplacedOnImport?: boolean;
   /** elements.bounds spans the box from its right edge to its left one: a negative width */
   boundsSignedSize?: boolean;
-  /** a move re-creates the element under a fresh id (a delete + create pair), so a host loses the
-   *  element it outlined */
+  /**
+   * a move re-creates the element under a fresh id (a delete + create pair), so a host loses the
+   * element it outlined
+   */
   moveChangesId?: boolean;
-  /** contentBounds answers the box measured at the last import — an element created in the session
-   *  lies outside it (designIQ's cached plot box, before the contract had the surface) */
+  /**
+   * contentBounds answers the box measured at the last import — an element created in the session
+   * lies outside it (designIQ's cached plot box, before the contract had the surface)
+   */
   contentBoundsOfImportedOnly?: boolean;
   /** contentBounds reports screen coordinates — the box moves with zoom and scroll */
   contentBoundsInViewCoordinates?: boolean;
-  /** contentBounds spans the elements' positions, not their sizes: their right and bottom edges
-   *  stick out of it */
+  /**
+   * contentBounds spans the elements' positions, not their sizes: their right and bottom edges
+   * stick out of it
+   */
   contentBoundsOfPositionsOnly?: boolean;
   /** contentBounds measures before anything was drawn: a NaN box before the first import */
   contentBoundsUnmeasuredBeforeImport?: boolean;
   /** contentBounds answers undefined whatever the canvas shows — the host never fits */
   contentBoundsAlwaysUndefined?: boolean;
-  /** NOT a flaw: the canvas sits at fractional diagram coordinates and contentBounds measures it
-   *  on the live SVG (`getBBox`), whose float32 edges fall a few millionths short of the element
-   *  boxes */
+  /**
+   * NOT a flaw: the canvas sits at fractional diagram coordinates and contentBounds measures it
+   * on the live SVG (`getBBox`), whose float32 edges fall a few millionths short of the element
+   * boxes
+   */
   contentBoundsMeasuredInFloat32?: boolean;
-  /** NOT a flaw: contentBounds also holds what the notation always draws (Wardley's plot with its
-   *  axes), so it is a box before the first import and on a document without elements */
+  /**
+   * NOT a flaw: contentBounds also holds what the notation always draws (Wardley's plot with its
+   * axes), so it is a box before the first import and on a document without elements
+   */
   contentBoundsWithPlot?: boolean;
-  /** NOT a law violation, a missed recommendation: every key acts on the canvas wherever it is
-   *  aimed — a document-wide listener without a target check */
+  /**
+   * NOT a law violation, a missed recommendation: every key acts on the canvas wherever it is
+   * aimed — a document-wide listener without a target check
+   */
   documentWideKeys?: boolean;
-  /** NOT a law violation, a missed recommendation: a key aimed at <body> counts as the canvas's, so
-   *  Backspace deletes the selection with nothing focused, even while the host hides the canvas */
+  /**
+   * NOT a law violation, a missed recommendation: a key aimed at <body> counts as the canvas's, so
+   * Backspace deletes the selection with nothing focused, even while the host hides the canvas
+   */
   bodyKeysAreCanvasKeys?: boolean;
-  /** NOT a law violation, a missed recommendation: a key aimed anywhere in the host element counts
-   *  as the canvas's, so an editor the host places in the modeler's container loses its keys */
+  /**
+   * NOT a law violation, a missed recommendation: a key aimed anywhere in the host element counts
+   * as the canvas's, so an editor the host places in the modeler's container loses its keys
+   */
   hostKeysAreCanvasKeys?: boolean;
-  /** NOT a law violation, a missed recommendation: a key aimed anywhere in the modeler's own
-   *  container counts as the canvas's, so an editor in a host's overlay next to the canvas loses
-   *  its keys */
+  /**
+   * NOT a law violation, a missed recommendation: a key aimed anywhere in the modeler's own
+   * container counts as the canvas's, so an editor in a host's overlay next to the canvas loses
+   * its keys
+   */
   containerKeysAreCanvasKeys?: boolean;
-  /** NOT a law violation, a missed recommendation: only text fields (input, textarea, select,
-   *  contenteditable) keep their keys — a host button, an EditContext and a Monaco editor lose them */
+  /**
+   * NOT a law violation, a missed recommendation: only text fields (input, textarea, select,
+   * contenteditable) keep their keys — a host button, an EditContext and a Monaco editor lose them
+   */
   onlyTextFieldsKeepKeys?: boolean;
-  /** NOT a law violation, a missed recommendation: Cmd/Ctrl+C, X and V are prevented wherever they
-   *  are aimed, so a host text field loses its native copy and paste, though nothing else happens */
+  /**
+   * NOT a law violation, a missed recommendation: Cmd/Ctrl+C, X and V are prevented wherever they
+   * are aimed, so a host text field loses its native copy and paste, though nothing else happens
+   */
   preventsClipboardKeysEverywhere?: boolean;
-  /** NOT a law violation, a missed recommendation: a capture-phase listener stops every key aimed
-   *  outside the canvas, so the host's own listeners never see it */
+  /**
+   * NOT a law violation, a missed recommendation: a capture-phase listener stops every key aimed
+   * outside the canvas, so the host's own listeners never see it
+   */
   stopsKeysOutsideCanvas?: boolean;
-  /** NOT a law violation, a missed recommendation: Escape clears the selection wherever it is aimed,
-   *  without preventing it */
+  /**
+   * NOT a law violation, a missed recommendation: Escape clears the selection wherever it is aimed,
+   * without preventing it
+   */
   escapeAnywhereClearsSelection?: boolean;
-  /** NOT a law violation, a missed recommendation: a keydown without a key (autofill) throws, the
-   *  key read before any guard */
+  /**
+   * NOT a law violation, a missed recommendation: a keydown without a key (autofill) throws, the
+   * key read before any guard
+   */
   keylessKeyThrows?: boolean;
-  /** NOT a flaw: the canvas takes its keys in the capture phase on the window, with the same target
-   *  check */
+  /**
+   * NOT a flaw: the canvas takes its keys in the capture phase on the window, with the same target
+   * check
+   */
   keysInCapturePhase?: boolean;
   /** the canvas binds no key at all: the keys case cannot see a key act, so it reports a skip */
   noCanvasKeys?: boolean;
-  /** NOT a flaw: the canvas is a focusable `<div>`, not an `<svg>`, so a harness names it with
-   *  `canvasElement` */
+  /**
+   * NOT a flaw: the canvas is a focusable `<div>`, not an `<svg>`, so a harness names it with
+   * `canvasElement`
+   */
   canvasIsDiv?: boolean;
-  /** NOT a law violation, a missed recommendation: the keys that move the canvas or zoom it
-   *  (Shift+Arrow, Cmd/Ctrl+Arrow, Cmd/Ctrl+=) are prevented wherever they are aimed, as a
-   *  document-wide diagram-js KeyboardMove would */
+  /**
+   * NOT a law violation, a missed recommendation: the keys that move the canvas or zoom it
+   * (Shift+Arrow, Cmd/Ctrl+Arrow, Cmd/Ctrl+=) are prevented wherever they are aimed, as a
+   * document-wide diagram-js KeyboardMove would
+   */
   canvasMoveKeysAnywhere?: boolean;
-  /** NOT a law violation, a missed recommendation: Cmd/Ctrl+V aimed anywhere pastes a line a
-   *  macrotask later, so the key itself leaves the document as it was */
+  /**
+   * NOT a law violation, a missed recommendation: Cmd/Ctrl+V aimed anywhere pastes a line a
+   * macrotask later, so the key itself leaves the document as it was
+   */
   deferredPasteAnywhere?: boolean;
   /** NOT a law violation, a missed recommendation: a keyup aimed outside the canvas is prevented */
   preventsKeyupOutsideCanvas?: boolean;
-  /** NOT a law violation, a missed recommendation: the viewer (only) pans on an arrow aimed anywhere
-   *  and prevents it */
+  /**
+   * NOT a law violation, a missed recommendation: the viewer (only) pans on an arrow aimed anywhere
+   * and prevents it
+   */
   viewerTakesArrowsAnywhere?: boolean;
 
   // ── the gesture cancel of L1 (1.5) ─────────────────────────────────────────
-  /** NOT a law violation, a missed recommendation: an accepted import leaves a running gesture
-   *  running, so its drop applies to the imported document, or throws on the element it removed */
+  /**
+   * NOT a law violation, a missed recommendation: an accepted import leaves a running gesture
+   * running, so its drop applies to the imported document, or throws on the element it removed
+   */
   importKeepsGesture?: boolean;
   /** NOT a law violation, a missed recommendation: a rejected import ends a running gesture too */
   rejectedImportEndsGesture?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called while a gesture runs waits
-   *  until its drop or its cancel instead of cancelling it */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a gesture runs waits
+   * until its drop or its cancel instead of cancelling it
+   */
   importWaitsForGesture?: boolean;
-  /** an accepted import applies a running move before it replaces the document: a change event
-   *  from the import */
+  /**
+   * an accepted import applies a running move before it replaces the document: a change event
+   * from the import
+   */
   importDuringGestureEmits?: boolean;
   /** a drop ends the gesture and applies nothing: no case can tell a cancelled gesture from it */
   dropsNothing?: boolean;
 
   // ── an import from the change listener of a drop (1.6, #248) ───────────────
-  /** NOT a law violation, a missed recommendation: an import called during a drop runs at once,
-   *  and the drop's next step, which selects the moved element again, throws on the element the
-   *  import removed (diagram-js's SelectionBehavior) */
+  /**
+   * NOT a law violation, a missed recommendation: an import called during a drop runs at once,
+   * and the drop's next step, which selects the moved element again, throws on the element the
+   * import removed (diagram-js's SelectionBehavior)
+   */
   importDuringDropRunsAtOnce?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called during a drop waits for the
-   *  drop, but its Promise resolves at once */
+  /**
+   * NOT a law violation, a missed recommendation: an import called during a drop waits for the
+   * drop, but its Promise resolves at once
+   */
   importDuringDropSettlesEarly?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called during a drop never settles,
-   *  and every later import waits behind it, since imports keep their call order */
+  /**
+   * NOT a law violation, a missed recommendation: an import called during a drop never settles,
+   * and every later import waits behind it, since imports keep their call order
+   */
   importDuringDropNeverSettles?: boolean;
 
   // ── an import during any other action of the user (1.6, #285, #305, #336) ──
-  /** NOT a law violation, a missed recommendation: an import called while a command runs (a
-   *  delete, an undo, a redo) runs at once, and the command goes on: it records its step after the
-   *  import and fires its change event */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a command runs (a
+   * delete, an undo, a redo) runs at once, and the command goes on: it records its step after the
+   * import and fires its change event
+   */
   importDuringCommandRunsAtOnce?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called while a command runs waits for
-   *  it, but its Promise resolves at once */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a command runs waits for
+   * it, but its Promise resolves at once
+   */
   importDuringCommandSettlesEarly?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called while a command runs never
-   *  settles, and every later import waits behind it */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a command runs never
+   * settles, and every later import waits behind it
+   */
   importDuringCommandNeverSettles?: boolean;
-  /** NOT a law violation, a missed recommendation: only an import called while a delete runs runs
-   *  at once, which the user-action case meets with a key on the canvas, so in a DOM only */
+  /**
+   * NOT a law violation, a missed recommendation: only an import called while a delete runs runs
+   * at once, which the user-action case meets with a key on the canvas, so in a DOM only
+   */
   importDuringDeleteRunsAtOnce?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called once the user's action has
-   *  returned runs at once, ahead of an earlier one that still waits for that action */
+  /**
+   * NOT a law violation, a missed recommendation: an import called once the user's action has
+   * returned runs at once, ahead of an earlier one that still waits for that action
+   */
   waitingImportsOvertaken?: boolean;
-  /** NOT a flaw, a choice the kit must accept (Value Chain's): the microtask that runs the waiting
-   *  imports is queued when the action starts, so it runs ahead of every microtask a listener
-   *  queues during the action */
+  /**
+   * NOT a flaw, a choice the kit must accept (Value Chain's): the microtask that runs the waiting
+   * imports is queued when the action starts, so it runs ahead of every microtask a listener
+   * queues during the action
+   */
   flushQueuedAtTheActionsStart?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called while a drag activates runs at
-   *  once, and its cancel takes the drag away under the activation, which then throws (diagram-js's
-   *  Dragging.move reads the drag again after the selection listeners) */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a drag activates runs at
+   * once, and its cancel takes the drag away under the activation, which then throws (diagram-js's
+   * Dragging.move reads the drag again after the selection listeners)
+   */
   importAtDragStartRunsAtOnce?: boolean;
-  /** NOT a law violation, a missed recommendation: an import called while a drag activates waits
-   *  until the drag's drop instead of ending the drag once it has started */
+  /**
+   * NOT a law violation, a missed recommendation: an import called while a drag activates waits
+   * until the drag's drop instead of ending the drag once it has started
+   */
   importAtDragStartWaitsForTheDrop?: boolean;
 
   // ── a pan (1.6) ────────────────────────────────────────────────────────────
@@ -304,20 +398,28 @@ export interface Flaws {
   panIsGesture?: boolean;
   /** NOT a law violation, a missed recommendation: an import ends a running pan */
   importEndsPan?: boolean;
-  /** NOT a law violation, a missed recommendation: a pan keeps the view it started from and puts
-   *  it back on its next step after an import, undoing the import's fit */
+  /**
+   * NOT a law violation, a missed recommendation: a pan keeps the view it started from and puts
+   * it back on its next step after an import, undoing the import's fit
+   */
   panJumpsBack?: boolean;
-  /** NOT a law violation, a missed recommendation: a pan goes on from the view an import left, but
-   *  puts back that view on its next step after a host's setViewState (re-anchored by the import
-   *  alone, as Value Chain's was before #353) */
+  /**
+   * NOT a law violation, a missed recommendation: a pan goes on from the view an import left, but
+   * puts back that view on its next step after a host's setViewState (re-anchored by the import
+   * alone, as Value Chain's was before #353)
+   */
   panIgnoresHostView?: boolean;
-  /** NOT a law violation, a missed recommendation: setViewState does nothing while a pan is held,
-   *  so a pan goes on from the view an import left, not from the one the host restores after it */
+  /**
+   * NOT a law violation, a missed recommendation: setViewState does nothing while a pan is held,
+   * so a pan goes on from the view an import left, not from the one the host restores after it
+   */
   viewStateIgnoredDuringPan?: boolean;
   /** releasing a pan fires onContentChanged */
   panEmits?: boolean;
-  /** NOT a law violation, a missed recommendation (1.5 let a pan count as a gesture): an import
-   *  called during a pan waits until the pan's release */
+  /**
+   * NOT a law violation, a missed recommendation (1.5 let a pan count as a gesture): an import
+   * called during a pan waits until the pan's release
+   */
   importWaitsForPan?: boolean;
 
   // ── interaction (1.5) ──────────────────────────────────────────────────────
@@ -337,38 +439,54 @@ export interface Flaws {
   cancelNotReported?: boolean;
   /** destroy() ends a held gesture and still calls onChange(false) */
   reportsAfterDestroy?: boolean;
-  /** interaction.onChange delivers over a copy of its listeners without a destroyed check: a later
-   *  listener still hears the change once an earlier one of the same delivery called destroy() */
+  /**
+   * interaction.onChange delivers over a copy of its listeners without a destroyed check: a later
+   * listener still hears the change once an earlier one of the same delivery called destroy()
+   */
   interactionDeliveryIgnoresDestroy?: boolean;
-  /** NOT a flaw: interaction.onChange calls its listeners newest first, an order the contract
-   *  leaves open */
+  /**
+   * NOT a flaw: interaction.onChange calls its listeners newest first, an order the contract
+   * leaves open
+   */
   interactionDeliversNewestFirst?: boolean;
   /** the viewer's interaction.active() is true */
   viewerReportsGesture?: boolean;
 
   // ── a destroy from a listener, and an unsubscribe during a delivery (1.6, #381) ──
-  /** NOT a law violation, a missed recommendation: destroy() from a listener tears the gesture
-   *  down at once, so the drag's activation, which reads the drag again after the selection and
-   *  the interaction listeners of its start, throws (diagram-js's Dragging.move before #370) */
+  /**
+   * NOT a law violation, a missed recommendation: destroy() from a listener tears the gesture
+   * down at once, so the drag's activation, which reads the drag again after the selection and
+   * the interaction listeners of its start, throws (diagram-js's Dragging.move before #370)
+   */
   destroyTearsDownInsideTheAction?: boolean;
-  /** NOT a law violation, a missed recommendation: onContentChanged delivers over a copy of its
-   *  listeners, so a later listener hears a change once an earlier one called destroy() */
+  /**
+   * NOT a law violation, a missed recommendation: onContentChanged delivers over a copy of its
+   * listeners, so a later listener hears a change once an earlier one called destroy()
+   */
   contentDeliveryIgnoresDestroy?: boolean;
-  /** NOT a law violation, a missed recommendation: elements.onSelection delivers over a copy of
-   *  its listeners, so a later listener hears a selection once an earlier one called destroy() */
+  /**
+   * NOT a law violation, a missed recommendation: elements.onSelection delivers over a copy of
+   * its listeners, so a later listener hears a selection once an earlier one called destroy()
+   */
   selectionDeliveryIgnoresDestroy?: boolean;
-  /** NOT a law violation, a missed recommendation: interaction.onChange still calls a listener
-   *  that an earlier listener of the same delivery unsubscribed */
+  /**
+   * NOT a law violation, a missed recommendation: interaction.onChange still calls a listener
+   * that an earlier listener of the same delivery unsubscribed
+   */
   interactionDeliveryIgnoresUnsubscribe?: boolean;
-  /** NOT a law violation, a missed recommendation: destroy() from the selection listener that
-   *  reveal() calls tears the canvas down at once, so reveal's scroll, which comes after the
-   *  selection's listeners and reads the canvas, throws. diagram-js 15.28.1's scrollToElement
-   *  gives up quietly there instead, which the kit cannot tell from a held teardown: the
-   *  renderers pin their scroll before the teardown in tests of their own (#415) */
+  /**
+   * NOT a law violation, a missed recommendation: destroy() from the selection listener that
+   * reveal() calls tears the canvas down at once, so reveal's scroll, which comes after the
+   * selection's listeners and reads the canvas, throws. diagram-js 15.28.1's scrollToElement
+   * gives up quietly there instead, which the kit cannot tell from a held teardown: the
+   * renderers pin their scroll before the teardown in tests of their own (#415)
+   */
   destroyTearsDownInsideReveal?: boolean;
-  /** NOT a law violation, a missed recommendation: an import inside which a listener called
-   *  destroy() (from interaction.onChange(false), which the import's cancel of a held gesture
-   *  reports) still resolves, as the Miragon renderers' imports did before #443 */
+  /**
+   * NOT a law violation, a missed recommendation: an import inside which a listener called
+   * destroy() (from interaction.onChange(false), which the import's cancel of a held gesture
+   * reports) still resolves, as the Miragon renderers' imports did before #443
+   */
   destroyedImportResolves?: boolean;
 
   // ── appearance (1.5) ───────────────────────────────────────────────────────
@@ -402,8 +520,10 @@ export interface Flaws {
   appearanceClearsUndo?: boolean;
   /** appearance.set commits the open label editor */
   appearanceCommitsInteraction?: boolean;
-  /** NOT a law violation, a missed recommendation: appearance.set closes the open label editor and
-   *  drops the typed input */
+  /**
+   * NOT a law violation, a missed recommendation: appearance.set closes the open label editor and
+   * drops the typed input
+   */
   appearanceDropsInteraction?: boolean;
   /** appearance.set does nothing and leaves the roles to the page (a DOM-only failure) */
   appearanceDoesNothing?: boolean;
@@ -415,8 +535,10 @@ export interface Flaws {
   appearanceForgottenOnImport?: boolean;
   /** themes lists dark, but a request for it draws light */
   listsDarkDrawsLight?: boolean;
-  /** NOT a flaw: a re-import draws one element more into the container than the first import, as
-   *  Value Chain's canvas does */
+  /**
+   * NOT a flaw: a re-import draws one element more into the container than the first import, as
+   * Value Chain's canvas does
+   */
   reimportDrawsOneMore?: boolean;
 }
 
@@ -532,8 +654,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     { kind: GestureKind; elementId: string | undefined; previousSelection: string[] } | undefined;
   let pan: { from: number; steps: number } | undefined;
   let lassoArmed = false;
-  /** a user's action runs (a drop, a drag's activation, a command): an import called now waits
-   *  until the action has returned, and the import after it waits behind it */
+  /**
+   * a user's action runs (a drop, a drag's activation, a command): an import called now waits
+   * until the action has returned, and the import after it waits behind it
+   */
   let actionDepth = 0;
   let dropping = false;
   let activating = false;
@@ -560,8 +684,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   let revealDepth = 0;
   /** the teardown has run: the canvas is gone */
   let tornDown = false;
-  /** a destroy() called during the user's action or inside reveal(): the teardown waits until
-   *  that has returned */
+  /**
+   * a destroy() called during the user's action or inside reveal(): the teardown waits until
+   * that has returned
+   */
   let pendingTearDown: (() => void) | undefined;
   const tearDownOnceReturned = (): void => {
     if (actionDepth > 0 || revealDepth > 0) return;
@@ -654,8 +780,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     flaws.positionalIds
       ? entries.map((_e, i) => `l${entries.length - i}`)
       : entries.map((e) => e.id);
-  /** an element the command removed leaves the selection while the command runs, as diagram-js's
-   *  Selection drops a removed shape */
+  /**
+   * an element the command removed leaves the selection while the command runs, as diagram-js's
+   * Selection drops a removed shape
+   */
   const deselectRemoved = (): void => {
     const present = ids();
     select(selection.filter((id) => present.includes(id)));
@@ -1174,8 +1302,10 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
     if (!flaws.emitBeforeApply && !flaws.silentMutation) emit();
   };
   const asError = (e: unknown): Error => (e instanceof Error ? e : new Error(String(e)));
-  /** the import, which rejects once a listener it called has destroyed the modeler: its resolve
-   *  would report a document shown on a modeler the host has taken down */
+  /**
+   * the import, which rejects once a listener it called has destroyed the modeler: its resolve
+   * would report a document shown on a modeler the host has taken down
+   */
   const runImportUnlessDestroyed = (text: string): ImportResult => {
     const destroyedBefore = destroyed;
     const result = runImport(text);

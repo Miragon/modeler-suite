@@ -232,9 +232,9 @@ than `skillVersion`: then make the images again and raise `skillVersion`.
 ## Pre-commit hook
 
 `npm ci` installs one Husky hook. It runs ESLint and Prettier on the staged files (lint-staged with
-the root config), `npm run lint` of every modeler with staged files and the shared type check when
-`packages/` or `test/` change. It runs **no** tests, builds or dependency-cruiser. Never bypass it
-with `--no-verify`.
+the root config), `npm run lint` of every modeler with staged files and `npm run lint:shared`
+(ESLint and the type check of the shared packages) when `packages/`, `test/` or `tooling/` change.
+It runs **no** tests, builds or dependency-cruiser. Never bypass it with `--no-verify`.
 
 ## Commits and pull requests
 
@@ -269,6 +269,11 @@ is held today; the board was, until the pull request that made it public.
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).
 A requirement the contract text does not state yet ships as a RECOMMENDATION whose kit case only
 advises, and becomes a law in the next major.
+
+A kit case lives in the module of its law or surface under `packages/api/src/conformance/`
+(`l1-silent-import.ts` to `l7-no-trace.ts`, `elements.ts`, `keys.ts`, `destroy.ts`, …), the helpers
+several modules share in `support.ts` and `user-input.ts`; `conformanceCases()` in
+`packages/api/src/conformance.ts` lists every case in the order a runner shows it.
 
 A new kit case needs a saboteur flaw in `packages/api/test/reference-modeler.ts` and its exact
 failure set in `packages/api/test/conformance.test.ts`, so CI proves the case bites. An accepted

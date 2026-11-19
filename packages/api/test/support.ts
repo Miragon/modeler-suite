@@ -136,8 +136,10 @@ export const APPEARANCE_WITHOUT_DOM =
 export const USER_ACTION_WITHOUT_DOM =
   "no DOM — a delete and the redo of a delete were not checked (both press Delete on the focused canvas: run the kit in a browser, the modeler mounted into attachedHost())";
 
-/** whether the keys case, the colour half of the appearance case or the delete of the user-action
- *  case skipped for want of a DOM — what they do in the node suite */
+/**
+ * whether the keys case, the colour half of the appearance case or the delete of the user-action
+ * case skipped for want of a DOM — what they do in the node suite
+ */
 export const skippedWithoutDom = (name: string, reason: string): boolean =>
   (name === CASE.keys && reason.startsWith("no DOM")) ||
   (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM) ||
@@ -188,8 +190,10 @@ export async function advisories(
   );
 }
 
-/** register against a fake runner that runs every case now; the skipped names, without the keys
- *  case's skip for want of a DOM (the jsdom suite runs that case) */
+/**
+ * register against a fake runner that runs every case now; the skipped names, without the keys
+ * case's skip for want of a DOM (the jsdom suite runs that case)
+ */
 export async function skippedCases(
   h: ConformanceHarness,
   order: Order = "concurrent",

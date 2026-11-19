@@ -90,16 +90,16 @@ jobs:
             | select(.value != $root)
             | "\(input_filename): \(.key) \(.value), the root pins playwright \($root)"
 
-  # The type check and unit tests of the shared packages and the repository's own tests
-  # (test:plugin), which read files of every modeler, the docs and .github: run on every change, so
-  # no path rule has to know them.
+  # The lint (ESLint and type check) and unit tests of the shared packages and the repository's own
+  # tests (test:plugin), which read files of every modeler, the docs and .github: run on every
+  # change, so no path rule has to know them.
   shared-test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/setup
-      - run: npm run typecheck:shared
+      - run: npm run lint:shared
       - run: npm run test:shared
       - run: npm run build:shared
       # The published shape: exports map, dual types, files, which is what consumers resolve.

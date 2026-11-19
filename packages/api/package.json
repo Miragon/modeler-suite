@@ -48,6 +48,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "lint": "eslint .",
     "publint": "publint",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"

@@ -236,6 +236,7 @@
   },
   "scripts": {
     "build": "tsup",
+    "lint": "eslint .",
     "publint": "publint",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.core.json && tsc -p demo/tsconfig.json",
     "test": "vitest run --project=node --project=dom",

@@ -582,7 +582,7 @@ export const toastStackTogglesProbe = ({
 }): { toggles: string[]; open: boolean } => {
   const tools = (window as ToolWindow).__modelerShellConformance!;
   const stack = document.querySelector(root)?.querySelector('[data-chrome="toasts"]');
-  let open = false;
+  let open: boolean;
   try {
     open = stack?.matches(":popover-open") ?? false;
   } catch {

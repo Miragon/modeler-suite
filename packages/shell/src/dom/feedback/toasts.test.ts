@@ -9,7 +9,7 @@ import {
   type ToasterContext,
 } from "./toasts.js";
 
-let toasters: Toaster[] = [];
+const toasters: Toaster[] = [];
 
 beforeEach(() => {
   vi.useFakeTimers();

@@ -20,7 +20,7 @@ describe("the entries", () => {
 
   it("@miragon/modeler-shell/testing/vscode-electron no longer exports the type VsCodeSmokeOptInStep, removed in 0.9", () => {
     // @ts-expect-error the type is gone; VsCodeSmokeSkippableStep replaces it
-    const step: import("../src/testing-vscode-electron.js").VsCodeSmokeOptInStep = "keys";
+    const step: vsCodeElectron.VsCodeSmokeOptInStep = "keys";
     expect(step).toBe("keys");
   });
 });
