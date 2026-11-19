@@ -4,6 +4,10 @@ import {
   exportOrFail,
   fail,
   firstText,
+  interactionKept,
+  leftOpen,
+  openAndRead,
+  outcomeOf,
   secondText,
   settleOf,
   skip,
@@ -84,14 +88,7 @@ export const silentImportCases: ConformanceCase[] = [
         let advice: string | undefined;
         for (const [index, leg] of legs.entries()) {
           await m.importText(first);
-          await openInteraction(m);
-          await settleOf(h)();
-          const opened = h.interactionState?.(m);
-          if (h.interactionState && opened === undefined) {
-            fail(
-              "interactionState reports no interaction after openInteraction — the case proves nothing",
-            );
-          }
+          const opened = await openAndRead(h, m, openInteraction);
           const { calls } = await changeEvents(h, m, () =>
             m.importText(leg.text).then(() => undefined),
           );
@@ -120,13 +117,10 @@ export const silentImportCases: ConformanceCase[] = [
             }
           }
           const sameDocument = index === legs.length - 1;
-          const kept = reopened?.elementId === opened?.elementId && reopened?.text === opened?.text;
-          if (sameDocument && opened !== undefined && !kept) {
+          if (sameDocument && opened !== undefined && !interactionKept(opened, reopened)) {
             const input =
               opened.text === undefined ? "" : ` with the input ${JSON.stringify(opened.text)}`;
-            const after =
-              reopened === undefined ? "closed it" : `left ${JSON.stringify(reopened)} open`;
-            advice = `an interaction on '${opened.elementId}'${input} did not survive a re-import of the same document (the import ${after}) — RECOMMENDED: keep the typed input and reopen the interaction on the element with the same id, so a remote re-import does not cost the user what they were typing`;
+            advice = `an interaction on '${opened.elementId}'${input} did not survive a re-import of the same document (the import ${leftOpen(reopened)}) — RECOMMENDED: keep the typed input and reopen the interaction on the element with the same id, so a remote re-import does not cost the user what they were typing`;
           }
         }
         const unverified = [
@@ -141,10 +135,7 @@ export const silentImportCases: ConformanceCase[] = [
                 "interactionState is undefined — the RECOMMENDED keep-and-reopen of an interaction across an import was not checked (pass interactionState to check it)",
               ]),
         ];
-        return {
-          ...(unverified.length > 0 ? { skipped: unverified.join("; ") } : {}),
-          ...(advice === undefined ? {} : { advisories: [advice] }),
-        };
+        return outcomeOf(advice === undefined ? {} : { advisories: [advice] }, unverified);
       } finally {
         m.destroy();
       }

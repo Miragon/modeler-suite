@@ -2,7 +2,6 @@ import type { CollaborativeModeler } from "../index.js";
 import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
 import {
   adviseOn,
-  changeEvents,
   errorOf,
   exportOrFail,
   fail,
@@ -19,6 +18,8 @@ import {
   type LegFindings,
   type ListenerImportResult,
   listenForWindowErrors,
+  nextMutateAppliesOrFail,
+  once,
   oneTextOnly,
   withinTheBound,
 } from "./user-input.js";
@@ -55,17 +56,18 @@ async function importFromTheDrop(
     | undefined;
   let settled = false;
   let changesAfterTheImport = 0;
-  // the contract does not say that an unsubscribe may be called twice, so the case calls it once
-  let unsubscribe: (() => void) | undefined = m.onContentChanged(() => {
-    if (settled) changesAfterTheImport += 1;
-    if (called !== undefined) return;
-    const before = m.exportText();
-    const text = leg.text(m);
-    const result = importFromAListener(m, text, () => {
-      settled = true;
-    });
-    called = { text, before, after: m.exportText(), result };
-  });
+  const unsubscribe = once(
+    m.onContentChanged(() => {
+      if (settled) changesAfterTheImport += 1;
+      if (called !== undefined) return;
+      const before = m.exportText();
+      const text = leg.text(m);
+      const result = importFromAListener(m, text, () => {
+        settled = true;
+      });
+      called = { text, before, after: m.exportText(), result };
+    }),
+  );
   const errors = listenForWindowErrors();
   try {
     const held = await startGesture(m, "move");
@@ -120,14 +122,9 @@ async function importFromTheDrop(
       }
     }
     unsubscribe();
-    unsubscribe = undefined;
-    const before = exportOrFail(m, `before the next mutate after ${during}`);
-    const next = await changeEvents(h, m, () => h.mutate(m));
-    if (next.calls === 0 || exportOrFail(m, `after the next mutate after ${during}`) === before) {
-      findings.push(`the next mutate after ${during} did not apply (wedged)`);
-    }
+    findings.push(...(await nextMutateAppliesOrFail(h, m, during, during)));
   } finally {
-    unsubscribe?.();
+    unsubscribe();
     errors.stop();
   }
   return { findings };

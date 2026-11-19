@@ -249,6 +249,25 @@ export async function nextMutateApplies(
     : [`an undo of the next mutate after ${after} did not bring the document back (wedged)`];
 }
 
+/**
+ * the next `mutate` changes the document, where a throw of `mutate` or of `exportText()` fails the
+ * case, as the gesture, the pan and the drop case hold it: `exportedAfter` names the step in the
+ * failure, `after` in the finding
+ */
+export async function nextMutateAppliesOrFail(
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  exportedAfter: string,
+  after: string,
+): Promise<string[]> {
+  const before = exportOrFail(modeler, `before the next mutate after ${exportedAfter}`);
+  const next = await changeEvents(harness, modeler, () => harness.mutate(modeler));
+  return next.calls === 0 ||
+    exportOrFail(modeler, `after the next mutate after ${exportedAfter}`) === before
+    ? [`the next mutate after ${after} did not apply (wedged)`]
+    : [];
+}
+
 export async function undoAfterTheImport(
   h: ConformanceHarness,
   m: CollaborativeModeler,

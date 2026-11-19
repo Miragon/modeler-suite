@@ -13,6 +13,8 @@ import {
   fail,
   firstText,
   importOrFail,
+  interactionKept,
+  leftOpen,
   outcomeOf,
   same,
   selectionOf,
@@ -281,12 +283,8 @@ async function appearanceOverAnInteraction(
     );
   }
   const after = h.interactionState?.(m);
-  if (
-    opened !== undefined &&
-    (after?.elementId !== opened.elementId || after?.text !== opened.text)
-  ) {
-    const what = after === undefined ? "closed it" : `left ${JSON.stringify(after)} open`;
-    return `an interaction on '${opened.elementId}' did not survive ${describeRequest(request)} (the request ${what}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the request`;
+  if (opened !== undefined && !interactionKept(opened, after)) {
+    return `an interaction on '${opened.elementId}' did not survive ${describeRequest(request)} (the request ${leftOpen(after)}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the request`;
   }
   if (h.commitInteraction && committed !== undefined && committed !== doc) {
     await h.commitInteraction(m);

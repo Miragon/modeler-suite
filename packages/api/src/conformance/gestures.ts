@@ -24,6 +24,7 @@ import {
   importWhileHeld,
   type LegFindings,
   listenForWindowErrors,
+  nextMutateAppliesOrFail,
   oneTextOnly,
   settledWithin,
   watchInteraction,
@@ -105,13 +106,9 @@ async function importDuringGesture(
         );
       }
     }
-    const before = exportOrFail(m, `before the next mutate after ${during}`);
-    const next = await changeEvents(h, m, () => h.mutate(m));
-    if (next.calls === 0 || exportOrFail(m, `after the next mutate after ${during}`) === before) {
-      findings.push(
-        `the next mutate after the drop that followed ${during} did not apply (wedged)`,
-      );
-    }
+    findings.push(
+      ...(await nextMutateAppliesOrFail(h, m, during, `the drop that followed ${during}`)),
+    );
   } finally {
     errors.stop();
     watch?.stop();

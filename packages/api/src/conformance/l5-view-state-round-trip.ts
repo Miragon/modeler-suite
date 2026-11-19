@@ -1,4 +1,4 @@
-import type { ConformanceCase, InteractionState } from "./harness.js";
+import type { ConformanceCase } from "./harness.js";
 import {
   assertFinite,
   changeEvents,
@@ -7,6 +7,10 @@ import {
   firstText,
   importContentText,
   importOrFail,
+  interactionKept,
+  leftOpen,
+  openAndRead,
+  outcomeOf,
   same,
   settleOf,
   skip,
@@ -101,22 +105,11 @@ export const viewStateCases: ConformanceCase[] = [
       try {
         await m.importText(first);
         const doc = exportOrFail(m, "after importing canonicalTexts[0]");
-        const open = async (): Promise<InteractionState | undefined> => {
-          await openInteraction(m);
-          await settle();
-          const opened = h.interactionState?.(m);
-          if (h.interactionState && opened === undefined) {
-            fail(
-              "interactionState reports no interaction after openInteraction — the case proves nothing",
-            );
-          }
-          return opened;
-        };
         // the document a commit writes WITHOUT a view change: proof that the
         // typed input is real, and the oracle for the commit after one
         let committed: string | undefined;
         if (commitInteraction) {
-          const typed = (await open())?.text;
+          const typed = (await openAndRead(h, m, openInteraction))?.text;
           await commitInteraction(m);
           await settle();
           committed = exportOrFail(m, "after committing the interaction");
@@ -127,7 +120,7 @@ export const viewStateCases: ConformanceCase[] = [
           }
           await importOrFail(m, first, "re-importing canonicalTexts[0] after the commit rejected");
         }
-        const opened = await open();
+        const opened = await openAndRead(h, m, openInteraction);
         const view = m.getViewState();
         const { calls } = await changeEvents(h, m, () => m.setViewState(viewState));
         if (calls > 0) {
@@ -147,14 +140,10 @@ export const viewStateCases: ConformanceCase[] = [
         }
         const after = h.interactionState?.(m);
         let advice: string | undefined;
-        if (
-          opened !== undefined &&
-          (after?.elementId !== opened.elementId || after?.text !== opened.text)
-        ) {
+        if (opened !== undefined && !interactionKept(opened, after)) {
           const input =
             opened.text === undefined ? "" : ` with the input ${JSON.stringify(opened.text)}`;
-          const what = after === undefined ? "closed it" : `left ${JSON.stringify(after)} open`;
-          advice = `an interaction on '${opened.elementId}'${input} did not survive a host's view change (setViewState ${what}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the view change`;
+          advice = `an interaction on '${opened.elementId}'${input} did not survive a host's view change (setViewState ${leftOpen(after)}) — RECOMMENDED: keep it open with its typed input, so the user's commit afterwards writes what it would have written without the view change`;
         } else if (commitInteraction && committed !== undefined) {
           await commitInteraction(m);
           await settle();
@@ -163,15 +152,14 @@ export const viewStateCases: ConformanceCase[] = [
             advice = `committing an interaction after a host's view change wrote another document than committing it without one — RECOMMENDED: keep it open with its typed input across a view change (if openInteraction types different input per call, this advice is the harness's):\n--- committed without a view change\n${committed}\n--- committed after setViewState\n${out}`;
           }
         }
-        return {
-          ...(commitInteraction
-            ? {}
-            : {
-                skipped:
-                  "commitInteraction is undefined — that the typed input changes the document (without it the case may prove nothing) and that it still commits after the view change were not checked (pass commitInteraction to check both)",
-              }),
-          ...(advice === undefined ? {} : { advisories: [advice] }),
-        };
+        return outcomeOf(
+          advice === undefined ? {} : { advisories: [advice] },
+          commitInteraction
+            ? []
+            : [
+                "commitInteraction is undefined — that the typed input changes the document (without it the case may prove nothing) and that it still commits after the view change were not checked (pass commitInteraction to check both)",
+              ],
+        );
       } finally {
         m.destroy();
       }

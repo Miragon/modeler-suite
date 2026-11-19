@@ -1,5 +1,5 @@
 import type { CollaborativeModeler } from "../index.js";
-import type { CaseOutcome, ConformanceHarness } from "./harness.js";
+import type { CaseOutcome, ConformanceHarness, InteractionState } from "./harness.js";
 import { hostMadeSince } from "./hosts.js";
 
 export function fail(message: string): never {
@@ -171,6 +171,33 @@ export function mountedCanvas(
     ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; ${unverified}`
     : `${made} made ${search.count} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
 }
+
+/**
+ * opens the harness's interaction and reads it back; an `interactionState` that reports none fails,
+ * since the case would prove nothing
+ */
+export async function openAndRead(
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  openInteraction: NonNullable<ConformanceHarness["openInteraction"]>,
+): Promise<InteractionState | undefined> {
+  await openInteraction(modeler);
+  await settleOf(harness)();
+  const opened = harness.interactionState?.(modeler);
+  if (harness.interactionState && opened === undefined) {
+    fail("interactionState reports no interaction after openInteraction — the case proves nothing");
+  }
+  return opened;
+}
+
+export const interactionKept = (
+  opened: InteractionState,
+  after: InteractionState | undefined,
+): boolean => after?.elementId === opened.elementId && after?.text === opened.text;
+
+/** what a step did to an interaction it did not keep, as an advice names it */
+export const leftOpen = (after: InteractionState | undefined): string =>
+  after === undefined ? "closed it" : `left ${JSON.stringify(after)} open`;
 
 export function adviseOn(findings: string[], lead: string, recommendation: string): CaseOutcome {
   if (findings.length === 0) return {};

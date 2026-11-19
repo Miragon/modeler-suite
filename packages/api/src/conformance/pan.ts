@@ -20,6 +20,7 @@ import {
   importWhileHeld,
   type LegFindings,
   listenForWindowErrors,
+  nextMutateAppliesOrFail,
   oneTextOnly,
   settledWithin,
   watchInteraction,
@@ -199,13 +200,9 @@ async function panOverAnImport(
     if (exportOrFail(m, `after a pan over an import of ${leg.what}`) !== expected) {
       findings.push(`a pan over an import of ${leg.what} changed the document`);
     }
-    const before = exportOrFail(m, "before the next mutate after a pan");
-    const next = await changeEvents(h, m, () => h.mutate(m));
-    if (next.calls === 0 || exportOrFail(m, "after the next mutate after a pan") === before) {
-      findings.push(
-        `the next mutate after a pan over an import of ${leg.what} did not apply (wedged)`,
-      );
-    }
+    findings.push(
+      ...(await nextMutateAppliesOrFail(h, m, "a pan", `a pan over an import of ${leg.what}`)),
+    );
   } finally {
     errors.stop();
     watch?.stop();
