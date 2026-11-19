@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "@miragon/modeler-shell": "0.14.2",
-    "@playwright/test": "1.65.0"
+    "@playwright/test": "1.65.1"
   }
 }
