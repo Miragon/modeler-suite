@@ -392,6 +392,9 @@ packages or the root install changed. Site settings (Site configuration → Buil
   ahead of every version the suite installs. Dependabot still opens a pull request per directory
   for a dependency whose directories cannot take the same version. A major is never auto-merged:
   the update type of a group pull request is its highest one, so a maintainer decides each major.
+  The docs site (`docs/`) has an entry of its own, because it is an npm project with its own
+  lockfile and its `@miragon/docs-starter` must not fall under the `@miragon/*` ignore: the same
+  schedule and groups, with mermaid majors held back for the peer range of `@miragon/docs-starter`.
   [`dependabot-automerge-eligibility.yml`](../.github/workflows/dependabot-automerge-eligibility.yml)
   labels npm patch and minor updates `auto-merge`, and
   [`dependabot-automerge.yml`](../.github/workflows/dependabot-automerge.yml) merges them once green
