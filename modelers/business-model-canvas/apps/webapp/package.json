@@ -16,7 +16,7 @@
     "@miragon/business-model-canvas-renderer": "0.2.0",
     "@miragon/business-model-canvas-schema-model": "0.2.0",
     "@miragon/modeler-shell": "0.14.2",
-    "diagram-js": "15.28.1",
+    "diagram-js": "15.29.1",
     "didi": "12.0.0",
     "tiny-svg": "4.1.4",
     "yaml": "2.9.1",
