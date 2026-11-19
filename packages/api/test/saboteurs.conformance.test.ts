@@ -10,7 +10,7 @@ import { describe, expect, test } from "vitest";
 import type { ConformanceHarness } from "../src/conformance.js";
 import type { CollaborativeModeler } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
-import { CASE, failingCases, harness, runCase } from "./support.js";
+import { CASE, failingCases, harness, runCase, withoutBounds } from "./support.js";
 
 describe("broken variants fail exactly their law's case set", () => {
   /**
@@ -247,15 +247,10 @@ describe("broken variants fail exactly their law's case set", () => {
   test("a content box that is undefined while elements are listed → exactly the content-bounds case", () =>
     expectFailures({ contentBoundsAlwaysUndefined: true }, [CASE.contentBounds]));
   test("a content box that is undefined while elements are listed, without elements.bounds → exactly the content-bounds case", async () => {
-    const withoutBounds = async (): Promise<ReferenceModeler> => {
-      const m = createReferenceModeler({ contentBoundsAlwaysUndefined: true });
-      if (!m.elements) throw new Error("the reference exposes an elements surface");
-      const { bounds: _dropped, ...elements } = m.elements;
-      return { ...m, elements };
-    };
-    await expect(
-      runCase(CASE.contentBounds, harness({}, { create: withoutBounds })),
-    ).rejects.toThrow(/undefined while elements\.list\(\) reports \d+ element/);
+    const create = withoutBounds({ contentBoundsAlwaysUndefined: true });
+    await expect(runCase(CASE.contentBounds, harness({}, { create }))).rejects.toThrow(
+      /undefined while elements\.list\(\) reports \d+ element/,
+    );
   });
   test("a viewer whose content box misses the elements' sizes → exactly the content-bounds case", () =>
     expectFailures({}, [CASE.contentBounds], {

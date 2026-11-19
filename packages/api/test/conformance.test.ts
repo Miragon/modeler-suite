@@ -32,6 +32,7 @@ import {
   skippedCases,
   skippedWithoutDom,
   USER_ACTION_WITHOUT_DOM,
+  withoutBounds,
 } from "./support.js";
 
 describe("the conforming reference modeler", () => {
@@ -133,13 +134,7 @@ describe("the conforming reference modeler", () => {
   });
 
   test("a modeler without elements.bounds (optional) skips the bounds case and the covering half of the content-bounds case", async () => {
-    const withoutBounds = async (): Promise<ReferenceModeler> => {
-      const m = createReferenceModeler();
-      if (!m.elements) throw new Error("the reference exposes an elements surface");
-      const { bounds: _dropped, ...elements } = m.elements;
-      return { ...m, elements };
-    };
-    const h = harness({}, { create: withoutBounds });
+    const h = harness({}, { create: withoutBounds() });
     const { failing, skipped } = await kitOutcome(h);
     expect(failing).toEqual([]);
     expect(skipped).toEqual([CASE.bounds, CASE.contentBounds].sort());

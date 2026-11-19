@@ -22,6 +22,16 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** a create() that mounts another reference into an attachedHost() of its own first */
+const besideADecoy = (decoys: ReferenceModeler[]) => async (): Promise<ReferenceModeler> => {
+  const decoy = createReferenceModeler();
+  decoy.attachTo(attachedHost());
+  decoys.push(decoy);
+  const modeler = createReferenceModeler();
+  modeler.attachTo(attachedHost());
+  return modeler;
+};
+
 const press = (target: Element, key: string): KeyboardEvent => {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
   target.dispatchEvent(event);
@@ -259,18 +269,10 @@ describe("a harness that names the canvas with canvasElement", () => {
 
   test("canvasElement tells the modeler's canvas from another one mounted at the same time", async () => {
     const decoys: ReferenceModeler[] = [];
-    const besideADecoy = async (): Promise<ReferenceModeler> => {
-      const decoy = createReferenceModeler();
-      decoy.attachTo(attachedHost());
-      decoys.push(decoy);
-      const m = createReferenceModeler();
-      m.attachTo(attachedHost());
-      return m;
-    };
     try {
       const outcome = await runCase(
         CASE.keys,
-        mounted({}, { create: besideADecoy, canvasElement: referenceCanvas }),
+        mounted({}, { create: besideADecoy(decoys), canvasElement: referenceCanvas }),
       );
       expect(outcome).toEqual({});
     } finally {
@@ -382,16 +384,8 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
 
   test("a create() that fills two attachedHost() elements with a canvas → a skip: the canvas is ambiguous", async () => {
     const decoys: ReferenceModeler[] = [];
-    const twoCanvases = async (): Promise<ReferenceModeler> => {
-      const decoy = createReferenceModeler();
-      decoy.attachTo(attachedHost());
-      decoys.push(decoy);
-      const m = createReferenceModeler();
-      m.attachTo(attachedHost());
-      return m;
-    };
     try {
-      const outcome = await runCase(CASE.keys, mounted({}, { create: twoCanvases }));
+      const outcome = await runCase(CASE.keys, mounted({}, { create: besideADecoy(decoys) }));
       expect(outcome?.skipped).toMatch(/^create\(\) made 2 attachedHost\(\) elements/);
     } finally {
       for (const decoy of decoys) decoy.destroy();

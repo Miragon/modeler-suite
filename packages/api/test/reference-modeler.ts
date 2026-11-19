@@ -7,32 +7,24 @@
  * renamed element keeps its id). Element n sits in row n of the canvas; a
  * moved one carries its offset from there as an ` @x,y` suffix. Mounted with
  * `attachTo`, it draws a focusable `<svg>` canvas in a container of its own,
- * as diagram-js does; its keys (Delete and Backspace remove the selection,
- * Cmd/Ctrl+Z undoes, Cmd/Ctrl+A selects all, Escape clears the selection)
- * act only on a key aimed at the canvas. The harness holds its gestures, its
- * pan and its lasso by calls (`holdGesture`, `holdPan`, `armLasso`), which
- * `interaction` reports as a pointer would; an accepted import cancels a held
- * gesture, a rejected one and a pan run on, and an import called during a drop
- * waits for it. A destroy() from a listener stops every delivery at once, and
- * during a drop or a drag's start it tears the canvas and the gesture down once
- * that action has returned, inside reveal() once its scroll has run; an import
- * inside which a listener destroyed it rejects. Its colours resolve from the
- * page's `data-cd-theme` and
- * `data-cd-kontrast` until `appearance.set` writes its own on the container,
- * as on the Miragon design tokens. It is the
- * kit's reference subject, plus deliberately BROKEN variants: one per
- * real-world drift the contract exists to prevent AND one per case in the
- * kit, so the kit's own CI proves every case bites. Each variant must fail exactly its law's case set. Eleven
- * variants are NOT flaws but legitimate implementation choices the kit must
- * accept (a diagram-js style enriched view-state readback, commands ignored
- * before the first import, an empty name that reads back absent, a content
- * box measured in float32, a content box around a plot drawn without
- * elements, canvas keys taken in the capture phase, a canvas that is a
- * focusable `<div>`, waiting imports run by a microtask queued when the
- * action starts, interaction listeners called newest first, a modeler that
- * lists and draws dark, a re-import that draws one element more) — they must
- * fail nothing. Forty-two variants ignore a RECOMMENDATION — they must fail nothing and
- * advise once.
+ * as diagram-js does; Delete and Backspace remove the selection, and only when
+ * aimed at the canvas. The harness holds its gestures, its pan and its lasso
+ * by calls (`holdGesture`, `holdPan`, `armLasso`), which `interaction` reports
+ * as a pointer would; an accepted import cancels a held gesture, a rejected
+ * one and a pan run on, and an import called during a drop waits for it. A
+ * destroy() from a listener stops every delivery at once, and during a drop or
+ * a drag's start it tears the canvas and the gesture down once that action has
+ * returned, inside reveal() once its scroll has run; an import inside which a
+ * listener destroyed it rejects. Its colours resolve from the page's
+ * `data-cd-theme` and `data-cd-kontrast` until `appearance.set` writes its own
+ * on the container, as on the Miragon design tokens.
+ *
+ * It is the kit's reference subject, plus deliberately BROKEN variants (the
+ * `Flaws`): one per real-world drift the contract exists to prevent AND one per
+ * case in the kit, so the kit's own CI proves every case bites. Each variant
+ * must fail exactly its law's case set. A flag documented as NOT a flaw is an
+ * implementation choice the kit must accept: it fails nothing. One documented
+ * as a missed recommendation fails nothing and advises once.
  */
 import type { GestureKind, HeldGesture, HeldPan } from "../src/conformance.js";
 import type {
@@ -49,100 +41,26 @@ import type {
 import { MODELER_API_VERSION } from "../src/index.js";
 
 export interface Flaws {
+  // ── meta, the calls before the first import and a second destroy() ─────────
   /** meta.apiVersion of a foreign major */
   incompatibleApiVersion?: boolean;
+  /** exportText() or a command before the first import wedges the parser for good */
+  wedgeOnPreImportCall?: boolean;
+  /**
+   * NOT a flaw: a command before the first import does nothing — no element, no change event (a
+   * harness mutate that waits for that event never settles)
+   */
+  ignoresCommandsBeforeImport?: boolean;
+  /** a second destroy() throws */
+  destroyThrowsTwice?: boolean;
+
+  // ── the laws L1 to L7 ──────────────────────────────────────────────────────
   /** fire onContentChanged from importText (the wardley importDSL echo) */
   echoImport?: boolean;
   /** fire the import echo ONLY when undo history exists (an engine that emits from clear() when there is something to clear) */
   echoOnHistoryOnly?: boolean;
   /** fire the import echo only for documents carrying foreign content (a migration path that emits) */
   echoOnForeignOnly?: boolean;
-  /** export stamps extra content — NOT a fixpoint of its own parser */
-  nonCanonicalExport?: boolean;
-  /** keep the undo stack across imports; undo RESTORES a snapshot (the tt stale-undo, snapshot form) */
-  staleUndo?: boolean;
-  /**
-   * keep the undo stack across imports; undo REMOVES the created element by id — a diagram-js style
-   * delta revert that is a silent no-op unless the re-imported document contains the id
-   */
-  staleUndoDelta?: boolean;
-  /** undo on an EMPTY stack still emits onContentChanged */
-  undoOnEmptyEmits?: boolean;
-  /** ignore unsubscribes */
-  leakyUnsubscribe?: boolean;
-  /** drop every line the parser does not understand (a stripping schema) */
-  dropForeign?: boolean;
-  /** a rejected import blanks the canvas and wedges the parser for good */
-  wedgeAfterReject?: boolean;
-  /** a rejected import erases the undo history before rejecting */
-  rejectClearsUndo?: boolean;
-  /** undo restores the document but never emits */
-  silentUndo?: boolean;
-  /** redo restores the document but never emits */
-  silentRedo?: boolean;
-  /** setViewState is ignored (a modeler without view-state support) */
-  noopViewState?: boolean;
-  /** an import keeps the previous viewport instead of fitting the content */
-  noFitOnImport?: boolean;
-  /** NOT a flaw: getViewState returns the state enriched with derived keys (scale, inner, outer — the diagram-js viewbox shape) */
-  enrichedViewStateReadback?: boolean;
-  /** the enriched readback is NOT accepted by setViewState (only the literal shape is) */
-  readbackNotSettable?: boolean;
-  /** getViewState throws before the first import */
-  viewStateThrowsBeforeImport?: boolean;
-  /** reveal/commands never deliver a selection */
-  deadSelection?: boolean;
-  /** onSelection unsubscribes are ignored */
-  leakySelectionUnsubscribe?: boolean;
-  /** the title edit changes the export but never emits (a config edit outside the command stack) */
-  configEditSilent?: boolean;
-  /** onContentChanged fires BEFORE the command is applied */
-  emitBeforeApply?: boolean;
-  /** the element command never emits */
-  silentMutation?: boolean;
-  /** setViewState emits a change event */
-  viewStateEmits?: boolean;
-  /** an invalid input resolves (importing nothing) instead of rejecting */
-  rejectResolves?: boolean;
-  /** an invalid input rejects but clears the document first */
-  rejectMutatesDoc?: boolean;
-  /** reveal(unknown id) returns true */
-  revealUnknownTrue?: boolean;
-  /** exportText throws once a command ran */
-  exportThrowsAfterMutate?: boolean;
-  /** element ids are positional (renumbered from the end on every change) */
-  positionalIds?: boolean;
-  /** a second destroy() throws */
-  destroyThrowsTwice?: boolean;
-  /** the viewer emits change events on import */
-  viewerEmits?: boolean;
-  /** the viewer's importText throws (no command stack registered) */
-  viewerImportThrows?: boolean;
-  /** the viewer registers no selection service: reveal returns false for every id */
-  viewerCannotReveal?: boolean;
-  /** the viewer's import keeps the previous viewport */
-  viewerKeepsView?: boolean;
-  /** the viewer drops foreign content */
-  viewerDropsForeign?: boolean;
-  /** the viewer selects but never delivers onSelection */
-  viewerDeadSelectionEvents?: boolean;
-  /**
-   * an element created in the session gets an in-memory id the serializer never writes back — after
-   * export → import it carries the id its text derives
-   */
-  idsChangeOnExport?: boolean;
-  /**
-   * NOT a law violation, a missed recommendation: created elements get ids from a per-instance counter
-   * (`line_1` on every peer) — written back, so they round-trip, but two peers collide
-   */
-  counterIds?: boolean;
-  /** exportText() or a command before the first import wedges the parser for good */
-  wedgeOnPreImportCall?: boolean;
-  /**
-   * a truncated text (no trailing newline) rejects, but blanks the document first — invisible to the
-   * L7 cases while invalidTexts is []
-   */
-  probeRejectionLeavesTrace?: boolean;
   /**
    * an import commits the open label editor once it has rendered (diagram-js directEditing completing
    * on the viewbox change) — onto the re-imported element, or onto a removed one
@@ -153,6 +71,41 @@ export interface Flaws {
    * the typed input instead of reopening it on the element with the same id
    */
   dropInteractionOnImport?: boolean;
+  /** export stamps extra content — NOT a fixpoint of its own parser */
+  nonCanonicalExport?: boolean;
+  /** ignore unsubscribes */
+  leakyUnsubscribe?: boolean;
+  /** undo restores the document but never emits */
+  silentUndo?: boolean;
+  /** redo restores the document but never emits */
+  silentRedo?: boolean;
+  /** the title edit changes the export but never emits (a config edit outside the command stack) */
+  configEditSilent?: boolean;
+  /** onContentChanged fires BEFORE the command is applied */
+  emitBeforeApply?: boolean;
+  /** the element command never emits */
+  silentMutation?: boolean;
+  /** keep the undo stack across imports; undo RESTORES a snapshot (the tt stale-undo, snapshot form) */
+  staleUndo?: boolean;
+  /**
+   * keep the undo stack across imports; undo REMOVES the created element by id — a diagram-js style
+   * delta revert that is a silent no-op unless the re-imported document contains the id
+   */
+  staleUndoDelta?: boolean;
+  /** undo on an EMPTY stack still emits onContentChanged */
+  undoOnEmptyEmits?: boolean;
+  /** setViewState is ignored (a modeler without view-state support) */
+  noopViewState?: boolean;
+  /** an import keeps the previous viewport instead of fitting the content */
+  noFitOnImport?: boolean;
+  /** NOT a flaw: getViewState returns the state enriched with derived keys (scale, inner, outer — the diagram-js viewbox shape) */
+  enrichedViewStateReadback?: boolean;
+  /** the enriched readback is NOT accepted by setViewState (only the literal shape is) */
+  readbackNotSettable?: boolean;
+  /** getViewState throws before the first import */
+  viewStateThrowsBeforeImport?: boolean;
+  /** setViewState emits a change event */
+  viewStateEmits?: boolean;
   /**
    * a host's view change commits the open label editor (diagram-js directEditing completing on
    * `canvas.viewbox.changing` — the drift every renderer built against contract 1.1 ships: a restore
@@ -169,16 +122,50 @@ export interface Flaws {
    * and drops the typed input
    */
   dropInteractionOnViewChange?: boolean;
+  /** drop every line the parser does not understand (a stripping schema) */
+  dropForeign?: boolean;
+  /** exportText throws once a command ran */
+  exportThrowsAfterMutate?: boolean;
+  /** a rejected import blanks the canvas and wedges the parser for good */
+  wedgeAfterReject?: boolean;
+  /** a rejected import erases the undo history before rejecting */
+  rejectClearsUndo?: boolean;
+  /** an invalid input resolves (importing nothing) instead of rejecting */
+  rejectResolves?: boolean;
+  /** an invalid input rejects but clears the document first */
+  rejectMutatesDoc?: boolean;
   /**
-   * NOT a flaw: a command before the first import does nothing — no element, no change event (a
-   * harness mutate that waits for that event never settles)
+   * a truncated text (no trailing newline) rejects, but blanks the document first — invisible to the
+   * L7 cases while invalidTexts is []
    */
-  ignoresCommandsBeforeImport?: boolean;
+  probeRejectionLeavesTrace?: boolean;
+
+  // ── elements: ids, names, selection and reveal ─────────────────────────────
+  /** reveal/commands never deliver a selection */
+  deadSelection?: boolean;
+  /** onSelection unsubscribes are ignored */
+  leakySelectionUnsubscribe?: boolean;
+  /** reveal(unknown id) returns true */
+  revealUnknownTrue?: boolean;
+  /** element ids are positional (renumbered from the end on every change) */
+  positionalIds?: boolean;
+  /**
+   * an element created in the session gets an in-memory id the serializer never writes back — after
+   * export → import it carries the id its text derives
+   */
+  idsChangeOnExport?: boolean;
+  /**
+   * NOT a law violation, a missed recommendation: created elements get ids from a per-instance counter
+   * (`line_1` on every peer) — written back, so they round-trip, but two peers collide
+   */
+  counterIds?: boolean;
   /**
    * NOT a flaw: an element without a label (a `~` line) reports the name "" when created in the
    * session and no name at all when read from a text
    */
   blankNamesReadBackAbsent?: boolean;
+
+  // ── elements.bounds (1.2) ──────────────────────────────────────────────────
   /**
    * elements.bounds answers from a table filled at the last import — an element created in the
    * session has no box until the next import (the host workaround the surface replaces)
@@ -205,6 +192,8 @@ export interface Flaws {
    * element it outlined
    */
   moveChangesId?: boolean;
+
+  // ── the content box (1.3) ──────────────────────────────────────────────────
   /**
    * contentBounds answers the box measured at the last import — an element created in the session
    * lies outside it (designIQ's cached plot box, before the contract had the surface)
@@ -232,6 +221,22 @@ export interface Flaws {
    * axes), so it is a box before the first import and on a document without elements
    */
   contentBoundsWithPlot?: boolean;
+
+  // ── the viewer ─────────────────────────────────────────────────────────────
+  /** the viewer emits change events on import */
+  viewerEmits?: boolean;
+  /** the viewer's importText throws (no command stack registered) */
+  viewerImportThrows?: boolean;
+  /** the viewer registers no selection service: reveal returns false for every id */
+  viewerCannotReveal?: boolean;
+  /** the viewer's import keeps the previous viewport */
+  viewerKeepsView?: boolean;
+  /** the viewer drops foreign content */
+  viewerDropsForeign?: boolean;
+  /** the viewer selects but never delivers onSelection */
+  viewerDeadSelectionEvents?: boolean;
+
+  // ── keys ───────────────────────────────────────────────────────────────────
   /**
    * NOT a law violation, a missed recommendation: every key acts on the canvas wherever it is
    * aimed — a document-wide listener without a target check
@@ -932,22 +937,11 @@ export function createReferenceModeler(flaws: Flaws = {}, editable = true): Refe
   /** what a key aimed at the canvas does */
   const actOnCanvasKey = (event: KeyboardEvent): void => {
     if (!editable || flaws.noCanvasKeys) return;
-    const shortcut = event.ctrlKey || event.metaKey;
     const key = event.key.toLowerCase();
-    if (key === "delete" || key === "backspace") {
-      if (selection.length === 0) return;
-      event.preventDefault();
-      removeElements(selection);
-    } else if (shortcut && (key === "z" || key === "y")) {
-      event.preventDefault();
-      if (key === "z" && !event.shiftKey) modeler.undoCommand();
-      else modeler.redoCommand();
-    } else if (shortcut && key === "a") {
-      event.preventDefault();
-      select(ids());
-    } else if (key === "escape") {
-      select([]);
-    }
+    if (key !== "delete" && key !== "backspace") return;
+    if (selection.length === 0) return;
+    event.preventDefault();
+    removeElements(selection);
   };
   /** tells interaction's listeners that a gesture started or ended */
   const report = (active: boolean): void => {

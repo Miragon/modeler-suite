@@ -77,6 +77,16 @@ export function mounted(
   });
 }
 
+/** a create() whose reference exposes no elements.bounds (optional) */
+export const withoutBounds =
+  (flaws: Flaws = {}) =>
+  async (): Promise<ReferenceModeler> => {
+    const modeler = createReferenceModeler(flaws);
+    if (!modeler.elements) throw new Error("the reference exposes an elements surface");
+    const { bounds: _dropped, ...elements } = modeler.elements;
+    return { ...modeler, elements };
+  };
+
 export const CASE = {
   meta: "meta declares the notation, editability and a compatible apiVersion",
   preImport: "calls before the first import never wedge the instance",
