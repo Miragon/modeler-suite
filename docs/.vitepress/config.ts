@@ -1,9 +1,9 @@
-// The docs site, built with the Miragon docs kit (docs/.vitepress/miragon/, vendored from
-// Miragon/corporate-identity, skill docs-site). The kit sets everything else: base from
-// DOCS_BASE, theme, colours light and dark, GitHub anchors, Mermaid, search, the legal row.
+// The docs site, built with the Miragon docs kit (@miragon/docs-starter). The kit sets
+// everything else: base from DOCS_BASE, theme, colours light and dark, GitHub anchors, Mermaid,
+// search, the legal row.
 import { posix } from "node:path";
 import type MarkdownIt from "markdown-it";
-import { miragonDocs } from "./miragon/config";
+import { miragonDocs } from "@miragon/docs-starter";
 
 const repositoryBlobUrl = "https://github.com/Miragon/modeler-suite/blob/main/";
 

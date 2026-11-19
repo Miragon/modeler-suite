@@ -30,11 +30,8 @@ const THIRD_PARTY_TEXTS = [
   "modelers/board/apps/editors/build/licences/mit.txt",
   "modelers/board/apps/editors/build/licences/tailwindcss.txt",
 ];
-/** The Miragon docs kit, vendored unchanged and checked at its source in Miragon/corporate-identity. */
-const VENDORED_DOCS_KIT = "docs/.vitepress/miragon/";
-
-function vendoredOrThirdParty(file: string): boolean {
-  return THIRD_PARTY_TEXTS.includes(file) || file.startsWith(VENDORED_DOCS_KIT);
+function thirdParty(file: string): boolean {
+  return THIRD_PARTY_TEXTS.includes(file);
 }
 
 const repositoryFiles = execFileSync(
@@ -58,19 +55,16 @@ describe("the suite's brand-lint config", () => {
     );
   });
 
-  it("ignores CHANGELOGs, notices, the docs kit, tests, e2e suites, snapshots and fixtures, and nothing else", () => {
+  it("ignores CHANGELOGs, notices, tests, e2e suites, snapshots and fixtures, and nothing else", () => {
     const config = readBrandLintConfig(ROOT);
     const linted = repositoryFiles.filter(lintedByBrandLint);
     const wronglyIgnored = linted.filter(
       (file) =>
-        ignoredByBrandLint(config, file) &&
-        !writtenByToolsOrTestData(file) &&
-        !vendoredOrThirdParty(file),
+        ignoredByBrandLint(config, file) && !writtenByToolsOrTestData(file) && !thirdParty(file),
     );
     const wronglyLinted = linted.filter(
       (file) =>
-        !ignoredByBrandLint(config, file) &&
-        (writtenByToolsOrTestData(file) || vendoredOrThirdParty(file)),
+        !ignoredByBrandLint(config, file) && (writtenByToolsOrTestData(file) || thirdParty(file)),
     );
     expect({ wronglyIgnored, wronglyLinted }).toEqual({ wronglyIgnored: [], wronglyLinted: [] });
     expect(linted.filter((file) => file.endsWith("/CHANGELOG.md")).length).toBeGreaterThan(0);

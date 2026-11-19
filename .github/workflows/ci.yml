@@ -377,8 +377,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The docs site (docs/, its own npm project) as docs.yml deploys it from main: the vendored Miragon
-  # docs kit unchanged, and a build, which fails on a dead link.
+  # The docs site (docs/, its own npm project) as docs.yml deploys it from main: a build with the
+  # Miragon docs kit (@miragon/docs-starter), which fails on a dead link.
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -396,8 +396,6 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
       - run: npm ci
-        working-directory: docs
-      - run: node .vitepress/miragon/check.mjs
         working-directory: docs
       - run: npm run build
         working-directory: docs
