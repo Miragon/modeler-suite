@@ -46,8 +46,9 @@ that cannot be fetched run everything; so does any path no rule names.
 ### Jobs
 
 - **Always** (`format-check`, `pin-check`, `shared-test`, `dependency-review`): Prettier over the
-  whole suite; exact pins in every `package.json` and every Playwright pin equal to the root's; the
-  type check of modeler-api, modeler-shell and the root tests, their unit tests plus `test:plugin`
+  whole suite; exact pins in every `package.json` and every Playwright pin equal to the root's;
+  ESLint of modeler-api and modeler-shell, the type check of both and of the root tests, their unit
+  tests plus `test:plugin`
   (the repository-level checks in `test/`: the modeler-kit and release-config drift tests, the
   manifests and skills of every plugin in the marketplace, every modeler's boundaries, the
   Dependabot auto-merge workflow, the path decisions of `ci-paths.sh` and the verdict of `ci-ok`),

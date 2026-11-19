@@ -12,13 +12,15 @@
  * law into an executable case the modeler repo runs in its own CI.
  */
 
-/** the semver of THIS contract — a modeler declares the version it implements
- *  in `meta.apiVersion`; hosts check compatibility with `apiVersionsCompatible`
- *  (same major; while 0.x, the same minor too). The constant IS the
- *  package version: release-please rewrites the literal below on every
- *  release (release-please-config.json `extra-files`), and the kit's own
- *  test pins it to package.json exactly. Modelers pin the npm package; the
- *  constant is what travels in `meta`. */
+/**
+ * the semver of THIS contract — a modeler declares the version it implements
+ * in `meta.apiVersion`; hosts check compatibility with `apiVersionsCompatible`
+ * (same major; while 0.x, the same minor too). The constant IS the
+ * package version: release-please rewrites the literal below on every
+ * release (release-please-config.json `extra-files`), and the kit's own
+ * test pins it to package.json exactly. Modelers pin the npm package; the
+ * constant is what travels in `meta`.
+ */
 export const MODELER_API_VERSION = "1.7.0"; // x-release-please-version
 
 /**
@@ -38,9 +40,11 @@ export function apiVersionsCompatible(a: string, b: string): boolean {
 export interface ModelerMeta {
   /** stable notation id, e.g. "wardley", "team-topology", "event-storming" */
   readonly notation: string;
-  /** the MODELER_API_VERSION this modeler implements — compatible when the
-   *  major matches and, while the contract is 0.x, the minor too (pre-1.0
-   *  minors may break: bump-minor-pre-major) */
+  /**
+   * the MODELER_API_VERSION this modeler implements — compatible when the
+   * major matches and, while the contract is 0.x, the minor too (pre-1.0
+   * minors may break: bump-minor-pre-major)
+   */
   readonly apiVersion: string;
   /**
    * true on an editing mount (the package's Modeler), false on a VIEWER
@@ -85,8 +89,10 @@ export interface ElementInfo {
   name?: string;
 }
 
-/** a box in diagram coordinates: an element's, as `ElementsSurface.bounds`
- *  reports it, or the content's, as `CollaborativeModeler.contentBounds` does */
+/**
+ * a box in diagram coordinates: an element's, as `ElementsSurface.bounds`
+ * reports it, or the content's, as `CollaborativeModeler.contentBounds` does
+ */
 export interface ElementBounds {
   x: number;
   y: number;
@@ -104,12 +110,16 @@ export interface ElementBounds {
 export interface ElementsSurface {
   /** every addressable element currently on the canvas */
   list(): ElementInfo[];
-  /** select + scroll the element into view; false when the id is unknown.
-   *  Revealing is view behavior: it delivers a selection, never a change event */
+  /**
+   * select + scroll the element into view; false when the id is unknown.
+   * Revealing is view behavior: it delivers a selection, never a change event
+   */
   reveal(id: string): boolean;
-  /** the current selection as stable element ids — synchronous, so a host
-   *  can read it at the moment of a click (a deep link carrying the
-   *  selection) without caching every delivery */
+  /**
+   * the current selection as stable element ids — synchronous, so a host
+   * can read it at the moment of a click (a deep link carrying the
+   * selection) without caching every delivery
+   */
   selection(): string[];
   /** selection changes as STABLE element ids; returns the unsubscribe */
   onSelection(cb: (ids: string[]) => void): () => void;
@@ -271,33 +281,37 @@ export interface ElementsSurface {
 export interface CollaborativeModeler {
   readonly meta: ModelerMeta;
 
-  /** mount the canvas into a host element (once, before the first import).
-   *  The host must be attached to the document with a non-zero size — a
-   *  detached or 0×0 element gives diagram-js engines NaN viewboxes.
-   *  Calls made between mounting and the first import (`exportText()`, a
-   *  user command) return whatever the modeler defines, or throw (only
-   *  `getViewState` never does, L5), but they never wedge the instance:
-   *  the first `importText` still behaves exactly as specified. RECOMMENDED
-   *  (1.4): the canvas placed here takes keys only while it holds the focus
-   *  (KEYS STAY ON THE CANVAS above) */
+  /**
+   * mount the canvas into a host element (once, before the first import).
+   * The host must be attached to the document with a non-zero size — a
+   * detached or 0×0 element gives diagram-js engines NaN viewboxes.
+   * Calls made between mounting and the first import (`exportText()`, a
+   * user command) return whatever the modeler defines, or throw (only
+   * `getViewState` never does, L5), but they never wedge the instance:
+   * the first `importText` still behaves exactly as specified. RECOMMENDED
+   * (1.4): the canvas placed here takes keys only while it holds the focus
+   * (KEYS STAY ON THE CANVAS above)
+   */
   attachTo(host: Element): void;
 
-  /** parse + render `text` — SILENT per L1, the view fitted to the content
-   *  per L5; resolves when rendered, REJECTS when nothing was imported (L7).
-   *  This holds for the first import too, whatever was called before it — a
-   *  host may export or route a command before its first document arrives.
-   *  RECOMMENDED (1.6): it also rejects, outside L7, when the host destroyed
-   *  the modeler from a listener it called (`destroy`).
-   *  RECOMMENDED (1.5): an accepted import first cancels a gesture the user
-   *  holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
-   *  called during a running user action (a drop, the start of a drag, a
-   *  click append, a keyboard create, a label commit, a press that commits a
-   *  label, a command with an undo or a redo, each with the steps it
-   *  schedules) waits until the action has finished, and its Promise settles
-   *  after that import; after the start of a drag that import ends the drag,
-   *  and the drag a press starts after it committed a label ends with it.
-   *  Imports keep their call order, and one called during a pan leaves the
-   *  pan running (L1) */
+  /**
+   * parse + render `text` — SILENT per L1, the view fitted to the content
+   * per L5; resolves when rendered, REJECTS when nothing was imported (L7).
+   * This holds for the first import too, whatever was called before it — a
+   * host may export or route a command before its first document arrives.
+   * RECOMMENDED (1.6): it also rejects, outside L7, when the host destroyed
+   * the modeler from a listener it called (`destroy`).
+   * RECOMMENDED (1.5): an accepted import first cancels a gesture the user
+   * holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
+   * called during a running user action (a drop, the start of a drag, a
+   * click append, a keyboard create, a label commit, a press that commits a
+   * label, a command with an undo or a redo, each with the steps it
+   * schedules) waits until the action has finished, and its Promise settles
+   * after that import; after the start of a drag that import ends the drag,
+   * and the drag a press starts after it committed a label ends with it.
+   * Imports keep their call order, and one called during a pan leaves the
+   * pan running (L1)
+   */
   importText(text: string): Promise<ImportResult>;
 
   /** the canonical serialization of the current document (L2, L6) */
@@ -339,12 +353,16 @@ export interface CollaborativeModeler {
 
   readonly elements?: ElementsSurface;
 
-  /** optional (1.5): whether the user holds a gesture on the canvas, so a
-   *  host defers a remote re-import until it ends (`InteractionSurface`) */
+  /**
+   * optional (1.5): whether the user holds a gesture on the canvas, so a
+   * host defers a remote re-import until it ends (`InteractionSurface`)
+   */
   readonly interaction?: InteractionSurface;
 
-  /** optional (1.5): the themes the modeler can draw and the host's request
-   *  for one (`AppearanceSurface`) */
+  /**
+   * optional (1.5): the themes the modeler can draw and the host's request
+   * for one (`AppearanceSurface`)
+   */
   readonly appearance?: AppearanceSurface;
 
   /**
@@ -427,9 +445,11 @@ export interface CollaborativeModeler {
  * starts each import once the one before has settled.
  */
 export interface InteractionSurface {
-  /** true from a gesture's start until its drop or cancel, false otherwise:
-   *  at rest, before the first import and while a palette tool is only
-   *  armed. Synchronous; never throws */
+  /**
+   * true from a gesture's start until its drop or cancel, false otherwise:
+   * at rest, before the first import and while a palette tool is only
+   * armed. Synchronous; never throws
+   */
   active(): boolean;
   /**
    * called with the new value each time `active()` changes: once with true
@@ -447,12 +467,16 @@ export interface InteractionSurface {
   onChange(cb: (active: boolean) => void): () => void;
 }
 
-/** a theme a modeler can draw: a value of the Miragon guide's
- *  `data-cd-theme` (§13.3); "system" is the host's to resolve, never a theme */
+/**
+ * a theme a modeler can draw: a value of the Miragon guide's
+ * `data-cd-theme` (§13.3); "system" is the host's to resolve, never a theme
+ */
 export type AppearanceTheme = "light" | "dark";
 
-/** the contrast a host requests: "high" is the Miragon guide's
- *  `data-cd-kontrast="hoch"` (§13.3) */
+/**
+ * the contrast a host requests: "high" is the Miragon guide's
+ * `data-cd-kontrast="hoch"` (§13.3)
+ */
 export type AppearanceContrast = "normal" | "high";
 
 /** what a host requests through `AppearanceSurface.set` */

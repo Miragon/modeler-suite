@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
+import type * as FsPromises from "node:fs/promises";
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -19,7 +20,7 @@ const fileSystem = vi.hoisted(() => ({
 }));
 
 vi.mock("node:fs/promises", async (importOriginal) => {
-  const fs = await importOriginal<typeof import("node:fs/promises")>();
+  const fs = await importOriginal<typeof FsPromises>();
   const identityOf = async (path: string) =>
     fs.stat(path, { bigint: true }).then(
       (stats) => `${stats.dev}:${stats.ino}`,

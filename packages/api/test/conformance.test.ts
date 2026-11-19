@@ -502,8 +502,10 @@ describe("the conforming reference modeler", () => {
 });
 
 describe("broken variants fail exactly their law's case set", () => {
-  /** assert the EXACT failure set — a saboteur failing a different case than
-   *  its law's would otherwise slip through a mere containment check */
+  /**
+   * assert the EXACT failure set — a saboteur failing a different case than
+   * its law's would otherwise slip through a mere containment check
+   */
   const expectFailures = async (
     flaws: Flaws,
     caseNames: string[],

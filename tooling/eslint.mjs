@@ -45,6 +45,7 @@ const TYPESCRIPT_RULES = {
   languageOptions: { ecmaVersion: 2022, sourceType: "module" },
   plugins: { jsdoc },
   rules: {
+    "prefer-const": ["error", { ignoreReadBeforeAssign: true }],
     "@typescript-eslint/no-unused-vars": [
       "error",
       { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
@@ -59,15 +60,31 @@ const TYPESCRIPT_RULES = {
   },
 };
 
-const SOURCE_COMPLEXITY_RATCHET = {
-  files: ["packages/*/src/**/*.{ts,tsx}", "apps/*/src/**/*.{ts,tsx}"],
-  ignores: ["**/*.{test,spec}.{ts,tsx}"],
-  rules: {
-    complexity: ["error", 40],
-    "max-depth": ["error", 6],
-    "max-lines-per-function": ["error", { max: 150, skipBlankLines: true, skipComments: true }],
-  },
-};
+const linesAtMost = (max) => ["error", { max, skipBlankLines: true, skipComments: true }];
+
+function complexityRatchet(files) {
+  return {
+    files,
+    ignores: ["**/*.{test,spec}.{ts,tsx}"],
+    rules: {
+      complexity: ["error", 40],
+      "max-depth": ["error", 6],
+      "max-lines-per-function": linesAtMost(150),
+      "max-lines": linesAtMost(1000),
+    },
+  };
+}
+
+export function grandfatheredCeilings(file, { complexity, functionLines, fileLines }) {
+  return {
+    files: [file],
+    rules: {
+      ...(complexity && { complexity: ["error", complexity] }),
+      ...(functionLines && { "max-lines-per-function": linesAtMost(functionLines) }),
+      ...(fileLines && { "max-lines": linesAtMost(fileLines) }),
+    },
+  };
+}
 
 const VSCODE_HOST_AND_WEBVIEW_GLOBALS = {
   files: ["apps/vscode/**/*.{ts,tsx}"],
@@ -91,7 +108,7 @@ export function modelerEslintConfig(modelerRoot, ...modelerConfigs) {
     ...tseslint.configs.recommended,
     { languageOptions: { parserOptions: { tsconfigRootDir: modelerRoot } } },
     TYPESCRIPT_RULES,
-    SOURCE_COMPLEXITY_RATCHET,
+    complexityRatchet(["packages/*/src/**/*.{ts,tsx}", "apps/*/src/**/*.{ts,tsx}"]),
     {
       files: ["packages/renderer/**/*.{ts,tsx}", "apps/**/*.{ts,tsx}", "e2e/**/*.ts"],
       languageOptions: { globals: globals.browser },
@@ -115,6 +132,23 @@ export function modelerEslintConfig(modelerRoot, ...modelerConfigs) {
         ],
       },
     },
+    prettier,
+  );
+}
+
+export function sharedPackageEslintConfig(packageRoot, ...packageConfigs) {
+  return tseslint.config(
+    IGNORED_FILES,
+    js.configs.recommended,
+    ...tseslint.configs.recommended,
+    { languageOptions: { parserOptions: { tsconfigRootDir: packageRoot } } },
+    TYPESCRIPT_RULES,
+    complexityRatchet(["src/**/*.{ts,tsx}"]),
+    {
+      files: ["**/*.{ts,tsx,js,mjs}"],
+      languageOptions: { globals: { ...globals.browser, ...globals.node } },
+    },
+    ...packageConfigs,
     prettier,
   );
 }

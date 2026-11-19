@@ -1,4 +1,4 @@
-import { modelerEslintConfig } from "../../tooling/eslint.mjs";
+import { grandfatheredCeilings, modelerEslintConfig } from "../../tooling/eslint.mjs";
 
 const grandfatheredDslCeilings = {
   files: ["packages/dsl/src/parser.ts", "packages/dsl/src/serializer.ts"],
@@ -8,4 +8,8 @@ const grandfatheredDslCeilings = {
   },
 };
 
-export default modelerEslintConfig(import.meta.dirname, grandfatheredDslCeilings);
+export default modelerEslintConfig(
+  import.meta.dirname,
+  grandfatheredDslCeilings,
+  grandfatheredCeilings("packages/dsl/src/parser.ts", { fileLines: 1623 }),
+);

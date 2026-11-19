@@ -21,7 +21,8 @@
     "package:vscode": "npm run modelers package:vscode",
     "typecheck": "npm run typecheck:shared && npm run modelers typecheck",
     "typecheck:shared": "npm run typecheck -w @miragon/modeler-api -w @miragon/modeler-shell && tsc -p test/tsconfig.json",
-    "lint": "npm run typecheck:shared && npm run modelers lint",
+    "lint": "npm run lint:shared && npm run modelers lint",
+    "lint:shared": "npm run lint -w @miragon/modeler-api -w @miragon/modeler-shell && npm run typecheck:shared",
     "test": "npm run test:shared && npm run modelers test",
     "test:shared": "npm run test -w @miragon/modeler-api -w @miragon/modeler-shell && npm run test:plugin",
     "test:plugin": "vitest run --config test/vitest.config.mts",
@@ -46,11 +47,11 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "{modelers,plugins}/**/*.{ts,tsx}": [
+    "{modelers,plugins,packages}/**/*.{ts,tsx}": [
       "eslint --fix --no-warn-ignored",
       "prettier --write"
     ],
-    "{packages,test}/**/*.{ts,tsx}": "prettier --write",
+    "test/**/*.{ts,tsx}": "prettier --write",
     "*.{js,mjs,cjs,json,jsonc,md,yaml,yml,css,html}": "prettier --write"
   },
   "devDependencies": {

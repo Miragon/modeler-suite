@@ -8,7 +8,7 @@ import {
   type ProblemsPopoverContext,
 } from "./problems-popover.js";
 
-let popovers: ProblemsPopover[] = [];
+const popovers: ProblemsPopover[] = [];
 
 afterEach(() => {
   for (const popover of popovers.splice(0)) popover.destroy();

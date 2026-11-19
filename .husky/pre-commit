@@ -3,9 +3,9 @@
 # rewrites the placeholders of the template's Markdown (__NAME__ becomes **NAME**).
 npx lint-staged --config package.json
 
-# Lint (ESLint and type check) only the modelers whose code or config the commit touches, and
-# type-check the shared packages when they change. A modeler's type check reads the shared
-# packages' built types, so a fresh checkout builds them once.
+# Lint (ESLint and type check) only the modelers whose code or config the commit touches, and the
+# shared packages when they, the repository's tests or the presets change. A modeler's type check
+# reads the shared packages' built types, so a fresh checkout builds them once.
 staged=$(git diff --cached --name-only)
 modelers=$(printf '%s\n' "$staged" | grep -E '\.(ts|tsx|js|mjs|cjs|json)$' | sed -n 's|^modelers/\([^/]*\)/.*|\1|p' | sort -u)
 if printf '%s\n' "$staged" | grep -q '^tooling/'; then
@@ -17,6 +17,6 @@ fi
 for modeler in $modelers; do
   npm run lint -w "@miragon/$modeler-modeler-workspace"
 done
-if printf '%s\n' "$staged" | grep -qE '^(packages|test)/.*\.(ts|tsx|json)$'; then
-  npm run typecheck:shared
+if printf '%s\n' "$staged" | grep -qE '^((packages|test)/.*\.(ts|tsx|js|json)|tooling/.*)$'; then
+  npm run lint:shared
 fi

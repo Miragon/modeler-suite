@@ -103,7 +103,7 @@ async function watchAfterZoom(
 ): Promise<NonNullable<OverlayLayerFacts["afterZoom"]>> {
   const closed = new Set<string>();
   const back = new Map<string, CanvasLayerFacts>();
-  let latest: CanvasLayerFacts[] = [];
+  let latest: CanvasLayerFacts[];
   for (let waited = 0; ; waited += POLL_MS) {
     latest = (await layers(page, root, host)).layers;
     for (const layer of before) {

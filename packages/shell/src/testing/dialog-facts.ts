@@ -339,7 +339,7 @@ export const shellDialogProbe = ({
   ].filter(
     (element) => element.tabIndex >= 0 && !element.matches(":disabled") && tools.visible(element),
   );
-  let modal = false;
+  let modal: boolean;
   try {
     modal = first.matches(":modal");
   } catch {
