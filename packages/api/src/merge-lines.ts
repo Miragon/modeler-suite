@@ -1,4 +1,4 @@
-import type { MergeResult } from "./merge.js";
+import { type MergeResult, sameStrings } from "./merge.js";
 
 /** The lines of `text` with their line breaks, so a text without a final break merges as written. */
 function linesOf(text: string): string[] {
@@ -53,9 +53,6 @@ function matchLines(a: readonly string[], b: readonly string[]): Int32Array | un
   return match;
 }
 
-const sameLines = (a: readonly string[], b: readonly string[]): boolean =>
-  a.length === b.length && a.every((line, index) => line === b[index]);
-
 /**
  * The three-way merge of two texts line by line (diff3): between the lines neither side changed,
  * the side that changed a region wins, both sides making the same change agree, and two different
@@ -90,8 +87,8 @@ export function mergeTextLines(
     const baseRegion = base.slice(baseStart, stable);
     const outsideRegion = outside.slice(outsideStart, outsideEnd);
     const mineRegion = mine.slice(mineStart, mineEnd);
-    if (sameLines(outsideRegion, baseRegion)) merged.push(...mineRegion);
-    else if (sameLines(mineRegion, baseRegion) || sameLines(outsideRegion, mineRegion)) {
+    if (sameStrings(outsideRegion, baseRegion)) merged.push(...mineRegion);
+    else if (sameStrings(mineRegion, baseRegion) || sameStrings(outsideRegion, mineRegion)) {
       merged.push(...outsideRegion);
     } else conflictingIds.push(`lines ${baseStart + 1}-${Math.max(stable, baseStart + 1)}`);
     if (stable >= base.length) break;

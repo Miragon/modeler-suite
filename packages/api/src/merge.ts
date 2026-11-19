@@ -122,8 +122,8 @@ function indexById<T>(
   return { byId, order, duplicates };
 }
 
-function sameSequence(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
+export function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 /**
@@ -136,7 +136,7 @@ function mergedOrder(
   draft: readonly string[],
   kept: ReadonlySet<string>,
 ): string[] {
-  const externalKeptTheOrder = sameSequence(lastSynced, external);
+  const externalKeptTheOrder = sameStrings(lastSynced, external);
   const leading = externalKeptTheOrder ? draft : external;
   const following = externalKeptTheOrder ? external : draft;
   const order = leading.filter((id) => kept.has(id));
@@ -180,12 +180,10 @@ export function mergeItemsById<T>(
 ): MergeResult<T[]> {
   const idOf = options.idOf ?? ((item: T) => (item as { readonly id: string }).id);
   const isSameItem = options.isSameItem ?? sameJsonValue;
-  const sides = [lastSynced, external, draft].map((items) => indexById(items, idOf));
-  const [base, outside, mine] = sides as [
-    ReturnType<typeof indexById<T>>,
-    ReturnType<typeof indexById<T>>,
-    ReturnType<typeof indexById<T>>,
-  ];
+  const base = indexById(lastSynced, idOf);
+  const outside = indexById(external, idOf);
+  const mine = indexById(draft, idOf);
+  const sides = [base, outside, mine];
   const allIds = [...new Set([...base.order, ...outside.order, ...mine.order])];
   const conflictingIds: string[] = [];
   const mergedById = new Map<string, T>();
@@ -224,23 +222,23 @@ export function mergeRecord<T extends object>(
   draft: T,
   options: RecordMergeOptions<T> = {},
 ): MergeResult<T> {
-  const [base, outside, mine] = [lastSynced, external, draft] as unknown as Array<
-    Record<string, unknown>
-  >;
+  const base = lastSynced as Record<string, unknown>;
+  const outside = external as Record<string, unknown>;
+  const mine = draft as Record<string, unknown>;
   const lists = new Set<string>(options.keyedLists ?? []);
-  const keys = new Set([...Object.keys(base!), ...Object.keys(outside!), ...Object.keys(mine!)]);
+  const keys = new Set([...Object.keys(base), ...Object.keys(outside), ...Object.keys(mine)]);
   const merged: Record<string, unknown> = {};
   const conflictingIds: string[] = [];
   for (const key of keys) {
     if (lists.has(key)) {
       const asList = (value: unknown) =>
         (Array.isArray(value) ? value : []) as Array<{ id: string }>;
-      const result = mergeItemsById(asList(base![key]), asList(outside![key]), asList(mine![key]));
+      const result = mergeItemsById(asList(base[key]), asList(outside[key]), asList(mine[key]));
       if (result.conflictingIds) conflictingIds.push(...result.conflictingIds);
       else merged[key] = result.merged;
       continue;
     }
-    const result = mergeValue(base![key], outside![key], mine![key]);
+    const result = mergeValue(base[key], outside[key], mine[key]);
     if ("conflict" in result) conflictingIds.push(key);
     else if (result.merged !== undefined) merged[key] = result.merged;
   }
