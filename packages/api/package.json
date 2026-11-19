@@ -43,9 +43,6 @@
   "publishConfig": {
     "access": "public"
   },
-  "engines": {
-    "node": ">=22.13.0"
-  },
   "scripts": {
     "build": "tsup",
     "lint": "eslint .",
