@@ -83,6 +83,52 @@ updates:
         patterns:
           - "*"
 
+  # The docs site (docs/) is an npm project of its own, with its own lockfile, so it cannot share
+  # the entry above: that one ignores @miragon/*, and @miragon/docs-starter is exactly what this one
+  # has to move. Its dependencies are all dev dependencies, so its bumps stay chore(deps-dev). The
+  # vite override in docs/package.json is not a dependency Dependabot updates; it moves by hand.
+  - package-ecosystem: "npm"
+    directories:
+      - "/docs"
+    schedule:
+      interval: "weekly"
+    rebase-strategy: "disabled"
+    labels:
+      - "dependencies"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "fix"
+      prefix-development: "chore"
+      include: "scope"
+    cooldown:
+      default-days: 3
+      semver-major-days: 14
+    ignore:
+      # @miragon/docs-starter asks for the peer mermaid ^12.0.0, so mermaid 13 breaks `npm ci`:
+      # it moves by hand, together with a docs-starter release that takes it.
+      - dependency-name: "mermaid"
+        update-types:
+          - "version-update:semver-major"
+    groups:
+      docs-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      docs-major:
+        applies-to: version-updates
+        group-by: dependency-name
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+      docs-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
   # github-actions: majors are mechanical (runner and Node bumps), and every `uses:` is SHA-pinned
   # and CI-gated, so grouping all update types stays low-risk. The composite action under
   # .github/actions pins actions of its own, and so do the new-modeler template's workflows and
