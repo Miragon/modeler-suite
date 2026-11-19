@@ -9,16 +9,8 @@
  */
 import { afterEach, describe, expect, test } from "vitest";
 
-import { conformanceCases } from "../src/conformance.js";
 import type { Flaws } from "./reference-modeler.js";
-import { CASE, harness, mounted, runCases } from "./support.js";
-
-const appearanceCase = conformanceCases().find((c) => c.name === CASE.appearance);
-
-function runAppearanceCase(flaws: Flaws = {}) {
-  if (!appearanceCase) throw new Error(`the kit has no case "${CASE.appearance}"`);
-  return appearanceCase.run(mounted(flaws));
-}
+import { CASE, harness, kitOutcome, mounted, runCase } from "./support.js";
 
 afterEach(() => {
   document.documentElement.removeAttribute("data-cd-theme");
@@ -27,32 +19,36 @@ afterEach(() => {
 
 describe("the appearance case in a DOM", () => {
   test("the conforming reference, mounted, draws the request and not the page: nothing fails, skips or advises", async () => {
-    await expect(runAppearanceCase()).resolves.toEqual({});
+    await expect(runCase(CASE.appearance, mounted())).resolves.toEqual({});
   });
 
   test("a modeler that lists dark and draws it fails nothing", async () => {
-    await expect(runAppearanceCase({ listsDark: true })).resolves.toEqual({});
+    await expect(runCase(CASE.appearance, mounted({ listsDark: true }))).resolves.toEqual({});
   });
 
   test("a modeler whose re-import draws one element more fails nothing, with dark listed or not", async () => {
-    await expect(runAppearanceCase({ reimportDrawsOneMore: true })).resolves.toEqual({});
     await expect(
-      runAppearanceCase({ listsDark: true, reimportDrawsOneMore: true }),
+      runCase(CASE.appearance, mounted({ reimportDrawsOneMore: true })),
+    ).resolves.toEqual({});
+    await expect(
+      runCase(CASE.appearance, mounted({ listsDark: true, reimportDrawsOneMore: true })),
     ).resolves.toEqual({});
   });
 
   test("the page keeps the mode it had, also after a case that failed", async () => {
     document.documentElement.setAttribute("data-cd-theme", "light");
-    await runAppearanceCase();
+    await runCase(CASE.appearance, mounted());
     expect(document.documentElement.getAttribute("data-cd-theme")).toBe("light");
     expect(document.documentElement.hasAttribute("data-cd-kontrast")).toBe(false);
-    await expect(runAppearanceCase({ appearanceDoesNothing: true })).rejects.toThrow();
+    await expect(
+      runCase(CASE.appearance, mounted({ appearanceDoesNothing: true })),
+    ).rejects.toThrow();
     expect(document.documentElement.getAttribute("data-cd-theme")).toBe("light");
     expect(document.documentElement.hasAttribute("data-cd-kontrast")).toBe(false);
   });
 
   test("a create() that mounts into no attachedHost() → a skip naming attachedHost()", async () => {
-    const outcome = await appearanceCase?.run(harness());
+    const outcome = await runCase(CASE.appearance, harness());
     expect(outcome?.skipped).toMatch(/^create\(\) mounted the modeler into no attachedHost\(\)/);
   });
 });
@@ -90,8 +86,8 @@ describe("variants that leave the page's mode through fail exactly the appearanc
       /appearance\.themes lists "dark", but appearance\.set\(\{ theme: "dark" \}\) drew the colours of "light"/,
     ],
   ])("%s", async (_variant, flaws, message) => {
-    await expect(runAppearanceCase(flaws)).rejects.toThrow(message);
-    const outcomes = await runCases(mounted(flaws), "sequential");
-    expect(outcomes.filter((r) => r.failed).map((r) => r.name)).toEqual([CASE.appearance]);
+    await expect(runCase(CASE.appearance, mounted(flaws))).rejects.toThrow(message);
+    const { failing } = await kitOutcome(mounted(flaws), "sequential");
+    expect(failing).toEqual([CASE.appearance]);
   });
 });

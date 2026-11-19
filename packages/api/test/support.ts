@@ -4,6 +4,8 @@
  * at once; the jsdom suite (keys.conformance.test.ts) runs them one after the other, because there
  * every modeler listens to the one document the keys case aims its keys at.
  */
+import { expect } from "vitest";
+
 import {
   attachedHost,
   type CaseOutcome,
@@ -138,12 +140,13 @@ export const USER_ACTION_WITHOUT_DOM =
 
 /**
  * whether the keys case, the colour half of the appearance case or the delete of the user-action
- * case skipped for want of a DOM — what they do in the node suite
+ * case skipped for want of a DOM, which they do only where there is none: in the node suites
  */
 export const skippedWithoutDom = (name: string, reason: string): boolean =>
-  (name === CASE.keys && reason.startsWith("no DOM")) ||
-  (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM) ||
-  (name === CASE.userAction && reason === USER_ACTION_WITHOUT_DOM);
+  typeof document === "undefined" &&
+  ((name === CASE.keys && reason.startsWith("no DOM")) ||
+    (name === CASE.appearance && reason === APPEARANCE_WITHOUT_DOM) ||
+    (name === CASE.userAction && reason === USER_ACTION_WITHOUT_DOM));
 
 /** all at once (node), or one after the other (jsdom) */
 export type Order = "concurrent" | "sequential";
@@ -157,54 +160,100 @@ async function inOrder<T>(tasks: Array<() => Promise<T>>, order: Order): Promise
 
 /** run every case against a harness; per case whether it failed and what it resolved with */
 export async function runCases(
-  h: ConformanceHarness,
+  conformanceHarness: ConformanceHarness,
   order: Order = "concurrent",
 ): Promise<Array<{ name: string; failed: boolean; outcome: CaseOutcome | undefined }>> {
   return inOrder(
-    conformanceCases().map((c) => async () => {
+    conformanceCases().map((conformanceCase) => async () => {
       try {
-        return { name: c.name, failed: false, outcome: (await c.run(h)) ?? undefined };
+        const outcome = (await conformanceCase.run(conformanceHarness)) ?? undefined;
+        return { name: conformanceCase.name, failed: false, outcome };
       } catch {
-        return { name: c.name, failed: true, outcome: undefined };
+        return { name: conformanceCase.name, failed: true, outcome: undefined };
       }
     }),
     order,
   );
 }
 
-/** run every case against a harness; the names of the failing ones */
-export async function failingCases(
-  h: ConformanceHarness,
-  order: Order = "concurrent",
-): Promise<string[]> {
-  return (await runCases(h, order)).filter((r) => r.failed).map((r) => r.name);
-}
-
-/** run every case against a harness; one [case name, advice] pair per advisory */
-export async function advisories(
-  h: ConformanceHarness,
-  order: Order = "concurrent",
-): Promise<Array<[string, string]>> {
-  return (await runCases(h, order)).flatMap((r) =>
-    (r.outcome?.advisories ?? []).map((advice): [string, string] => [r.name, advice]),
-  );
+/** what one run of every case against a harness did */
+export interface KitOutcome {
+  /** the names of the failing cases, in the kit's order */
+  failing: string[];
+  /** one [case name, advice] pair per advisory */
+  advisories: Array<[string, string]>;
+  /** the names of the skipping cases, sorted, without the skips for want of a DOM */
+  skipped: string[];
 }
 
 /**
- * register against a fake runner that runs every case now; the skipped names, without the keys
- * case's skip for want of a DOM (the jsdom suite runs that case)
+ * run every case against a harness once, and report what failed, advised and skipped: once,
+ * because a case that holds an import waits out the kit's bound on every run
+ */
+export async function kitOutcome(
+  conformanceHarness: ConformanceHarness,
+  order: Order = "concurrent",
+): Promise<KitOutcome> {
+  const results = await runCases(conformanceHarness, order);
+  return {
+    failing: results.filter((result) => result.failed).map((result) => result.name),
+    advisories: results.flatMap(({ name, outcome }) =>
+      (outcome?.advisories ?? []).map((advice): [string, string] => [name, advice]),
+    ),
+    skipped: results
+      .filter(
+        ({ name, outcome }) =>
+          outcome?.skipped !== undefined && !skippedWithoutDom(name, outcome.skipped),
+      )
+      .map((result) => result.name)
+      .sort(),
+  };
+}
+
+/** run every case against a harness; the names of the failing ones */
+export async function failingCases(conformanceHarness: ConformanceHarness): Promise<string[]> {
+  return (await kitOutcome(conformanceHarness)).failing;
+}
+
+/**
+ * no failure anywhere, and one advisory, from the case that checks the recommendation; returns
+ * that advice
+ */
+export async function expectAdvisoryOnly(
+  conformanceHarness: ConformanceHarness,
+  caseName: string,
+  order: Order = "concurrent",
+): Promise<string> {
+  const { failing, advisories } = await kitOutcome(conformanceHarness, order);
+  expect(failing).toEqual([]);
+  expect(advisories.map(([name]) => name)).toEqual([caseName]);
+  return advisories[0]?.[1] ?? "";
+}
+
+/** run the kit's case of that name against a harness; what it resolved with */
+export async function runCase(
+  name: string,
+  conformanceHarness: ConformanceHarness,
+): Promise<CaseOutcome | undefined> {
+  const found = conformanceCases().find((conformanceCase) => conformanceCase.name === name);
+  if (!found) throw new Error(`the kit has no case "${name}"`);
+  return (await found.run(conformanceHarness)) ?? undefined;
+}
+
+/**
+ * register against a fake runner that runs every case now; how many cases it registered, and the
+ * names of the skipped ones without the skips for want of a DOM (skippedWithoutDom)
  */
 export async function skippedCases(
-  h: ConformanceHarness,
-  order: Order = "concurrent",
+  conformanceHarness: ConformanceHarness,
 ): Promise<{ ran: number; skipped: string[] }> {
   const skipped: string[] = [];
   const pending: Array<() => Promise<void>> = [];
-  registerConformance(h, (_name, fn) => pending.push(fn), {
+  registerConformance(conformanceHarness, (_name, run) => pending.push(run), {
     onSkip: (name, reason) => {
       if (!skippedWithoutDom(name, reason)) skipped.push(name);
     },
   });
-  await inOrder(pending, order);
+  await Promise.all(pending.map((run) => run()));
   return { ran: pending.length, skipped: skipped.sort() };
 }

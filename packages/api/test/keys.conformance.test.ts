@@ -9,16 +9,10 @@
  */
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import {
-  attachedHost,
-  type CaseOutcome,
-  type ConformanceHarness,
-  conformanceCases,
-  registerConformance,
-} from "../src/conformance.js";
+import { attachedHost, registerConformance } from "../src/conformance.js";
 import type { CollaborativeModeler } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
-import { CASE, harness, mounted, runCases } from "./support.js";
+import { CASE, expectAdvisoryOnly, harness, kitOutcome, mounted, runCase } from "./support.js";
 
 /** the canvas the reference drew, as a harness names it with canvasElement */
 const referenceCanvas = (m: CollaborativeModeler): Element | undefined =>
@@ -27,13 +21,6 @@ const referenceCanvas = (m: CollaborativeModeler): Element | undefined =>
 afterEach(() => {
   vi.unstubAllGlobals();
 });
-
-const keysCase = conformanceCases().find((c) => c.name === CASE.keys);
-
-async function runKeysCase(h: ConformanceHarness): Promise<CaseOutcome | undefined> {
-  if (!keysCase) throw new Error(`the kit has no case "${CASE.keys}"`);
-  return (await keysCase.run(h)) ?? undefined;
-}
 
 const press = (target: Element, key: string): KeyboardEvent => {
   const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
@@ -73,13 +60,16 @@ describe("the conforming reference modeler, mounted", () => {
   });
 
   test("a canvas that takes its keys in the capture phase fails nothing and advises nothing", async () => {
-    const outcomes = await runCases(mounted({ keysInCapturePhase: true }), "sequential");
-    expect(outcomes.filter((r) => r.failed).map((r) => r.name)).toEqual([]);
-    expect(outcomes.flatMap((r) => r.outcome?.advisories ?? [])).toEqual([]);
+    const { failing, advisories } = await kitOutcome(
+      mounted({ keysInCapturePhase: true }),
+      "sequential",
+    );
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("the keys case leaves the page as it found it: no host controls, nothing hidden, nothing inert", async () => {
-    await runKeysCase(mounted({ bodyKeysAreCanvasKeys: true }));
+    await runCase(CASE.keys, mounted({ bodyKeysAreCanvasKeys: true }));
     expect(document.querySelector(".monaco-editor, button, input, textarea, select")).toBeNull();
     expect(document.querySelector("[inert]")).toBeNull();
     const hidden = [...document.body.querySelectorAll<HTMLElement>("body > div")].filter(
@@ -100,7 +90,7 @@ describe("the conforming reference modeler, mounted", () => {
     };
     document.addEventListener("keydown", record, true);
     try {
-      const outcome = await runKeysCase(mounted());
+      const outcome = await runCase(CASE.keys, mounted());
       expect(outcome?.advisories).toBeUndefined();
     } finally {
       document.removeEventListener("keydown", record, true);
@@ -110,16 +100,9 @@ describe("the conforming reference modeler, mounted", () => {
 });
 
 describe("variants that miss the recommendation fail nothing and advise exactly once, from the keys case", () => {
-  /** no failure anywhere, and one advisory — from the keys case; returns its advice */
-  const expectKeysAdvisory = async (flaws: Flaws): Promise<string> => {
-    const outcomes = await runCases(mounted(flaws), "sequential");
-    expect(outcomes.filter((r) => r.failed).map((r) => r.name)).toEqual([]);
-    const advised = outcomes.flatMap((r) =>
-      (r.outcome?.advisories ?? []).map((advice): [string, string] => [r.name, advice]),
-    );
-    expect(advised.map(([name]) => name)).toEqual([CASE.keys]);
-    return advised[0]?.[1] ?? "";
-  };
+  /** no failure anywhere, and one advisory, from the keys case; returns its advice */
+  const expectKeysAdvisory = (flaws: Flaws): Promise<string> =>
+    expectAdvisoryOnly(mounted(flaws), CASE.keys, "sequential");
   /** the advice without the recommendation it closes with */
   const findingsOf = (advice: string): string => advice.split(" — RECOMMENDED:")[0] ?? "";
 
@@ -258,17 +241,17 @@ describe("variants that miss the recommendation fail nothing and advise exactly 
 
 describe("a harness that names the canvas with canvasElement", () => {
   test("a canvas that is a focusable <div>, named by canvasElement → every case passes, nothing skips, nothing advises", async () => {
-    const outcomes = await runCases(
+    const { failing, advisories, skipped } = await kitOutcome(
       mounted({ canvasIsDiv: true }, { canvasElement: referenceCanvas }),
       "sequential",
     );
-    expect(outcomes.filter((r) => r.failed).map((r) => r.name)).toEqual([]);
-    expect(outcomes.filter((r) => r.outcome?.skipped !== undefined).map((r) => r.name)).toEqual([]);
-    expect(outcomes.flatMap((r) => r.outcome?.advisories ?? [])).toEqual([]);
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("the same canvas without canvasElement → a skip that points to canvasElement", async () => {
-    const outcome = await runKeysCase(mounted({ canvasIsDiv: true }));
+    const outcome = await runCase(CASE.keys, mounted({ canvasIsDiv: true }));
     expect(outcome?.skipped).toMatch(
       /^create\(\) mounted the modeler into no attachedHost\(\) that holds a focusable <svg> .* name the canvas with canvasElement;/,
     );
@@ -285,7 +268,8 @@ describe("a harness that names the canvas with canvasElement", () => {
       return m;
     };
     try {
-      const outcome = await runKeysCase(
+      const outcome = await runCase(
+        CASE.keys,
         mounted({}, { create: besideADecoy, canvasElement: referenceCanvas }),
       );
       expect(outcome).toEqual({});
@@ -295,7 +279,7 @@ describe("a harness that names the canvas with canvasElement", () => {
   });
 
   test("a canvasElement that names nothing → a skip", async () => {
-    const outcome = await runKeysCase(mounted({}, { canvasElement: () => null }));
+    const outcome = await runCase(CASE.keys, mounted({}, { canvasElement: () => null }));
     expect(outcome?.skipped).toMatch(/^canvasElement\(\) names no canvas for the modeler;/);
   });
 
@@ -304,7 +288,7 @@ describe("a harness that names the canvas with canvasElement", () => {
     stray.tabIndex = 0;
     document.body.append(stray);
     try {
-      const outcome = await runKeysCase(mounted({}, { canvasElement: () => stray }));
+      const outcome = await runCase(CASE.keys, mounted({}, { canvasElement: () => stray }));
       expect(outcome?.skipped).toMatch(
         /^the canvas canvasElement\(\) names for the modeler lies in no attachedHost\(\)/,
       );
@@ -340,7 +324,7 @@ describe("registerConformance", () => {
 
 describe("whatever keeps the keys case from seeing a key act is reported as a skip", () => {
   test("a canvas that binds no key → a skip: Delete and Backspace left the document as it was", async () => {
-    const outcome = await runKeysCase(mounted({ noCanvasKeys: true }));
+    const outcome = await runCase(CASE.keys, mounted({ noCanvasKeys: true }));
     expect(outcome?.advisories).toBeUndefined();
     expect(outcome?.skipped).toMatch(
       /^Delete and Backspace on the focused canvas, with '[^']+' revealed \(selected\), left the document as it was/,
@@ -354,7 +338,7 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
       const { elements: _dropped, ...rest } = m;
       return rest;
     };
-    const outcome = await runKeysCase(mounted({}, { create: withoutElements }));
+    const outcome = await runCase(CASE.keys, mounted({}, { create: withoutElements }));
     expect(outcome?.skipped).toMatch(/^the modeler exposes no elements surface \(optional\)/);
   });
 
@@ -365,7 +349,7 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
       if (!m.elements) throw new Error("the reference exposes an elements surface");
       return { ...m, elements: { ...m.elements, list: () => [] } };
     };
-    const outcome = await runKeysCase(mounted({}, { create: listsNothing }));
+    const outcome = await runCase(CASE.keys, mounted({}, { create: listsNothing }));
     expect(outcome?.skipped).toMatch(/^elements\.list\(\) reports no element/);
   });
 
@@ -378,21 +362,21 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
       if (canvas) canvas.focus = () => undefined;
       return m;
     };
-    const outcome = await runKeysCase(mounted({}, { create: unfocusable }));
+    const outcome = await runCase(CASE.keys, mounted({}, { create: unfocusable }));
     expect(outcome?.skipped).toMatch(/^the canvas did not take the focus/);
   });
 
   test("a createReadonly() that mounts the viewer into no attachedHost() → a skip naming the viewer", async () => {
     const unmountedViewer = async (): Promise<CollaborativeModeler> =>
       createReferenceModeler({}, false);
-    const outcome = await runKeysCase(mounted({}, { createReadonly: unmountedViewer }));
+    const outcome = await runCase(CASE.keys, mounted({}, { createReadonly: unmountedViewer }));
     expect(outcome?.skipped).toMatch(
       /^createReadonly\(\) mounted the viewer into no attachedHost\(\) that holds a focusable <svg>/,
     );
   });
 
   test("a create() that mounts into no attachedHost() → a skip naming attachedHost()", async () => {
-    const outcome = await runKeysCase(harness());
+    const outcome = await runCase(CASE.keys, harness());
     expect(outcome?.skipped).toMatch(/^create\(\) mounted the modeler into no attachedHost\(\)/);
   });
 
@@ -407,7 +391,7 @@ describe("whatever keeps the keys case from seeing a key act is reported as a sk
       return m;
     };
     try {
-      const outcome = await runKeysCase(mounted({}, { create: twoCanvases }));
+      const outcome = await runCase(CASE.keys, mounted({}, { create: twoCanvases }));
       expect(outcome?.skipped).toMatch(/^create\(\) made 2 attachedHost\(\) elements/);
     } finally {
       for (const decoy of decoys) decoy.destroy();

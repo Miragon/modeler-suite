@@ -34,11 +34,13 @@ import {
 } from "../src/index.js";
 import { createReferenceModeler, type Flaws, type ReferenceModeler } from "./reference-modeler.js";
 import {
-  advisories,
   APPEARANCE_WITHOUT_DOM,
   CASE,
+  expectAdvisoryOnly,
   failingCases,
   harness,
+  kitOutcome,
+  runCase,
   runCases,
   skippedCases,
   skippedWithoutDom,
@@ -64,27 +66,25 @@ describe("the conforming reference modeler", () => {
     expect(names.size).toBe(Object.keys(CASE).length);
   });
 
-  test("the conforming reference fails NOTHING", async () => {
-    expect(await failingCases(harness())).toEqual([]);
+  test("the conforming reference fails NOTHING and advises nothing", async () => {
+    const { failing, advisories } = await kitOutcome(harness());
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
-  test("a diagram-js style enriched view-state readback (scale/inner/outer, rounded) is NOT a violation", async () => {
-    expect(await failingCases(harness({ enrichedViewStateReadback: true }))).toEqual([]);
-  });
-
-  test("a diagram-js style enriched view-state readback advises nothing either: the pan case follows its numbers through a host's restore", async () => {
-    expect(await advisories(harness({ enrichedViewStateReadback: true }))).toEqual([]);
+  test("a diagram-js style enriched view-state readback (scale/inner/outer, rounded) is NOT a violation, and advises nothing either: the pan case follows its numbers through a host's restore", async () => {
+    const { failing, advisories } = await kitOutcome(harness({ enrichedViewStateReadback: true }));
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("waiting imports run by a microtask queued when the action starts (as Value Chain does) are NOT a violation: nothing fails, skips or advises", async () => {
-    const h = harness({ flushQueuedAtTheActionsStart: true });
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([]);
-  });
-
-  test("the conforming reference advises nothing", async () => {
-    expect(await advisories(harness())).toEqual([]);
+    const { failing, advisories, skipped } = await kitOutcome(
+      harness({ flushQueuedAtTheActionsStart: true }),
+    );
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
+    expect(skipped).toEqual([]);
   });
 
   test("without a DOM the keys case, the colour half of the appearance case and the delete of the user-action case report a skip that names it, and nothing else does", async () => {
@@ -117,24 +117,28 @@ describe("the conforming reference modeler", () => {
 
   test("an empty name in the session and an absent one after export → import are the same", async () => {
     let counter = 0;
-    const h = harness(
-      { blankNamesReadBackAbsent: true },
-      { mutate: (m) => (m as ReferenceModeler).addLine(`~zz-${counter++}`) },
+    const { failing, advisories } = await kitOutcome(
+      harness(
+        { blankNamesReadBackAbsent: true },
+        { mutate: (m) => (m as ReferenceModeler).addLine(`~zz-${counter++}`) },
+      ),
     );
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("an id spelled from identical content is not blamed: the collision check reports a skip instead", async () => {
-    const collision = conformanceCases().find((c) => c.name === CASE.elementsCollision);
     const sameElement = {
       mutate: (m: CollaborativeModeler) => (m as ReferenceModeler).addLine("zz"),
     };
-    const derived = await collision?.run(harness({}, sameElement));
+    const derived = await runCase(CASE.elementsCollision, harness({}, sameElement));
     expect(derived?.advisories).toBeUndefined();
     expect(derived?.skipped).toMatch(/derived from that name .* inconclusive/);
     // a counter id names nothing of the content: the same advisory as for different elements
-    const counter = await collision?.run(harness({ counterIds: true }, sameElement));
+    const counter = await runCase(
+      CASE.elementsCollision,
+      harness({ counterIds: true }, sameElement),
+    );
     expect(counter?.skipped).toBeUndefined();
     expect(counter?.advisories).toEqual([
       expect.stringContaining("allocated the same id ('line_1')"),
@@ -149,11 +153,10 @@ describe("the conforming reference modeler", () => {
       return { ...m, elements };
     };
     const h = harness({}, { create: withoutBounds });
-    expect(await failingCases(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([CASE.bounds, CASE.contentBounds].sort());
-    const content = await conformanceCases()
-      .find((c) => c.name === CASE.contentBounds)
-      ?.run(h);
+    const { failing, skipped } = await kitOutcome(h);
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([CASE.bounds, CASE.contentBounds].sort());
+    const content = await runCase(CASE.contentBounds, h);
     expect(content?.skipped).toMatch(
       /no elements\.bounds — that the content box covers every element was not verified/,
     );
@@ -165,14 +168,11 @@ describe("the conforming reference modeler", () => {
       return m;
     };
     const h = harness({}, { create: withoutInteraction });
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual(
-      [CASE.destroyFromListener, CASE.interaction].sort(),
-    );
-    const destroy = await conformanceCases()
-      .find((c) => c.name === CASE.destroyFromListener)
-      ?.run(h);
+    const { failing, advisories, skipped } = await kitOutcome(h);
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
+    expect(skipped).toEqual([CASE.destroyFromListener, CASE.interaction].sort());
+    const destroy = await runCase(CASE.destroyFromListener, h);
     expect(destroy?.skipped).toBe(
       "the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) at the cancel (Escape) of a move was not checked; the modeler exposes no interaction surface (optional, 1.5) — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked; the modeler exposes no interaction surface (optional, 1.5) — that a listener unsubscribed during a delivery is not called was not checked",
     );
@@ -184,9 +184,7 @@ describe("the conforming reference modeler", () => {
       return m;
     };
     const run = (name: string, flaws: Flaws = {}) =>
-      conformanceCases()
-        .find((c) => c.name === name)
-        ?.run(harness(flaws, { create: withoutElements(flaws) }));
+      runCase(name, harness(flaws, { create: withoutElements(flaws) }));
     const userAction = await run(CASE.userAction);
     expect(userAction?.skipped).toBe(
       `${USER_ACTION_WITHOUT_DOM}; the modeler exposes no elements surface (optional) — imports from the selection listener during a delete, an undo and a redo were not checked`,
@@ -213,21 +211,15 @@ describe("the conforming reference modeler", () => {
 
   test("a selection listener that hears nothing during the user's action reports a skip, not a pass", async () => {
     const deaf = harness({ deadSelection: true });
-    const userAction = await conformanceCases()
-      .find((c) => c.name === CASE.userAction)
-      ?.run(deaf);
+    const userAction = await runCase(CASE.userAction, deaf);
     expect(userAction?.skipped).toMatch(
       /the selection listener heard nothing during an undo of the create of the selected element 'zz-\d+' — that an import from it waits until the action has finished was not checked/,
     );
-    const dragStart = await conformanceCases()
-      .find((c) => c.name === CASE.dragStart)
-      ?.run(deaf);
+    const dragStart = await runCase(CASE.dragStart, deaf);
     expect(dragStart?.skipped).toMatch(
       /the selection listener heard nothing at the start of a move with 'alpha' revealed — an import at a drag's start was not checked/,
     );
-    const destroy = await conformanceCases()
-      .find((c) => c.name === CASE.destroyFromListener)
-      ?.run(deaf);
+    const destroy = await runCase(CASE.destroyFromListener, deaf);
     expect(destroy?.skipped).toMatch(
       /the selection listener heard nothing at the start of a create with an element revealed — a destroy\(\) from elements\.onSelection at the start of a create was not checked/,
     );
@@ -243,26 +235,27 @@ describe("the conforming reference modeler", () => {
       return m;
     };
     const h = harness({}, { create: withoutAppearance });
-    expect(await failingCases(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([CASE.appearance]);
-    const outcome = await conformanceCases()
-      .find((c) => c.name === CASE.appearance)
-      ?.run(h);
+    const { failing, skipped } = await kitOutcome(h);
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([CASE.appearance]);
+    const outcome = await runCase(CASE.appearance, h);
     expect(outcome?.skipped).toMatch(
       /^the modeler exposes no appearance surface \(optional, 1\.5\)/,
     );
   });
 
   test("interaction listeners called newest first, an order the contract leaves open, fail nothing and advise nothing: a listener's call before the destroy or the unsubscribe counts for nothing", async () => {
-    const h = harness({ interactionDeliversNewestFirst: true });
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
+    const { failing, advisories } = await kitOutcome(
+      harness({ interactionDeliversNewestFirst: true }),
+    );
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("a modeler that lists dark and draws it fails nothing and advises nothing", async () => {
-    const h = harness({ listsDark: true });
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
+    const { failing, advisories } = await kitOutcome(harness({ listsDark: true }));
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
 
   test("a modeler without contentBounds (optional, 1.3) skips exactly the content-bounds case", async () => {
@@ -270,9 +263,9 @@ describe("the conforming reference modeler", () => {
       const { contentBounds: _dropped, ...m } = createReferenceModeler();
       return m;
     };
-    const h = harness({}, { create: withoutContentBounds });
-    expect(await failingCases(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([CASE.contentBounds]);
+    const { failing, skipped } = await kitOutcome(harness({}, { create: withoutContentBounds }));
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([CASE.contentBounds]);
   });
 
   test("a content box measured in float32 on fractional coordinates (getBBox on the live SVG) is NOT a violation", async () => {
@@ -287,8 +280,9 @@ describe("the conforming reference modeler", () => {
     });
     // the variant proves the tolerance only where float32 falls short by more than float64 noise
     expect(Math.max(...bottomShortfalls)).toBeGreaterThan(1e-6);
-    expect(await failingCases(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([]);
+    const { failing, skipped } = await kitOutcome(h);
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([]);
   });
 
   test("a content box around a plot the notation always draws (Wardley), a box before the first import and on a document without elements, is NOT a violation", async () => {
@@ -298,17 +292,14 @@ describe("the conforming reference modeler", () => {
     await m.importText("title: Tea\n");
     expect(m.elements?.list()).toEqual([]);
     expect(m.contentBounds?.()).toBeDefined();
-    expect(await failingCases(h)).toEqual([]);
-    expect((await skippedCases(h)).skipped).toEqual([]);
+    const { failing, skipped } = await kitOutcome(h);
+    expect(failing).toEqual([]);
+    expect(skipped).toEqual([]);
     const withoutElements = harness(
       { contentBoundsWithPlot: true },
       { canonicalTexts: ["title: Tea\n", "alpha\nbeta\ngamma\n"] },
     );
-    await expect(
-      conformanceCases()
-        .find((c) => c.name === CASE.contentBounds)
-        ?.run(withoutElements),
-    ).resolves.toBeUndefined();
+    await expect(runCase(CASE.contentBounds, withoutElements)).resolves.toBeUndefined();
   });
 
   test("the content box is the union of the drawn elements, undefined while nothing is drawn, and follows a move", async () => {
@@ -397,49 +388,41 @@ describe("the conforming reference modeler", () => {
         CASE.viewer,
       ].sort(),
     );
+    const skippedWithout = async (overrides: Partial<ConformanceHarness>) =>
+      (await kitOutcome(harness({}, overrides))).skipped;
     // undo without redo: the undo half is verified, the redo half reports a skip, and so does the
     // redo of a delete
-    expect((await skippedCases(harness({}, { redo: undefined }))).skipped).toEqual(
+    expect(await skippedWithout({ redo: undefined })).toEqual(
       [CASE.l3Undo, CASE.userAction].sort(),
     );
     // bounds without a move: the listing, the new element and the view are verified, the move reports a skip;
     // the content box needs no move
-    expect((await skippedCases(harness({}, { moveElement: undefined }))).skipped).toEqual([
-      CASE.bounds,
-    ]);
+    expect(await skippedWithout({ moveElement: undefined })).toEqual([CASE.bounds]);
     // an interaction without its state: the L1 half is verified, the keep-and-reopen half reports a
     // skip; the L5 case checks the keep-open through the commit instead
-    expect((await skippedCases(harness({}, { interactionState: undefined }))).skipped).toEqual([
-      CASE.l1Interaction,
-    ]);
+    expect(await skippedWithout({ interactionState: undefined })).toEqual([CASE.l1Interaction]);
     // an interaction without a commit: the L5 no-commit half is verified, the commit halves report a skip
-    expect((await skippedCases(harness({}, { commitInteraction: undefined }))).skipped).toEqual([
-      CASE.l5Interaction,
-    ]);
+    expect(await skippedWithout({ commitInteraction: undefined })).toEqual([CASE.l5Interaction]);
     // a view change needs a view to change to: without viewState the L5 interaction case skips too,
     // and both box cases report their view half
-    expect((await skippedCases(harness({}, { viewState: undefined }))).skipped).toEqual(
+    expect(await skippedWithout({ viewState: undefined })).toEqual(
       [CASE.l5RoundTrip, CASE.l5Interaction, CASE.bounds, CASE.contentBounds].sort(),
     );
     // one canonical text (L4 fails it anyway): the interaction case says which leg it could not run
-    const interaction = conformanceCases().find((c) => c.name === CASE.l1Interaction);
-    const single = await interaction?.run(
+    const single = await runCase(
+      CASE.l1Interaction,
       harness({}, { canonicalTexts: ["alpha\nbeta\ngamma\n"] }),
     );
     expect(single?.skipped).toMatch(/one text — importing a DIFFERENT document/);
     // and so do the cases that import over a held gesture, a drop or a pan
     for (const name of [CASE.l1Gesture, CASE.drop, CASE.userAction, CASE.dragStart, CASE.pan]) {
-      const held = await conformanceCases()
-        .find((c) => c.name === name)
-        ?.run(harness({}, { canonicalTexts: ["alpha\nbeta\ngamma\n"] }));
+      const held = await runCase(name, harness({}, { canonicalTexts: ["alpha\nbeta\ngamma\n"] }));
       expect(held?.skipped, name).toMatch(
         /^canonicalTexts holds one text — .* of a DIFFERENT document/,
       );
       expect(held?.advisories, name).toBeUndefined();
     }
     // the 1.5 and 1.6 harness fields, one at a time: each skips exactly the cases (or halves) that read it
-    const skippedWithout = async (overrides: Partial<ConformanceHarness>) =>
-      (await skippedCases(harness({}, overrides))).skipped;
     expect(await skippedWithout({ startGesture: undefined })).toEqual(
       [
         CASE.destroyFromListener,
@@ -465,13 +448,15 @@ describe("the conforming reference modeler", () => {
       [CASE.appearance, CASE.viewer].sort(),
     );
     // an EXPLICIT empty array is a statement, not an omission — no skip
-    const explicit = await skippedCases(
-      harness(
-        {},
-        { looseTexts: [], invalidTexts: [], foreignTexts: [], configMutations: [], probeTexts: [] },
-      ),
-    );
-    expect(explicit.skipped).toEqual([]);
+    expect(
+      await skippedWithout({
+        looseTexts: [],
+        invalidTexts: [],
+        foreignTexts: [],
+        configMutations: [],
+        probeTexts: [],
+      }),
+    ).toEqual([]);
   });
 
   test("advisories reach onAdvisory once per advice, and console.warn by default", async () => {
@@ -683,25 +668,25 @@ describe("broken variants fail exactly their law's case set", () => {
       createReadonly: async () => createReferenceModeler({ boundsUnplacedOnImport: true }, false),
     }));
   // the kit names the cause here instead of tripping over an undefined box
-  const boundsCase = conformanceCases().find((c) => c.name === CASE.bounds);
   test("a move that re-creates the element under a fresh id → exactly the bounds case, which says the element is gone", async () => {
     await expectFailures({ moveChangesId: true }, [CASE.bounds]);
-    await expect(boundsCase?.run(harness({ moveChangesId: true }))).rejects.toThrow(
+    await expect(runCase(CASE.bounds, harness({ moveChangesId: true }))).rejects.toThrow(
       /is gone from elements\.list\(\) after moveElement moved it/,
     );
   });
   test("a moveElement that returns an id the modeler never listed → exactly the bounds case, which blames the harness", async () => {
     const neverListed = { moveElement: () => "__never_listed__" };
     await expectFailures({}, [CASE.bounds], neverListed);
-    await expect(boundsCase?.run(harness({}, neverListed))).rejects.toThrow(
+    await expect(runCase(CASE.bounds, harness({}, neverListed))).rejects.toThrow(
       /moveElement returned '__never_listed__', an id elements\.list\(\) did not report/,
     );
   });
   // ── the content box hosts fit to (contract 1.3) ───────────────────────────
-  const contentCase = conformanceCases().find((c) => c.name === CASE.contentBounds);
   test("a content box measured at the last import (a new element lies outside it) → exactly the content-bounds case", async () => {
     await expectFailures({ contentBoundsOfImportedOnly: true }, [CASE.contentBounds]);
-    await expect(contentCase?.run(harness({ contentBoundsOfImportedOnly: true }))).rejects.toThrow(
+    await expect(
+      runCase(CASE.contentBounds, harness({ contentBoundsOfImportedOnly: true })),
+    ).rejects.toThrow(
       /after a user mutation added an element .* does not cover elements\.bounds\('zz-\d+'\)/,
     );
   });
@@ -729,9 +714,9 @@ describe("broken variants fail exactly their law's case set", () => {
       };
     };
     await expectFailures({}, [CASE.contentBounds], { create: throwsBeforeImport });
-    await expect(contentCase?.run(harness({}, { create: throwsBeforeImport }))).rejects.toThrow(
-      /contentBounds\(\) threw before the first import/,
-    );
+    await expect(
+      runCase(CASE.contentBounds, harness({}, { create: throwsBeforeImport })),
+    ).rejects.toThrow(/contentBounds\(\) threw before the first import/);
   });
   test("a content box that is undefined while elements are listed → exactly the content-bounds case", () =>
     expectFailures({ contentBoundsAlwaysUndefined: true }, [CASE.contentBounds]));
@@ -742,9 +727,9 @@ describe("broken variants fail exactly their law's case set", () => {
       const { bounds: _dropped, ...elements } = m.elements;
       return { ...m, elements };
     };
-    await expect(contentCase?.run(harness({}, { create: withoutBounds }))).rejects.toThrow(
-      /undefined while elements\.list\(\) reports \d+ element/,
-    );
+    await expect(
+      runCase(CASE.contentBounds, harness({}, { create: withoutBounds })),
+    ).rejects.toThrow(/undefined while elements\.list\(\) reports \d+ element/);
   });
   test("a viewer whose content box misses the elements' sizes → exactly the content-bounds case", () =>
     expectFailures({}, [CASE.contentBounds], {
@@ -774,38 +759,33 @@ describe("broken variants fail exactly their law's case set", () => {
     }));
 
   // ── a gesture, a drop and a pan across an import (contracts 1.5 and 1.6) ────
-  const caseNamed = (name: string) => {
-    const found = conformanceCases().find((c) => c.name === name);
-    if (!found) throw new Error(`the kit has no case "${name}"`);
-    return found;
-  };
   test("an import that applies a running move before it replaces the document → exactly the L1 gesture case, as an L1 failure", async () => {
     await expectFailures({ importDuringGestureEmits: true }, [CASE.l1Gesture]);
     await expect(
-      caseNamed(CASE.l1Gesture).run(harness({ importDuringGestureEmits: true })),
+      runCase(CASE.l1Gesture, harness({ importDuringGestureEmits: true })),
     ).rejects.toThrow(/during a move gesture fired onContentChanged 1x before the drop/);
   });
   test("a drop that applies nothing → the L1 gesture case, the drop case and the drag-start case, which would prove nothing", async () => {
     await expectFailures({ dropsNothing: true }, [CASE.l1Gesture, CASE.drop, CASE.dragStart]);
     for (const name of [CASE.l1Gesture, CASE.dragStart]) {
-      await expect(caseNamed(name).run(harness({ dropsNothing: true }))).rejects.toThrow(
+      await expect(runCase(name, harness({ dropsNothing: true }))).rejects.toThrow(
         /and drop\(\) left the document as it was — the case proves nothing/,
       );
     }
-    await expect(caseNamed(CASE.drop).run(harness({ dropsNothing: true }))).rejects.toThrow(
+    await expect(runCase(CASE.drop, harness({ dropsNothing: true }))).rejects.toThrow(
       /fired no onContentChanged — the case proves nothing/,
     );
   });
   test("releasing a pan that fires onContentChanged → exactly the pan case, as an L3 failure", async () => {
     await expectFailures({ panEmits: true }, [CASE.pan]);
-    await expect(caseNamed(CASE.pan).run(harness({ panEmits: true }))).rejects.toThrow(
+    await expect(runCase(CASE.pan, harness({ panEmits: true }))).rejects.toThrow(
       /releasing a pan fired onContentChanged 1x .* \(L3\)/,
     );
   });
   test("a startPan that moves no view → exactly the pan case, which would prove nothing", async () => {
     const still = { startPan: () => ({ move: () => undefined, drop: () => undefined }) };
     await expectFailures({}, [CASE.pan], still);
-    await expect(caseNamed(CASE.pan).run(harness({}, still))).rejects.toThrow(
+    await expect(runCase(CASE.pan, harness({}, still))).rejects.toThrow(
       /startPan left the view as the import had fitted it — the case proves nothing/,
     );
   });
@@ -864,7 +844,7 @@ describe("broken variants fail exactly their law's case set", () => {
     ],
   ])("%s → exactly the interaction case", async (_variant, flaws, message) => {
     await expectFailures(flaws, [CASE.interaction]);
-    await expect(caseNamed(CASE.interaction).run(harness(flaws))).rejects.toThrow(message);
+    await expect(runCase(CASE.interaction, harness(flaws))).rejects.toThrow(message);
   });
 
   // ── appearance (1.5): the rules that need no DOM; the colours are checked in jsdom ──
@@ -913,7 +893,7 @@ describe("broken variants fail exactly their law's case set", () => {
     ],
   ])("%s → exactly the appearance case", async (_variant, flaws, message) => {
     await expectFailures(flaws, [CASE.appearance]);
-    await expect(caseNamed(CASE.appearance).run(harness(flaws))).rejects.toThrow(message);
+    await expect(runCase(CASE.appearance, harness(flaws))).rejects.toThrow(message);
   });
 
   test("the contract version constant IS the package version (one identity)", () => {
@@ -950,44 +930,29 @@ describe("broken variants fail exactly their law's case set", () => {
 });
 
 describe("variants that miss a RECOMMENDATION fail nothing and advise exactly once", () => {
-  /** no failure anywhere, and one advisory — from the case that checks the recommendation */
-  const expectAdvisoryOnly = async (
-    flaws: Flaws,
-    caseName: string,
-    overrides: Partial<ConformanceHarness> = {},
-  ): Promise<string> => {
-    const h = harness(flaws, overrides);
-    expect(await failingCases(h)).toEqual([]);
-    const advised = await advisories(h);
-    expect(advised.map(([name]) => name)).toEqual([caseName]);
-    return advised[0]?.[1] ?? "";
-  };
-
   test("per-instance counter ids (event_1 on both peers) → an advisory from the collision case", () =>
-    expectAdvisoryOnly({ counterIds: true }, CASE.elementsCollision));
+    expectAdvisoryOnly(harness({ counterIds: true }), CASE.elementsCollision));
   test("an import that drops the open label editor instead of reopening it → an advisory from the L1 interaction case", () =>
-    expectAdvisoryOnly({ dropInteractionOnImport: true }, CASE.l1Interaction));
+    expectAdvisoryOnly(harness({ dropInteractionOnImport: true }), CASE.l1Interaction));
   test("a host's view change that drops the open label editor → an advisory from the L5 interaction case", () =>
-    expectAdvisoryOnly({ dropInteractionOnViewChange: true }, CASE.l5Interaction));
+    expectAdvisoryOnly(harness({ dropInteractionOnViewChange: true }), CASE.l5Interaction));
   test("the dropped label editor, seen through interactionState alone (no commitInteraction) → the same advisory", async () => {
     const advice = await expectAdvisoryOnly(
-      { dropInteractionOnViewChange: true },
+      harness({ dropInteractionOnViewChange: true }, { commitInteraction: undefined }),
       CASE.l5Interaction,
-      {
-        commitInteraction: undefined,
-      },
     );
     expect(advice).toMatch(/did not survive a host's view change \(setViewState closed it\)/);
   });
   test("an import that leaves a running gesture running → an advisory from the L1 gesture case, naming the drop that applied and the one that threw, and one from the drag-start case", async () => {
-    const h = harness({ importKeepsGesture: true });
-    expect(await failingCases(h)).toEqual([]);
-    const advised = await advisories(h);
-    expect(advised.map(([name]) => name).sort()).toEqual([CASE.l1Gesture, CASE.dragStart].sort());
-    const atTheStart = advised.find(([name]) => name === CASE.dragStart)?.[1] ?? "";
+    const { failing, advisories } = await kitOutcome(harness({ importKeepsGesture: true }));
+    expect(failing).toEqual([]);
+    expect(advisories.map(([name]) => name).sort()).toEqual(
+      [CASE.l1Gesture, CASE.dragStart].sort(),
+    );
+    const atTheStart = advisories.find(([name]) => name === CASE.dragStart)?.[1] ?? "";
     expect(atTheStart).toMatch(/interaction\.active\(\) was still true once importing/);
     expect(atTheStart).toMatch(/the import did not end the drag it met at its start/);
-    const advice = advised.find(([name]) => name === CASE.l1Gesture)?.[1] ?? "";
+    const advice = advisories.find(([name]) => name === CASE.l1Gesture)?.[1] ?? "";
     expect(advice).toMatch(/^a running gesture met an import: /);
     expect(advice).toMatch(
       /the drop after a different document \(canonicalTexts\[1\]\) imported during a move gesture threw TypeError/,
@@ -999,7 +964,10 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(advice).toMatch(/ — RECOMMENDED \(L1, since 1\.5\): an accepted import first cancels/);
   });
   test("a rejected import that ends a running gesture → an advisory from the L1 gesture case", async () => {
-    const advice = await expectAdvisoryOnly({ rejectedImportEndsGesture: true }, CASE.l1Gesture);
+    const advice = await expectAdvisoryOnly(
+      harness({ rejectedImportEndsGesture: true }),
+      CASE.l1Gesture,
+    );
     expect(advice).toMatch(/a rejected import ended a move gesture/);
   });
   // these variants hold an import until the kit's bound of 2 s has passed, once per run of the cases
@@ -1007,7 +975,10 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   test(
     "an import that waits for a running gesture to end instead of cancelling it → an advisory from the L1 gesture case, not a hang",
     async () => {
-      const advice = await expectAdvisoryOnly({ importWaitsForGesture: true }, CASE.l1Gesture);
+      const advice = await expectAdvisoryOnly(
+        harness({ importWaitsForGesture: true }),
+        CASE.l1Gesture,
+      );
       expect(advice).toMatch(
         /importing a different document \(canonicalTexts\[1\]\) during a move gesture had not settled 2 s later — the import waited for the gesture to end instead of cancelling it/,
       );
@@ -1016,19 +987,28 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     HELD_IMPORT_TIMEOUT_MS,
   );
   test("an import from a drop's change listener that runs at once → an advisory from the drop case: the drop threw on the removed element", async () => {
-    const advice = await expectAdvisoryOnly({ importDuringDropRunsAtOnce: true }, CASE.drop);
+    const advice = await expectAdvisoryOnly(
+      harness({ importDuringDropRunsAtOnce: true }),
+      CASE.drop,
+    );
     expect(advice).toMatch(/the drop threw TypeError: Cannot read properties of undefined/);
     expect(advice).toMatch(/replaced the document before the drop had ended/);
     expect(advice).not.toMatch(/an echo/);
   });
   test("an import from a drop's change listener whose Promise settles before the import → an advisory from the drop case", async () => {
-    const advice = await expectAdvisoryOnly({ importDuringDropSettlesEarly: true }, CASE.drop);
+    const advice = await expectAdvisoryOnly(
+      harness({ importDuringDropSettlesEarly: true }),
+      CASE.drop,
+    );
     expect(advice).toMatch(/the Promise settled before the import had run/);
   });
   test(
     "an import from a drop's change listener that never settles, later imports queued behind it → an advisory from the drop case, not a hang",
     async () => {
-      const advice = await expectAdvisoryOnly({ importDuringDropNeverSettles: true }, CASE.drop);
+      const advice = await expectAdvisoryOnly(
+        harness({ importDuringDropNeverSettles: true }),
+        CASE.drop,
+      );
       expect(advice).toMatch(
         /importing a different document \(canonicalTexts\[1\]\) from the change listener of a drop did not settle within 2 s of the drop/,
       );
@@ -1038,7 +1018,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   );
   test("an import from a command's listener that runs at once → an advisory from the user-action case: it ran before the undo had finished", async () => {
     const advice = await expectAdvisoryOnly(
-      { importDuringCommandRunsAtOnce: true },
+      harness({ importDuringCommandRunsAtOnce: true }),
       CASE.userAction,
     );
     expect(advice).toMatch(/^an import met the user's running command: /);
@@ -1049,7 +1029,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("an import from a command's listener whose Promise settles before the import → an advisory from the user-action case", async () => {
     const advice = await expectAdvisoryOnly(
-      { importDuringCommandSettlesEarly: true },
+      harness({ importDuringCommandSettlesEarly: true }),
       CASE.userAction,
     );
     expect(advice).toMatch(/the Promise settled before the import had run/);
@@ -1059,7 +1039,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     "an import from a command's listener that never settles, later imports queued behind it → an advisory from the user-action case, not a hang",
     async () => {
       const advice = await expectAdvisoryOnly(
-        { importDuringCommandNeverSettles: true },
+        harness({ importDuringCommandNeverSettles: true }),
         CASE.userAction,
       );
       expect(advice).toMatch(
@@ -1070,7 +1050,10 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     HELD_IMPORT_TIMEOUT_MS,
   );
   test("an import called after the action that overtakes one still waiting for it → an advisory from the user-action case", async () => {
-    const advice = await expectAdvisoryOnly({ waitingImportsOvertaken: true }, CASE.userAction);
+    const advice = await expectAdvisoryOnly(
+      harness({ waitingImportsOvertaken: true }),
+      CASE.userAction,
+    );
     expect(advice).toMatch(/settled in the order \["the echo","the document from before"\]/);
     expect(advice).toMatch(
       /did not keep their call order: once both had settled, exportText\(\) returned the document called first/,
@@ -1078,19 +1061,24 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("an import called after the action that overtakes one still waiting for a flush queued when the action started → an advisory from the user-action case: the second import is called before that flush runs", async () => {
     const advice = await expectAdvisoryOnly(
-      { waitingImportsOvertaken: true, flushQueuedAtTheActionsStart: true },
+      harness({ waitingImportsOvertaken: true, flushQueuedAtTheActionsStart: true }),
       CASE.userAction,
     );
     expect(advice).toMatch(/settled in the order \["the echo","the document from before"\]/);
     expect(advice).toMatch(/did not keep their call order/);
   });
   test("an import that runs only during a delete at once → nothing without a DOM: the delete presses a key on the canvas", async () => {
-    const h = harness({ importDuringDeleteRunsAtOnce: true });
-    expect(await failingCases(h)).toEqual([]);
-    expect(await advisories(h)).toEqual([]);
+    const { failing, advisories } = await kitOutcome(
+      harness({ importDuringDeleteRunsAtOnce: true }),
+    );
+    expect(failing).toEqual([]);
+    expect(advisories).toEqual([]);
   });
   test("an import from the selection listener at a drag's start that runs at once → an advisory from the drag-start case: the activation threw", async () => {
-    const advice = await expectAdvisoryOnly({ importAtDragStartRunsAtOnce: true }, CASE.dragStart);
+    const advice = await expectAdvisoryOnly(
+      harness({ importAtDragStartRunsAtOnce: true }),
+      CASE.dragStart,
+    );
     expect(advice).toMatch(/^an import met the start of a drag: /);
     for (const kind of ["move", "create"]) {
       expect(advice).toMatch(
@@ -1104,7 +1092,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     "an import from the selection listener at a drag's start that waits for the drop → an advisory from the drag-start case, not a hang",
     async () => {
       const advice = await expectAdvisoryOnly(
-        { importAtDragStartWaitsForTheDrop: true },
+        harness({ importAtDragStartWaitsForTheDrop: true }),
         CASE.dragStart,
       );
       expect(advice).toMatch(
@@ -1116,7 +1104,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   );
   test("a destroy() from a listener that tears the gesture down inside the drag's activation → an advisory from the destroy case: the start threw", async () => {
     const advice = await expectAdvisoryOnly(
-      { destroyTearsDownInsideTheAction: true },
+      harness({ destroyTearsDownInsideTheAction: true }),
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
@@ -1135,7 +1123,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("a change delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the drop", async () => {
     const advice = await expectAdvisoryOnly(
-      { contentDeliveryIgnoresDestroy: true },
+      harness({ contentDeliveryIgnoresDestroy: true }),
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
@@ -1144,7 +1132,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("a selection delivered over a copy of its listeners → an advisory from the destroy case: a later listener heard the start and the reveal", async () => {
     const advice = await expectAdvisoryOnly(
-      { selectionDeliveryIgnoresDestroy: true },
+      harness({ selectionDeliveryIgnoresDestroy: true }),
       CASE.destroyFromListener,
     );
     for (const kind of ["move", "create"]) {
@@ -1160,7 +1148,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("a destroy() from the selection listener that reveal() calls, which tears the canvas down at once → an advisory from the destroy case: reveal() threw", async () => {
     const advice = await expectAdvisoryOnly(
-      { destroyTearsDownInsideReveal: true },
+      harness({ destroyTearsDownInsideReveal: true }),
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
@@ -1170,13 +1158,16 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(found).not.toMatch(/at the start of|at the drop|Escape|came after destroy\(\)/);
   });
   test("a harness without startGesture → the destroy case still runs its leg inside reveal(): it skips only the legs at the user's input, and a teardown at once inside reveal() advises", async () => {
-    const destroyCase = conformanceCases().find((c) => c.name === CASE.destroyFromListener);
     const withoutStartGesture =
       "startGesture is undefined — that a host may destroy the modeler from a listener while the user's input runs or inside an import that ends a held gesture, and that a listener unsubscribed during a delivery is not called (RECOMMENDED since 1.6), was not checked";
-    const conforming = await destroyCase?.run(harness({}, { startGesture: undefined }));
+    const conforming = await runCase(
+      CASE.destroyFromListener,
+      harness({}, { startGesture: undefined }),
+    );
     expect(conforming?.skipped).toBe(withoutStartGesture);
     expect(conforming?.advisories).toBeUndefined();
-    const tearsDownAtOnce = await destroyCase?.run(
+    const tearsDownAtOnce = await runCase(
+      CASE.destroyFromListener,
       harness({ destroyTearsDownInsideReveal: true }, { startGesture: undefined }),
     );
     expect(tearsDownAtOnce?.skipped).toBe(withoutStartGesture);
@@ -1187,7 +1178,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("an import that resolves although a listener it called destroyed the modeler → an advisory from the destroy case: the import resolved", async () => {
     const advice = await expectAdvisoryOnly(
-      { destroyedImportResolves: true },
+      harness({ destroyedImportResolves: true }),
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
@@ -1197,9 +1188,10 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(found).not.toMatch(/at the start of|at the drop|Escape|inside reveal\(\)|came after/);
   });
   test("an onChange delivered over a copy of its listeners → the destroy case advises that a later listener heard the end at the Escape and inside the import", async () => {
-    const destroy = await conformanceCases()
-      .find((c) => c.name === CASE.destroyFromListener)
-      ?.run(harness({ interactionDeliveryIgnoresDestroy: true }));
+    const destroy = await runCase(
+      CASE.destroyFromListener,
+      harness({ interactionDeliveryIgnoresDestroy: true }),
+    );
     expect(destroy?.skipped).toBeUndefined();
     expect(destroy?.advisories).toHaveLength(1);
     for (const where of [
@@ -1214,9 +1206,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     }
   });
   test("an import that leaves a running gesture running → the destroy case reports its leg inside the import as a skip, not a pass", async () => {
-    const destroy = await conformanceCases()
-      .find((c) => c.name === CASE.destroyFromListener)
-      ?.run(harness({ importKeepsGesture: true }));
+    const destroy = await runCase(CASE.destroyFromListener, harness({ importKeepsGesture: true }));
     expect(destroy?.skipped).toBe(
       "interaction.onChange did not report the end of a held move inside importText() — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked",
     );
@@ -1224,22 +1214,21 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("a harness whose startGesture throws in the leg inside an import → its skip names the start of the held move as what threw, not importText()", async () => {
     let starts = 0;
-    const destroy = await conformanceCases()
-      .find((c) => c.name === CASE.destroyFromListener)
-      ?.run(
-        harness(
-          {},
-          {
-            startGesture: (m, kind) => {
-              starts += 1;
-              // the legs at the start of a move and of a create, at the drop and at the Escape
-              // each start one gesture before it
-              if (starts === 5) throw new Error("the harness could not start the move");
-              return (m as ReferenceModeler).holdGesture(kind);
-            },
+    const destroy = await runCase(
+      CASE.destroyFromListener,
+      harness(
+        {},
+        {
+          startGesture: (m, kind) => {
+            starts += 1;
+            // the legs at the start of a move and of a create, at the drop and at the Escape
+            // each start one gesture before it
+            if (starts === 5) throw new Error("the harness could not start the move");
+            return (m as ReferenceModeler).holdGesture(kind);
           },
-        ),
-      );
+        },
+      ),
+    );
     expect(destroy?.skipped).toContain(
       "interaction.onChange did not report the end of a held move inside importText(), and the start of the held move threw Error: the harness could not start the move — a destroy() from interaction.onChange(false) inside an importText() that ends a held move was not checked",
     );
@@ -1247,7 +1236,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
   });
   test("an onChange that still calls a listener an earlier one of the same delivery unsubscribed → an advisory from the destroy case", async () => {
     const advice = await expectAdvisoryOnly(
-      { interactionDeliveryIgnoresUnsubscribe: true },
+      harness({ interactionDeliveryIgnoresUnsubscribe: true }),
       CASE.destroyFromListener,
     );
     expect(advice).toMatch(
@@ -1256,17 +1245,17 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(advice).not.toMatch(/came after destroy\(\)/);
   });
   test("a pan reported as a gesture → an advisory from the pan case", async () => {
-    const advice = await expectAdvisoryOnly({ panIsGesture: true }, CASE.pan);
+    const advice = await expectAdvisoryOnly(harness({ panIsGesture: true }), CASE.pan);
     expect(advice).toMatch(/interaction\.active\(\) was true during a pan/);
   });
   test("an import that ends a running pan → an advisory from the pan case", async () => {
-    const advice = await expectAdvisoryOnly({ importEndsPan: true }, CASE.pan);
+    const advice = await expectAdvisoryOnly(harness({ importEndsPan: true }), CASE.pan);
     expect(advice).toMatch(/a pan stopped when .* was imported during it/);
   });
   test(
     "an import that waits for a running pan to end → an advisory from the pan case, not a hang",
     async () => {
-      const advice = await expectAdvisoryOnly({ importWaitsForPan: true }, CASE.pan);
+      const advice = await expectAdvisoryOnly(harness({ importWaitsForPan: true }), CASE.pan);
       expect(advice).toMatch(
         /importing a different document \(canonicalTexts\[1\]\) during a pan had not settled 2 s later — the import waited for the pan to end instead of leaving it running/,
       );
@@ -1275,13 +1264,13 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     HELD_IMPORT_TIMEOUT_MS,
   );
   test("a pan that puts the view from before an import back → an advisory from the pan case, for the same document", async () => {
-    const advice = await expectAdvisoryOnly({ panJumpsBack: true }, CASE.pan);
+    const advice = await expectAdvisoryOnly(harness({ panJumpsBack: true }), CASE.pan);
     expect(advice).toMatch(
       /after the same document \(canonicalTexts\[0\]\) was imported during it did not go on from the view the import left/,
     );
   });
   test("a pan that puts back the view an import left after the host restored its own → an advisory from the pan case, for both documents", async () => {
-    const advice = await expectAdvisoryOnly({ panIgnoresHostView: true }, CASE.pan);
+    const advice = await expectAdvisoryOnly(harness({ panIgnoresHostView: true }), CASE.pan);
     expect(advice).toMatch(
       /after a different document \(canonicalTexts\[1\]\) was imported during it did not go on from the view the host restored after the import/,
     );
@@ -1291,7 +1280,7 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(advice).not.toMatch(/did not go on from the view the import left/);
   });
   test("a setViewState that does nothing while a pan is held → an advisory from the pan case, for both documents", async () => {
-    const advice = await expectAdvisoryOnly({ viewStateIgnoredDuringPan: true }, CASE.pan);
+    const advice = await expectAdvisoryOnly(harness({ viewStateIgnoredDuringPan: true }), CASE.pan);
     expect(advice).toMatch(
       /setViewState after a different document \(canonicalTexts\[1\]\) was imported during a pan had no effect/,
     );
@@ -1301,16 +1290,16 @@ describe("variants that miss a RECOMMENDATION fail nothing and advise exactly on
     expect(advice).not.toMatch(/did not go on from the view/);
   });
   test("a request that closes the open label editor → an advisory from the appearance case", async () => {
-    const advice = await expectAdvisoryOnly({ appearanceDropsInteraction: true }, CASE.appearance);
+    const advice = await expectAdvisoryOnly(
+      harness({ appearanceDropsInteraction: true }),
+      CASE.appearance,
+    );
     expect(advice).toMatch(/did not survive appearance\.set\(.*\) \(the request closed it\)/);
   });
   test("the dropped label editor, seen through the commit alone (no interactionState) → an advisory naming both documents", async () => {
     const advice = await expectAdvisoryOnly(
-      { dropInteractionOnViewChange: true },
+      harness({ dropInteractionOnViewChange: true }, { interactionState: undefined }),
       CASE.l5Interaction,
-      {
-        interactionState: undefined,
-      },
     );
     expect(advice).toMatch(/wrote another document than committing it without one/);
   });
