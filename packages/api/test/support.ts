@@ -1,8 +1,8 @@
 /**
- * What the kit's two suites share: the reference harness, the case names the saboteur tables pin,
- * and runners that report what every case did. The node suite (conformance.test.ts) runs the cases
- * at once; the jsdom suite (keys.conformance.test.ts) runs them one after the other, because there
- * every modeler listens to the one document the keys case aims its keys at.
+ * What the kit's suites share: the reference harness, the case names the saboteur tables pin, and
+ * runners that report what every case did. The node suites run the cases at once; the jsdom suites
+ * run them one after the other, because there every mounted modeler listens to the one document
+ * the keys case aims its keys at.
  */
 import { expect } from "vitest";
 

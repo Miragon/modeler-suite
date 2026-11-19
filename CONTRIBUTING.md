@@ -277,10 +277,11 @@ makes), the merge kit in `merge-cases.ts`; `conformanceCases()` in
 `packages/api/src/conformance.ts` lists every case in the order a runner shows it.
 
 A new kit case needs a saboteur flaw in `packages/api/test/reference-modeler.ts` and its exact
-failure set in `packages/api/test/conformance.test.ts`, so CI proves the case bites. An accepted
-implementation choice gets a variant that fails nothing; a RECOMMENDATION a variant that advises
-exactly once. Cases that need a DOM get their saboteurs in the jsdom suites
-`packages/api/test/{keys,appearance,user-action}.conformance.test.ts`.
+failure set in `packages/api/test/saboteurs.conformance.test.ts`, so CI proves the case bites. An
+accepted implementation choice gets a variant that fails nothing, in
+`packages/api/test/conformance.test.ts`; a RECOMMENDATION a variant that advises exactly once, in
+`packages/api/test/recommendations.conformance.test.ts`. Cases that need a DOM get their saboteurs
+in the jsdom suites `packages/api/test/{keys,appearance,user-action}.conformance.test.ts`.
 
 ## Claude Code plugins
 

@@ -713,14 +713,18 @@ carry no names is verified for id existence only.
 The kit throws plain `Error`s, with no assertion-library or runner dependency.
 Its own CI proves it bites: a conforming reference modeler
 ([`test/reference-modeler.ts`](test/reference-modeler.ts), also the model
-for a harness) passes every case and advises nothing, one deliberately broken
-variant per historical drift AND per kit case fails exactly the case set that
-encodes the violated law (not every individual assertion has a saboteur;
-every case does), and one variant per recommendation fails nothing and
-advises exactly once. That suite runs without a DOM, which proves the other
-cases need none; the keys case, the colour half of the appearance case and the
-delete of the user-action case need one, so three more suites (jsdom) mount the
-reference into `attachedHost()`:
+for a harness) passes every case and advises nothing
+([`test/conformance.test.ts`](test/conformance.test.ts)), one deliberately
+broken variant per historical drift AND per kit case fails exactly the case
+set that encodes the violated law
+([`test/saboteurs.conformance.test.ts`](test/saboteurs.conformance.test.ts);
+not every individual assertion has a saboteur, every case does), and one
+variant per recommendation fails nothing and advises exactly once
+([`test/recommendations.conformance.test.ts`](test/recommendations.conformance.test.ts)).
+These three suites run without a DOM, which proves the other cases need none;
+the keys case, the colour half of the appearance case and the delete of the
+user-action case need one, so three more suites (jsdom) mount the reference
+into `attachedHost()`:
 [`test/keys.conformance.test.ts`](test/keys.conformance.test.ts) runs every case
 on it and holds the keys saboteurs,
 [`test/appearance.conformance.test.ts`](test/appearance.conformance.test.ts)
@@ -954,7 +958,7 @@ reads it, and one without `createReadonly`, or whose viewer has no
 `appearance`, skips the viewer half of the appearance case. One canonical text skips the legs of another document,
 `invalidTexts` left undefined the rejected leg of the gesture case, and a run
 without a DOM the colour half of the appearance case and the delete and the
-redo of the user-action case (the node suite of the kit's own CI). The
+redo of the user-action case (the node suites of the kit's own CI). The
 user-action case also skips its legs from the selection listener for a modeler
 without `elements` (the call order still runs), its undo and its redo without
 `undo`, and its redo without `redo`; it reports a skip when it cannot find or
