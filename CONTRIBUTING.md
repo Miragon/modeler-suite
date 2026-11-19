@@ -272,7 +272,8 @@ advises, and becomes a law in the next major.
 
 A kit case lives in the module of its law or surface under `packages/api/src/conformance/`
 (`l1-silent-import.ts` to `l7-no-trace.ts`, `elements.ts`, `keys.ts`, `destroy.ts`, …), the helpers
-several modules share in `support.ts` and `user-input.ts`; `conformanceCases()` in
+several modules share in `support.ts`, `user-input.ts` and `hosts.ts` (the hosts `attachedHost()`
+makes), the merge kit in `merge-cases.ts`; `conformanceCases()` in
 `packages/api/src/conformance.ts` lists every case in the order a runner shows it.
 
 A new kit case needs a saboteur flaw in `packages/api/test/reference-modeler.ts` and its exact

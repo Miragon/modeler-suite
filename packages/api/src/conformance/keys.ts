@@ -1,10 +1,6 @@
 import type { CollaborativeModeler } from "../index.js";
-import {
-  type CaseOutcome,
-  type ConformanceCase,
-  type ConformanceHarness,
-  nextHostSerial,
-} from "./harness.js";
+import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
+import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
   defaultSettle,
@@ -337,7 +333,7 @@ async function aimKeysAt(
   const found = (finding: string): void => {
     findings.push(editable ? finding : `the viewer: ${finding}`);
   };
-  const firstSerial = nextHostSerial;
+  const firstSerial = nextHostSerial();
   const m = await create();
   const cleanups: Array<() => void> = [];
   try {

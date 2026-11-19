@@ -1,5 +1,6 @@
 import type { CollaborativeModeler } from "../index.js";
-import { attachedHosts, type CaseOutcome, type ConformanceHarness } from "./harness.js";
+import type { CaseOutcome, ConformanceHarness } from "./harness.js";
+import { hostMadeSince } from "./hosts.js";
 
 export function fail(message: string): never {
   throw new Error(`modeler-api conformance: ${message}`);
@@ -143,27 +144,19 @@ export function mountedCanvas(
   firstSerial: number,
   unverified = "keys were not verified",
 ): MountedCanvas | string {
-  const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
-  if (h.canvasElement) {
-    const named = h.canvasElement(m);
-    if (!named) return `canvasElement() names no canvas for the ${instance}; ${unverified}`;
-    const mount = live.find((entry) => entry.host.contains(named));
-    return mount === undefined
-      ? `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; ${unverified}`
-      : { canvas: named, host: mount.host, wrapper: mount.wrapper };
+  const search = hostMadeSince(h, m, firstSerial, (host) => host.querySelector(CANVAS_SELECTOR));
+  switch (search.kind) {
+    case "found":
+      return { canvas: search.element, host: search.mount.host, wrapper: search.mount.wrapper };
+    case "unnamed":
+      return `canvasElement() names no canvas for the ${instance}; ${unverified}`;
+    case "outside":
+      return `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; ${unverified}`;
   }
   const made = instance === "modeler" ? "create()" : "createReadonly()";
-  const mounts = live.filter(
-    (entry) => entry.serial >= firstSerial && entry.host.querySelector(CANVAS_SELECTOR) !== null,
-  );
-  const [mount] = mounts;
-  const canvas = mount?.host.querySelector(CANVAS_SELECTOR);
-  if (mount && canvas && mounts.length === 1) {
-    return { canvas, host: mount.host, wrapper: mount.wrapper };
-  }
-  return mount === undefined
+  return search.count === 0
     ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; ${unverified}`
-    : `${made} made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
+    : `${made} made ${search.count} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
 }
 
 export function adviseOn(findings: string[], lead: string, recommendation: string): CaseOutcome {

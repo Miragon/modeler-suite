@@ -50,8 +50,8 @@ export {
   type DisjointMergeFixture,
   type MergeConformanceCase,
   type MergeFixtures,
-} from "./merge-conformance.js";
-export { attachedHost } from "./conformance/harness.js";
+} from "./conformance/merge-cases.js";
+export { attachedHost } from "./conformance/hosts.js";
 export type {
   UserMutation,
   ConformanceHarness,

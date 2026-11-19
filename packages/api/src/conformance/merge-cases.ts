@@ -1,4 +1,4 @@
-import { isMergeConflict, type ModelTextMerge } from "./merge.js";
+import { isMergeConflict, type ModelTextMerge } from "../merge.js";
 
 export interface DisjointMergeFixture {
   /** names the fixture in the kit's error messages */

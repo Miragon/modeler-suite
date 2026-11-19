@@ -4,13 +4,8 @@ import type {
   AppearanceTheme,
   CollaborativeModeler,
 } from "../index.js";
-import {
-  attachedHosts,
-  type CaseOutcome,
-  type ConformanceCase,
-  type ConformanceHarness,
-  nextHostSerial,
-} from "./harness.js";
+import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
+import { hostMadeSince, nextHostSerial } from "./hosts.js";
 import {
   changeEvents,
   defaultSettle,
@@ -126,23 +121,17 @@ function hostOfTheModeler(
   m: CollaborativeModeler,
   firstSerial: number,
 ): HTMLElement | string {
-  const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
-  if (h.canvasElement) {
-    const named = h.canvasElement(m);
-    const mount = named ? live.find((entry) => entry.host.contains(named)) : undefined;
-    return (
-      mount?.host ??
-      "the canvas canvasElement() names lies in no attachedHost() — the computed colours were not compared"
-    );
+  const search = hostMadeSince(h, m, firstSerial, (host) => host.firstElementChild);
+  switch (search.kind) {
+    case "found":
+      return search.mount.host;
+    case "unnamed":
+    case "outside":
+      return "the canvas canvasElement() names lies in no attachedHost() — the computed colours were not compared";
   }
-  const made = live.filter(
-    (entry) => entry.serial >= firstSerial && entry.host.childElementCount > 0,
-  );
-  const [mount] = made;
-  if (mount && made.length === 1) return mount.host;
-  return made.length === 0
+  return search.count === 0
     ? "create() mounted the modeler into no attachedHost() — the computed colours were not compared (mount into attachedHost())"
-    : `create() filled ${made.length} attachedHost() elements — the kit cannot tell which one holds the modeler, so the computed colours were not compared`;
+    : `create() filled ${search.count} attachedHost() elements — the kit cannot tell which one holds the modeler, so the computed colours were not compared`;
 }
 
 function pageMode(theme: string | null, contrast: string | null): void {
@@ -175,7 +164,7 @@ async function coloursFollowTheRequest(
     theme: root.getAttribute("data-cd-theme"),
     contrast: root.getAttribute("data-cd-kontrast"),
   };
-  const firstSerial = nextHostSerial;
+  const firstSerial = nextHostSerial();
   const m = await h.create();
   try {
     const appearance = m.appearance;

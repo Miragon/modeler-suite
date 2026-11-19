@@ -1,10 +1,6 @@
 import type { CollaborativeModeler, ElementsSurface } from "../index.js";
-import {
-  type CaseOutcome,
-  type ConformanceCase,
-  type ConformanceHarness,
-  nextHostSerial,
-} from "./harness.js";
+import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
+import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
   defaultSettle,
@@ -448,7 +444,7 @@ async function importWaitsForTheUsersCommand(h: ConformanceHarness): Promise<Cas
     leg: (m: CollaborativeModeler, firstSerial: number) => Promise<ActionLegFindings>,
   ): Promise<void> => {
     if (stopped) return;
-    const firstSerial = nextHostSerial;
+    const firstSerial = nextHostSerial();
     const m = await h.create();
     try {
       const outcome = await leg(m, firstSerial);
