@@ -68,6 +68,9 @@ export function mergeTextLines(
   external: string,
   draft: string,
 ): MergeResult<string> {
+  // M1 holds at any size: these return before the line matching, which gives up past MAX_MATCH_CELLS.
+  if (external === lastSynced || external === draft) return { merged: draft };
+  if (draft === lastSynced) return { merged: external };
   const base = linesOf(lastSynced);
   const outside = linesOf(external);
   const mine = linesOf(draft);

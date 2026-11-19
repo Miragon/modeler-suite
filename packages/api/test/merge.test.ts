@@ -378,4 +378,30 @@ describe("mergeTextLines", () => {
       conflictingIds: ["lines 2-2"],
     });
   });
+
+  describe("a rewrite too large to match line by line", () => {
+    const numberedLines = (prefix: string, count: number): string =>
+      Array.from({ length: count }, (_, index) => `${prefix} ${index}\n`).join("");
+    const largeBase = numberedLines("line", 2100);
+    const largeRewrite = numberedLines("rewritten", 2100);
+
+    test("still keeps the one side that changed, or the change both sides made", () => {
+      expect(mergeTextLines(largeBase, largeBase, largeRewrite)).toEqual({ merged: largeRewrite });
+      expect(mergeTextLines(largeBase, largeRewrite, largeBase)).toEqual({ merged: largeRewrite });
+      expect(mergeTextLines(largeBase, largeRewrite, largeRewrite)).toEqual({
+        merged: largeRewrite,
+      });
+    });
+
+    test("conflicts on the whole text when both sides changed it differently", () => {
+      const withMiddle = (middle: string) => `head\n${middle}tail\n`;
+      expect(
+        mergeTextLines(
+          withMiddle(largeBase),
+          withMiddle(largeRewrite),
+          withMiddle(numberedLines("drafted", 2100)),
+        ),
+      ).toEqual({ conflictingIds: ["the whole text"] });
+    });
+  });
 });
