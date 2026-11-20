@@ -46,6 +46,7 @@ describe("the package root", () => {
       "apiVersionsCompatible",
       "isMergeConflict",
       "mergeItemsById",
+      "mergeItemsByOccurrence",
       "mergeRecord",
       "mergeTextLines",
       "mergeValue",

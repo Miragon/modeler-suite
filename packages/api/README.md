@@ -474,6 +474,13 @@ The helpers are pure and have no dependencies, so a renderer imports them at run
   elements after the element that precedes them there. `idOf` keys an element by something other
   than its `id` (an arrow by its ends), `isSameItem` compares two of them (default:
   `sameJsonValue`, structural equality).
+- `mergeItemsByOccurrence(lastSynced, external, draft, keyOf, options?)` (1.8) merges a list of
+  items without an id that may repeat (arrows known by their ends, lines a parser keeps unread).
+  An item is keyed as `${keyOf(item)}#${occurrence}`, its place among the items of its list with
+  that key, counted from 1, so two equal items stay two; under these keys the list merges as
+  `mergeItemsById` merges it, and a conflict names them (`a->b#2`). Removing the first of two
+  items with one key therefore reads as removing the second (and changing the first, where the
+  two differ). `isSameItem` compares two items as in `mergeItemsById`.
 - `mergeValue(lastSynced, external, draft, isSame?)` is the same rule for one value (a title, a
   config block), `undefined` standing for an absent one. It returns `{ merged }`, with `merged`
   undefined for an absent value, or `{ conflict: true }`: a single value has no id to name.
@@ -1050,6 +1057,9 @@ stays a conforming 1.6 modeler.
 package root, `registerMergeConformance` in the kit. Nothing in the contract of 1.6 changes, and a
 1.6 modeler stays a conforming 1.7 modeler; a host that merges (an IDE host) asks the renderer for
 its merge function.
+
+1.8 adds `mergeItemsByOccurrence` to the merge helpers in the package root. Nothing in the
+contract of 1.7 changes, and a 1.7 modeler stays a conforming 1.8 modeler.
 
 ### Candidates for 2.0
 

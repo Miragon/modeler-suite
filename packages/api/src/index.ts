@@ -629,6 +629,7 @@ export {
   isMergeConflict,
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeRecord,
   mergeValue,
   sameJsonValue,

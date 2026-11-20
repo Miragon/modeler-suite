@@ -9,6 +9,7 @@ import {
   isMergeConflict,
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeRecord,
   mergeTextLines,
   mergeValue,
@@ -260,6 +261,71 @@ describe("mergeItemsById", () => {
       { from: "a", to: "b", style: "dashed" },
       { from: "b", to: "a", style: "solid" },
     ]);
+  });
+});
+
+describe("mergeItemsByOccurrence", () => {
+  interface Arrow {
+    from: string;
+    to: string;
+    label?: string;
+  }
+  const ends = (arrow: Arrow): string => `${arrow.from}->${arrow.to}`;
+  const ab: Arrow = { from: "a", to: "b" };
+  const bc: Arrow = { from: "b", to: "c" };
+  const cd: Arrow = { from: "c", to: "d" };
+
+  test("keeps two equal items two: a second one added outside stays next to the draft's new item", () => {
+    expect(mergeItemsByOccurrence([ab], [ab, ab], [ab, bc], ends).merged).toEqual([ab, bc, ab]);
+  });
+
+  test("numbers the items of one key from 1 in list order and names a conflict by that number", () => {
+    expect(
+      mergeItemsByOccurrence(
+        [ab, bc, ab],
+        [ab, bc, { ...ab, label: "outside" }],
+        [ab, bc, { ...ab, label: "draft" }],
+        ends,
+      ).conflictingIds,
+    ).toEqual(["a->b#2"]);
+    expect(
+      mergeItemsByOccurrence(
+        [ab],
+        [ab, { ...cd, label: "1" }],
+        [ab, { ...cd, label: "2" }, { ...cd, label: "2" }],
+        ends,
+      ).conflictingIds,
+    ).toEqual(["c->d#1"]);
+  });
+
+  test("a duplicate one side removes is gone once, and its twin stays", () => {
+    expect(mergeItemsByOccurrence([ab, bc, ab], [ab, bc], [ab, bc, ab, cd], ends).merged).toEqual([
+      ab,
+      bc,
+      cd,
+    ]);
+  });
+
+  test("keeps an item's key across a reorder, so a change on the other side lands on it", () => {
+    expect(
+      mergeItemsByOccurrence([ab, bc], [ab, { ...bc, label: "outside" }], [bc, ab], ends).merged,
+    ).toEqual([{ ...bc, label: "outside" }, ab]);
+  });
+
+  test("compares two items under one key by isSameItem", () => {
+    const sameLabelIgnoringCase = (arrow: Arrow, other: Arrow): boolean =>
+      arrow.label?.toLowerCase() === other.label?.toLowerCase();
+    const lastSynced = [{ ...ab, label: "Paid" }];
+    const external = [{ ...ab, label: "paid" }];
+    const draft = [{ ...ab, label: "Shipped" }];
+    expect(mergeItemsByOccurrence(lastSynced, external, draft, ends).conflictingIds).toEqual([
+      "a->b#1",
+    ]);
+    expect(
+      mergeItemsByOccurrence(lastSynced, external, draft, ends, {
+        isSameItem: sameLabelIgnoringCase,
+      }).merged,
+    ).toEqual(draft);
   });
 });
 

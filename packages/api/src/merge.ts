@@ -210,6 +210,51 @@ export function mergeItemsById<T>(
   return { merged: order.map((id) => mergedById.get(id) as T) };
 }
 
+interface ItemAtOccurrence<T> {
+  readonly key: string;
+  readonly item: T;
+}
+
+function keyedByOccurrence<T>(
+  items: readonly T[],
+  keyOf: (item: T) => string,
+): ItemAtOccurrence<T>[] {
+  const occurrences = new Map<string, number>();
+  return items.map((item) => {
+    const key = keyOf(item);
+    const occurrence = (occurrences.get(key) ?? 0) + 1;
+    occurrences.set(key, occurrence);
+    return { key: `${key}#${occurrence}`, item };
+  });
+}
+
+/**
+ * The three-way merge of a list of items without an id that may repeat (arrows known by their
+ * ends, lines kept as they are): an item is keyed as `${keyOf(item)}#${occurrence}`, its place
+ * among the items of its list with that key, counted from 1, so two equal items stay two. Under
+ * these keys the list merges as {@link mergeItemsById} merges it, and `conflictingIds` names them.
+ */
+export function mergeItemsByOccurrence<T>(
+  lastSynced: readonly T[],
+  external: readonly T[],
+  draft: readonly T[],
+  keyOf: (item: T) => string,
+  options: Omit<ItemsMergeOptions<T>, "idOf"> = {},
+): MergeResult<T[]> {
+  const isSameItem = options.isSameItem ?? sameJsonValue;
+  const result = mergeItemsById(
+    keyedByOccurrence(lastSynced, keyOf),
+    keyedByOccurrence(external, keyOf),
+    keyedByOccurrence(draft, keyOf),
+    {
+      idOf: (entry) => entry.key,
+      isSameItem: (entry, otherEntry) => isSameItem(entry.item, otherEntry.item),
+    },
+  );
+  if (result.conflictingIds) return { conflictingIds: result.conflictingIds };
+  return { merged: result.merged.map((entry) => entry.item) };
+}
+
 export interface RecordMergeOptions<T> {
   /** Fields that hold lists of elements with an `id`, merged by `mergeItemsById`. */
   keyedLists?: ReadonlyArray<keyof T & string> | undefined;
