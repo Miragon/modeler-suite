@@ -11,8 +11,7 @@ import {
   errorOf,
   exportOrFail,
   fail,
-  firstText,
-  importOrFail,
+  importFirstText,
   interactionKept,
   leftOpen,
   outcomeOf,
@@ -176,9 +175,8 @@ async function coloursFollowTheRequest(
     if (typeof host === "string") return host;
     const [lead = "light"] = themes;
     const other: AppearanceTheme = lead === "light" ? "dark" : "light";
-    const first = firstText(harness);
     pageMode(null, null);
-    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     await settleOf(harness)();
     const paintedFor = (contrast: "normal" | "high"): PaintedElement[] => {
       appearance.set({ theme: lead, contrast });
@@ -209,7 +207,7 @@ async function coloursFollowTheRequest(
       const request = { theme: unlisted[0] ?? UNKNOWN_THEME, contrast };
       pageMode(other, "hoch");
       appearance.set(request);
-      await importOrFail(modeler, first, "re-importing canonicalTexts[0] rejected");
+      await importFirstText(harness, modeler, "re-importing canonicalTexts[0] rejected");
       await settleOf(harness)();
       const reimported = paintedIn(host);
       pageMode(null, null);
@@ -256,9 +254,8 @@ async function appearanceOverAnInteraction(
   const openInteraction = harness.openInteraction;
   if (!openInteraction) return undefined;
   const settle = settleOf(harness);
-  const first = firstText(harness);
   const request: AppearanceRequest = { theme: themes[0] ?? "light", contrast: "high" };
-  await importOrFail(modeler, first, "re-importing canonicalTexts[0] rejected");
+  await importFirstText(harness, modeler, "re-importing canonicalTexts[0] rejected");
   appearance.set({ theme: request.theme, contrast: "normal" });
   const doc = exportOrFail(modeler, "after importing canonicalTexts[0]");
   let committed: string | undefined;
@@ -268,7 +265,11 @@ async function appearanceOverAnInteraction(
     await harness.commitInteraction(modeler);
     await settle();
     committed = exportOrFail(modeler, "after committing the interaction");
-    await importOrFail(modeler, first, "re-importing canonicalTexts[0] after the commit rejected");
+    await importFirstText(
+      harness,
+      modeler,
+      "re-importing canonicalTexts[0] after the commit rejected",
+    );
   }
   await openInteraction(modeler);
   await settle();
@@ -303,7 +304,6 @@ async function appearanceOverAnInteraction(
 /** every rule but the keep-open of an interaction is stated by the contract, so each one fails */
 async function appearanceIsViewState(harness: ConformanceHarness): Promise<CaseOutcome> {
   const settle = settleOf(harness);
-  const first = firstText(harness);
   const others: CollaborativeModeler[] = [];
   const modeler = await harness.create();
   try {
@@ -343,7 +343,7 @@ async function appearanceIsViewState(harness: ConformanceHarness): Promise<CaseO
     if (beforeImport !== undefined) {
       fail(`${describeRequest({ theme: lead })} threw before the first import: ${beforeImport}`);
     }
-    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     const imported = exportOrFail(modeler, "after importing canonicalTexts[0]");
     await harness.mutate(modeler);
     await settle();

@@ -10,7 +10,7 @@ import {
   adviseOn,
   errorOf,
   exportOrFail,
-  firstText,
+  importFirstText,
   importOrFail,
   outcomeOf,
   settleOf,
@@ -42,12 +42,11 @@ async function importAtTheStart(
   kind: GestureKind,
 ): Promise<ActionLegFindings> {
   const settle = settleOf(harness);
-  const first = firstText(harness);
   const [leg] = importedLegs(harness);
   if (leg === undefined) return { findings: [] };
   await importOrFail(modeler, leg.text, `importText(${leg.what}) rejected`);
   const expected = exportOrFail(modeler, `after importing ${leg.what}`);
-  await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+  await importFirstText(harness, modeler);
   await settle();
   // a selection the drag's start clears: diagram-js's Dragging.move empties it while it activates
   // the drag, and reads the drag again once the selection listeners have run (#336)

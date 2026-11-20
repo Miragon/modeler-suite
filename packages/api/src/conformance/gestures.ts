@@ -6,7 +6,6 @@ import {
   errorOf,
   exportOrFail,
   fail,
-  firstText,
   importFirstText,
   importOrFail,
   outcomeOf,
@@ -212,7 +211,6 @@ async function importCancelsGestures(harness: ConformanceHarness): Promise<CaseO
     );
   }
   const startGesture = harness.startGesture;
-  const first = firstText(harness);
   const invalid = harness.invalidTexts?.[0];
   const findings: string[] = [];
   let stopped = false;
@@ -224,7 +222,7 @@ async function importCancelsGestures(harness: ConformanceHarness): Promise<CaseO
       for (const leg of importedLegs(harness)) {
         await importOrFail(modeler, leg.text, `importText(${leg.what}) rejected`);
         const expected = exportOrFail(modeler, `after importing ${leg.what}`);
-        await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+        await importFirstText(harness, modeler);
         await settleOf(harness)();
         const outcome = await importDuringGesture(
           harness,

@@ -85,6 +85,33 @@ describe("broken variants fail exactly their law's case set", () => {
     expectFailures({ readbackNotSettable: true }, [CASE.l5RoundTrip, CASE.viewer]));
   test("getViewState that throws before the first import → the L5 fresh case and the viewer", () =>
     expectFailures({ viewStateThrowsBeforeImport: true }, [CASE.l5Fresh, CASE.viewer]));
+  test("a getViewState with a non-finite number before the first import → the L5 fresh case and the viewer, neither of which calls it a throw", async () => {
+    const unmeasuredBeforeImport =
+      (editable: boolean) => async (): Promise<CollaborativeModeler> => {
+        const modeler = createReferenceModeler({}, editable);
+        let imported = false;
+        return {
+          ...modeler,
+          importText: async (text) => {
+            const result = await modeler.importText(text);
+            imported = true;
+            return result;
+          },
+          getViewState: () => (imported ? modeler.getViewState() : { zoom: Number.NaN }),
+        };
+      };
+    const unmeasured = {
+      create: unmeasuredBeforeImport(true),
+      createReadonly: unmeasuredBeforeImport(false),
+    };
+    await expectFailures({}, [CASE.l5Fresh, CASE.viewer], unmeasured);
+    await expect(runCase(CASE.l5Fresh, harness({}, unmeasured))).rejects.toThrow(
+      /^modeler-api conformance: getViewState\(\) before the first import contains a non-finite number/,
+    );
+    await expect(runCase(CASE.viewer, harness({}, unmeasured))).rejects.toThrow(
+      /^modeler-api conformance: getViewState\(\) on the viewer before the first import contains a non-finite number/,
+    );
+  });
   test("dead selection surface → the elements case and the viewer", () =>
     expectFailures({ deadSelection: true }, [CASE.elements, CASE.viewer]));
   test("leaky selection unsubscribe → exactly the elements case", () =>

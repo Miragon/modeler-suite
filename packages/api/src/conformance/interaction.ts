@@ -1,14 +1,6 @@
 import type { CollaborativeModeler, InteractionSurface } from "../index.js";
 import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
-import {
-  errorOf,
-  fail,
-  firstText,
-  importFirstText,
-  importOrFail,
-  settleOf,
-  skip,
-} from "./support.js";
+import { errorOf, fail, importFirstText, settleOf, skip } from "./support.js";
 import {
   GESTURE_KINDS,
   type GestureStarter,
@@ -22,7 +14,6 @@ async function interactionFollowsGestures(
   harness: ConformanceHarness,
 ): Promise<CaseOutcome | void> {
   const settle = settleOf(harness);
-  const first = firstText(harness);
   const others: CollaborativeModeler[] = [];
   const modeler = await harness.create();
   try {
@@ -37,14 +28,14 @@ async function interactionFollowsGestures(
     }
     const startGesture = harness.startGesture;
     if (interaction.active()) fail("interaction.active() is true before the first import");
-    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     await settle();
     if (interaction.active()) fail("interaction.active() is true at rest after an import");
     const watch = watchInteraction(modeler);
     if (!watch) fail("the interaction surface went away");
     for (const kind of GESTURE_KINDS) {
       for (const end of ["drop", "cancel"] as const) {
-        await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+        await importFirstText(harness, modeler);
         await settle();
         const mark = watch.delivered.length;
         const since = (): string => JSON.stringify(watch.delivered.slice(mark));
@@ -77,7 +68,7 @@ async function interactionFollowsGestures(
     const late: boolean[] = [];
     const unsubscribe = interaction.onChange((active) => late.push(active));
     unsubscribe();
-    await importOrFail(modeler, first, "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     const held = await startGesture(modeler, "move");
     await held.cancel();
     await settle();

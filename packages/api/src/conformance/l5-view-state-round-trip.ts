@@ -14,6 +14,7 @@ import {
   same,
   settleOf,
   skip,
+  viewStateBeforeImport,
 } from "./support.js";
 
 export const viewStateCases: ConformanceCase[] = [
@@ -22,13 +23,7 @@ export const viewStateCases: ConformanceCase[] = [
     async run(harness) {
       const modeler = await harness.create();
       try {
-        let state: unknown;
-        try {
-          state = modeler.getViewState();
-        } catch (error) {
-          fail(`getViewState threw before the first import: ${String(error)}`);
-        }
-        if (state !== undefined) assertFinite(state, "before the first import");
+        viewStateBeforeImport(modeler, "modeler");
       } finally {
         modeler.destroy();
       }

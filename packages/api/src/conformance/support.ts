@@ -31,6 +31,22 @@ export function assertFinite(state: unknown, when: string): void {
   }
 }
 
+/** L5 on a fresh instance: getViewState neither throws nor reports a non-finite number */
+export function viewStateBeforeImport(instance: CollaborativeModeler, kind: KeyedInstance): void {
+  const onTheViewer = kind === "viewer";
+  let state: unknown;
+  try {
+    state = instance.getViewState();
+  } catch (error) {
+    fail(
+      `${onTheViewer ? "the viewer's " : ""}getViewState threw before the first import: ${String(error)}`,
+    );
+  }
+  if (state !== undefined) {
+    assertFinite(state, `${onTheViewer ? "on the viewer " : ""}before the first import`);
+  }
+}
+
 const defaultSettle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 export const settleOf = (harness: ConformanceHarness): (() => Promise<void>) =>

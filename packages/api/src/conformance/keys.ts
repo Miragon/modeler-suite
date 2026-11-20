@@ -5,10 +5,9 @@ import {
   adviseOn,
   exportOrFail,
   fail,
-  firstText,
   type Focusable,
   focusOn,
-  importOrFail,
+  importFirstText,
   type KeyedInstance,
   mountedCanvas,
   outcomeOf,
@@ -325,7 +324,6 @@ async function aimKeysAt(
   findings: string[],
 ): Promise<string | undefined> {
   const settle = settleOf(harness);
-  const text = firstText(harness);
   const editable = instance === "modeler";
   const found = (finding: string): void => {
     findings.push(editable ? finding : `the viewer: ${finding}`);
@@ -334,9 +332,9 @@ async function aimKeysAt(
   const modeler = await create();
   const cleanups: Array<() => void> = [];
   try {
-    await importOrFail(
+    await importFirstText(
+      harness,
       modeler,
-      text,
       editable ? "importText(canonicalTexts[0]) rejected" : "the viewer rejected canonicalTexts[0]",
     );
     const mount = mountedCanvas(harness, modeler, instance, firstSerial);
@@ -356,7 +354,7 @@ async function aimKeysAt(
 
     let revealed: string | undefined;
     const setUp = async (): Promise<void> => {
-      await importOrFail(modeler, text, "re-importing canonicalTexts[0] rejected");
+      await importFirstText(harness, modeler, "re-importing canonicalTexts[0] rejected");
       // undo history and a selection: what Cmd/Ctrl+Z, Delete and the arrows act on
       if (editable) await harness.mutate(modeler);
       await settle();

@@ -11,6 +11,7 @@ import {
   skip,
   sortedIds,
   UNKNOWN_ELEMENT_ID,
+  viewStateBeforeImport,
 } from "./support.js";
 
 export const viewerCase: ConformanceCase = {
@@ -22,12 +23,7 @@ export const viewerCase: ConformanceCase = {
     try {
       if (viewer.meta.editable !== false)
         fail("createReadonly() must return a viewer (meta.editable === false)");
-      try {
-        const fresh = viewer.getViewState();
-        if (fresh !== undefined) assertFinite(fresh, "on the viewer before the first import");
-      } catch (error) {
-        fail(`the viewer's getViewState threw before the first import: ${String(error)}`);
-      }
+      viewStateBeforeImport(viewer, "viewer");
       let calls = 0;
       const off = viewer.onContentChanged(() => {
         calls += 1;
