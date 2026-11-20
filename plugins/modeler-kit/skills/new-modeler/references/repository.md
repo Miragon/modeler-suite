@@ -16,10 +16,11 @@ An npm workspace, the `workspaces` array in build order. Every package owns `src
 | `apps/orca`             | private, the Orca plugin           | Orca's isolated editor frame  | esbuild, into `plugin/`       |
 | `e2e`                   | private                            | Playwright                    | -                             |
 
-Optional packages the five added where their notation needed them: `transforms` (pure
-`Document → Document` functions, DOM-free: Wardley, Event Storming), a converter for a foreign
+Optional packages the suite's diagram-js modelers added where their notation needed them:
+`transforms` (pure `Document → Document` functions, DOM-free: Wardley, Event Storming), `layout`
+(automatic layout of a view and placement of new elements, DOM-free: C4), a converter for a foreign
 format (`cml` in Context Maps), shared app UI (`ui` in Team Topologies). A JSON notation may skip
-`dsl` and keep parse and serialize in `schema-model` (Value Chain, Team Topologies).
+`dsl` and keep parse and serialize in `schema-model` (Value Chain, Team Topologies, Context Maps).
 
 The apps and `e2e` resolve the workspace packages **from source** (Vite and esbuild aliases, `paths`
 in their tsconfigs), so the dev servers and e2e need no build; unit tests and `test:browser`
@@ -132,7 +133,8 @@ ask for more permissions than the caller grants, even a job that would be skippe
 
 [`codeql.yml`](../assets/template/.github/workflows/codeql.yml) runs CodeQL's
 `javascript-typescript` analysis from source (`build-mode: none`) on pull requests, on pushes to
-`main` and weekly, so an advisory published after a merge still surfaces, as in the five modelers.
+`main` and weekly, so an advisory published after a merge still surfaces, as the suite's own
+CodeQL workflow does for all of its modelers.
 
 `pr-title.yml` validates the PR title as a Conventional Commit (`feat`, `fix`, `chore`, `docs`,
 `refactor`, `ci`, `build`, `test`, `revert`); PRs are squash-merged with the title as the commit.

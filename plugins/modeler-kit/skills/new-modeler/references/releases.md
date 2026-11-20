@@ -102,4 +102,5 @@ through `node-workspace`. The template's release does not publish the plugin yet
 (`npm run build:orca`) and load `apps/orca/plugin/` into Orca with `orca plugin dev load .`.
 
 The web app is no npm package and is not published by release-please; deploy `main` with the
-hosting of your choice (the five use Netlify with a `netlify.toml`).
+hosting of your choice (in the suite, every modeler but the board, which is not deployed yet,
+deploys its web app to Netlify with a `netlify.toml`).
