@@ -379,13 +379,18 @@ describe("mergeTextLines", () => {
     });
   });
 
-  describe("a rewrite too large to match line by line", () => {
+  describe("a large text", () => {
     const numberedLines = (prefix: string, count: number): string =>
       Array.from({ length: count }, (_, index) => `${prefix} ${index}\n`).join("");
     const largeBase = numberedLines("line", 2100);
     const largeRewrite = numberedLines("rewritten", 2100);
+    const withLines = (text: string, replacementsByLineNumber: Record<number, string>): string =>
+      text
+        .split(/(?<=\n)/)
+        .map((line, index) => replacementsByLineNumber[index + 1] ?? line)
+        .join("");
 
-    test("still keeps the one side that changed, or the change both sides made", () => {
+    test("keeps the one side that rewrote it, or the rewrite both sides made", () => {
       expect(mergeTextLines(largeBase, largeBase, largeRewrite)).toEqual({ merged: largeRewrite });
       expect(mergeTextLines(largeBase, largeRewrite, largeBase)).toEqual({ merged: largeRewrite });
       expect(mergeTextLines(largeBase, largeRewrite, largeRewrite)).toEqual({
@@ -393,7 +398,50 @@ describe("mergeTextLines", () => {
       });
     });
 
-    test("conflicts on the whole text when both sides changed it differently", () => {
+    describe.each([2100, 20_000])("of %i lines, changed near both ends outside", (count) => {
+      const base = numberedLines("line", count);
+      const nearBothEnds = { 6: "outside 6\n", [count - 4]: `outside ${count - 4}\n` };
+
+      test("keeps the draft's change in the middle too (M2)", () => {
+        expect(
+          mergeTextLines(base, withLines(base, nearBothEnds), withLines(base, { 1001: "draft\n" })),
+        ).toEqual({ merged: withLines(base, { ...nearBothEnds, 1001: "draft\n" }) });
+      });
+
+      test("conflicts on the one line both sides changed differently (M3)", () => {
+        expect(
+          mergeTextLines(
+            base,
+            withLines(base, { ...nearBothEnds, 1001: "outside 1001\n" }),
+            withLines(base, { 1001: "draft\n" }),
+          ),
+        ).toEqual({ conflictingIds: ["lines 1001-1001"] });
+      });
+    });
+
+    test("keeps the changes of both sides spread over the whole text", () => {
+      const outside: Record<number, string> = {};
+      const draft: Record<number, string> = {};
+      for (let line = 5; line <= 2100; line += 10) {
+        draft[line] = `draft ${line}\n`;
+        outside[line + 5] = `outside ${line + 5}\n${line % 100 === 95 ? "inserted\n" : ""}`;
+      }
+      expect(
+        mergeTextLines(largeBase, withLines(largeBase, outside), withLines(largeBase, draft)),
+      ).toEqual({ merged: withLines(largeBase, { ...outside, ...draft }) });
+    });
+
+    test("merges 20,000 lines with a few changes on both sides in well under a second", () => {
+      const base = numberedLines("line", 20_000);
+      const external = withLines(base, { 6: "outside\n", 19_996: "outside\n" });
+      const draft = withLines(base, { 10_001: "draft\n" });
+      const started = performance.now();
+      const result = mergeTextLines(base, external, draft);
+      expect(performance.now() - started).toBeLessThan(1000);
+      expect(result.merged).toBeDefined();
+    });
+
+    test("conflicts on the whole text when both sides rewrote it, too far apart to match", () => {
       const withMiddle = (middle: string) => `head\n${middle}tail\n`;
       expect(
         mergeTextLines(
