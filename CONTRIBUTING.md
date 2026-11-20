@@ -283,7 +283,9 @@ failure set in `packages/api/test/saboteurs.conformance.test.ts`, so CI proves t
 accepted implementation choice gets a variant that fails nothing, in
 `packages/api/test/conformance.test.ts`; a RECOMMENDATION a variant that advises exactly once, in
 `packages/api/test/recommendations.conformance.test.ts`. Cases that need a DOM get their saboteurs
-in the jsdom suites `packages/api/test/{keys,appearance,user-action}.conformance.test.ts`.
+in the jsdom suites `packages/api/test/{keys,appearance,user-action}.conformance.test.ts`. A new
+merge case needs a broken merge that fails it in `packages/api/test/merge-cases.test.ts`; the merge
+helpers' tests are in `packages/api/test/merge.test.ts`.
 
 ## Claude Code plugins
 

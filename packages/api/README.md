@@ -514,7 +514,9 @@ registerMergeConformance(
 Each disjoint fixture names the exact merged text, so a reviewer sees where both sides end up.
 `mergeConformanceCases()` lists the merge cases for a runner that binds them itself: each is
 `{ name, run(merge, fixtures) }`, synchronous, and throws on a violation, with no skips or
-advisories.
+advisories. The merge kit's own CI runs the cases on a reference merge and checks that each broken
+merge fails the cases of the laws it breaks
+([`test/merge-cases.test.ts`](test/merge-cases.test.ts)).
 
 ## The conformance kit
 
