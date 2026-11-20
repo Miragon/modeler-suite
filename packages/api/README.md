@@ -25,7 +25,7 @@ This package turns those lessons into **laws** (see the JSDoc on
 an executable test the modeler repo runs in its own CI. Drift fails the
 modeler's build, not a downstream integration review.
 
-## The contract (1.x)
+## The contract (2.x)
 
 ```ts
 import type { CollaborativeModeler } from "@miragon/modeler-api";
@@ -474,7 +474,7 @@ The helpers are pure and have no dependencies, so a renderer imports them at run
   elements after the element that precedes them there. `idOf` keys an element by something other
   than its `id` (an arrow by its ends), `isSameItem` compares two of them (default:
   `sameJsonValue`, structural equality).
-- `mergeItemsByOccurrence(lastSynced, external, draft, keyOf, options?)` (1.8) merges a list of
+- `mergeItemsByOccurrence(lastSynced, external, draft, keyOf, options?)` (2.0) merges a list of
   items without an id that may repeat (arrows known by their ends, lines a parser keeps unread).
   An item is keyed as `${keyOf(item)}#${occurrence}`, its place among the items of its list with
   that key, counted from 1, so two equal items stay two; under these keys the list merges as
@@ -1010,9 +1010,8 @@ rewrites the constant on every release (`extra-files`) and a test pins it to
 `meta.apiVersion`; hosts match on the major (`apiVersionsCompatible`).
 Releases are tagged `modeler-api-vX.Y.Z`.
 
-Hosts bind from the package root, which carries no kit code (since 1.2;
-`@miragon/modeler-api/conformance` re-exports `apiVersionsCompatible`, so 1.1
-imports keep working):
+Hosts bind from the package root, which carries no kit code (since 1.2) and,
+since 2.0, is the only entry that exports `apiVersionsCompatible`:
 
 ```ts
 import { apiVersionsCompatible, MODELER_API_VERSION } from "@miragon/modeler-api";
@@ -1061,10 +1060,14 @@ package root, `registerMergeConformance` in the kit. Nothing in the contract of 
 1.6 modeler stays a conforming 1.7 modeler; a host that merges (an IDE host) asks the renderer for
 its merge function.
 
-1.8 adds `mergeItemsByOccurrence` to the merge helpers in the package root. Nothing in the
-contract of 1.7 changes, and a 1.7 modeler stays a conforming 1.8 modeler.
+2.0 drops the re-export of `apiVersionsCompatible` from `@miragon/modeler-api/conformance`, which
+kept the imports of 1.1 working: import it from the package root. The laws, the surfaces and the
+kit's cases stay those of 1.7; the kit names its merge cases after their laws (`M1: …` to
+`M5: …`), and the package root gains `mergeItemsByOccurrence`. Since hosts match on the major, a
+host on 1.x refuses a 2.x modeler and a 2.x host a 1.x modeler, so a host moves its pin to 2.x
+together with the renderers it binds.
 
-### Candidates for 2.0
+### Candidates for the next major
 
 Recommendations today, proposed as hard laws for the next major:
 

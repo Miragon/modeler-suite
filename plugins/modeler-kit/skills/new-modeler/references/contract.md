@@ -312,7 +312,7 @@ fills it; the user-action case and the destroy case's leg inside `reveal()` read
 
 The renderer pins `@miragon/modeler-api` exactly. Hosts check `apiVersionsCompatible` (same major)
 at bind time and feature-detect optional surfaces (`typeof modeler.elements?.bounds === "function"`),
-so a 1.x minor never breaks a host. Adopting a new minor: bump the pin, implement the new optional
+so a minor never breaks a host. Adopting a new minor: bump the pin, implement the new optional
 surface or option, fill the kit's new hooks (its new cases report skips until then), and release it
-as `feat` (or `fix(deps)` for a pin bump alone). A major changes a law; the README's "Candidates for
-2.0" lists what is coming.
+as `feat` (or `fix(deps)` for a pin bump alone). A major changes a law or drops an export; the README's
+"Candidates for the next major" lists what is coming.

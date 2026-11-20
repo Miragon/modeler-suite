@@ -6,7 +6,7 @@
 import { describe, expect, expectTypeOf, test } from "vitest";
 
 import pkg from "../package.json" with { type: "json" };
-import { apiVersionsCompatible } from "../src/conformance.js";
+import * as kit from "../src/conformance.js";
 import * as root from "../src/index.js";
 import {
   type AppearanceRequest,
@@ -35,8 +35,14 @@ describe("the package root", () => {
     expect(root.apiVersionsCompatible("1.3.0", "1.2.0")).toBe(true);
   });
 
-  test("hosts bind from the package root: apiVersionsCompatible is there, and /conformance re-exports the same function", () => {
-    expect(apiVersionsCompatible).toBe(root.apiVersionsCompatible);
+  test("hosts bind from the package root: /conformance exports the kit alone, without apiVersionsCompatible (since 2.0)", () => {
+    expect(Object.keys(kit).sort()).toEqual([
+      "attachedHost",
+      "conformanceCases",
+      "mergeConformanceCases",
+      "registerConformance",
+      "registerMergeConformance",
+    ]);
   });
 
   test("the package root carries no kit code — a host bundle that binds from it stays free of the kit", () => {

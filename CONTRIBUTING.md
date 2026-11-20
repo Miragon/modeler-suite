@@ -265,7 +265,7 @@ A modeler can be on `main` before it is public: while `HELD_BACK` in
 of it ([a modeler that is held back](docs/ci-and-releases.md#a-modeler-that-is-held-back)). None
 is held today; the board was, until the pull request that made it public.
 
-`@miragon/modeler-api` is on 1.x: a new optional surface of the contract or kit is a `feat`; a new
+`@miragon/modeler-api` is on 2.x: a new optional surface of the contract or kit is a `feat`; a new
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).
 A requirement the contract text does not state yet ships as a RECOMMENDATION whose kit case only
 advises, and becomes a law in the next major. A change to the contract text edits its JSDoc in

@@ -28,7 +28,7 @@ export const MODELER_API_VERSION = "1.7.0"; // x-release-please-version
  * the same minor too, since a minor before 1.0 may break.
  * Hosts call it at bind time with `meta.apiVersion` and their own
  * MODELER_API_VERSION; it lives in the package root so that check never
- * pulls the conformance kit into a host bundle (`/conformance` re-exports it)
+ * pulls the conformance kit into a host bundle
  */
 export function apiVersionsCompatible(a: string, b: string): boolean {
   const [aMajor = "", aMinor = ""] = a.split(".");

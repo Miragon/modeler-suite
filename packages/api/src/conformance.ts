@@ -20,7 +20,6 @@
  * not follow resolves with `{ advisories }`, reported the same way and never
  * a failure: a recommendation becomes a law only in a major release.
  */
-import { apiVersionsCompatible } from "./index.js";
 import { type ConformanceCase, type ConformanceHarness } from "./conformance/harness.js";
 import { appearanceCase } from "./conformance/appearance.js";
 import { destroyFromAListenerCase, destroyTwiceCase } from "./conformance/destroy.js";
@@ -42,7 +41,6 @@ import { panCase } from "./conformance/pan.js";
 import { userActionCase } from "./conformance/user-action.js";
 import { viewerCase } from "./conformance/viewer.js";
 
-export { apiVersionsCompatible };
 export {
   mergeConformanceCases,
   registerMergeConformance,
