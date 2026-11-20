@@ -917,7 +917,8 @@ interface ShellDialog {
   focus. A dialog of `openShellDialog` and of the standalone `showShortcutsDialog` is the host's:
   `close()` it in the host's teardown.
 
-The kit's `shortcutsDialog` case checks all of this in every modeler (see `./testing`).
+The kit's `shortcutsDialog` case checks all of this in every modeler but the board, whose e2e
+projects run specs of its own instead of the kit (see `./testing`).
 
 #### Modeler dialogs
 
@@ -2594,18 +2595,22 @@ function isTypedMessage(value: unknown): value is TypedMessage;
 `registerModelerEditor` is the extension host's half of a custom text editor whose document stays
 the source of truth (guide §13.5): VS Code keeps dirty state, saving, Git, diff and the undo
 history, and the webview shows the canvas in the shell. The webview's half is
-[`connectDocumentSync`](#the-document-sync-08). The extensions of all five modelers sync their
-text editors through both since 0.8 ([#46](https://github.com/Miragon/modeler-suite/issues/46)),
-each registering it in `apps/vscode/src/` and connecting the sync in
-`apps/vscode/src/webview/main.ts`:
+[`connectDocumentSync`](#the-document-sync-08). The extensions of all eight modelers sync their
+text editors through both, the five of that time since 0.8
+([#46](https://github.com/Miragon/modeler-suite/issues/46)), each registering it in
+`apps/vscode/src/` and connecting the sync in `apps/vscode/src/webview/main.ts` (C4 with
+`connectDocumentSync` itself, the others through `vsCodeEditorHost`):
 
-| Modeler         | `viewType`                  | Files              | Registered in      |
-| --------------- | --------------------------- | ------------------ | ------------------ |
-| Wardley Maps    | `wardley.mapEditor`         | `.wmap`, `.owm`    | `mapEditor.ts`     |
-| Event Storming  | `eventStorming.boardEditor` | `.storm`           | `boardEditor.ts`   |
-| Team Topologies | `teamTopologies.editor`     | `.tt`, `.ttm.json` | `diagramEditor.ts` |
-| Context Maps    | `contextMaps.editor`        | `.cm`, `.cm.json`  | `mapEditor.ts`     |
-| Value Chain     | `valueChain.diagramEditor`  | `.vc`, `.vc.json`  | `diagramEditor.ts` |
+| Modeler               | `viewType`                         | Files              | Registered in      |
+| --------------------- | ---------------------------------- | ------------------ | ------------------ |
+| Wardley Maps          | `wardley.mapEditor`                | `.wmap`, `.owm`    | `mapEditor.ts`     |
+| Event Storming        | `eventStorming.boardEditor`        | `.storm`           | `boardEditor.ts`   |
+| Team Topologies       | `teamTopologies.editor`            | `.tt`, `.ttm.json` | `diagramEditor.ts` |
+| Context Maps          | `contextMaps.editor`               | `.cm`, `.cm.json`  | `mapEditor.ts`     |
+| Value Chain           | `valueChain.diagramEditor`         | `.vc`, `.vc.json`  | `diagramEditor.ts` |
+| C4                    | `c4.editor`, `c4.dslEditor`        | `.c4`, `.dsl`      | `diagramEditor.ts` |
+| Business Model Canvas | `businessModelCanvas.canvasEditor` | `.bmc`             | `diagramEditor.ts` |
+| Board                 | `board.boardEditor`                | `.board`           | `boardEditor.ts`   |
 
 Only the PNG editors stay outside the plumbing, as decided in
 [#170](https://github.com/Miragon/modeler-suite/issues/170): Context Maps' `.cm.png`
@@ -2671,14 +2676,15 @@ Palette commands to the focused diagram of either editor itself.
   example": `write` resolves to `false` when VS Code refused the edit and to `true` otherwise, also
   for nothing to write (`undefined`, the same text, line breaks only); `consumeEcho()` is true once
   per own write whose text the document now holds; `pending` counts the queued writes. The message
-  types are the ones the five modelers used before 0.8, so their test pages and protocols keep
-  working; a modeler's protocol extends `DocumentHostMessage` and `DocumentWebviewMessage` with its
-  own messages.
+  types are the ones the five modelers of that time used before 0.8, so their test pages and
+  protocols keep working; a modeler's protocol extends `DocumentHostMessage` and
+  `DocumentWebviewMessage` with its own messages.
 - **The modeler keeps** its diagnostics, its exports, commands and walkthrough, and any binary
   custom editor (Team Topologies' and Context Maps' PNG editors). The save dialogs of an export and
-  of "New …" are the shell's since 0.9, in all five extensions since
-  [#503](https://github.com/Miragon/modeler-suite/pull/503), see
-  [The file commands](#the-file-commands-09).
+  of "New …" are the shell's since 0.9: the five extensions of that time moved to them in
+  [#503](https://github.com/Miragon/modeler-suite/pull/503), and all eight use them today, the
+  board, which exports nothing, for "New …" alone (see
+  [The file commands](#the-file-commands-09)).
 
 ```ts
 // apps/vscode/src/mapEditor.ts (Wardley Maps, its options spelled out)
@@ -2812,10 +2818,12 @@ const defaultFileCommandMessages: FileCommandMessages;
 
 The extension host's half of an export and of the commands "New …" and "New … from Example"
 (guide §13.5): the native save dialog, the write and the notification. Up to 0.8 each of the five
-extensions built them alike in its own `exportImage.ts` and `extension.ts`
+extensions of that time built them alike in its own `exportImage.ts` and `extension.ts`
 ([#345](https://github.com/Miragon/modeler-suite/issues/345)); since
-[#503](https://github.com/Miragon/modeler-suite/pull/503) all five call these helpers. The webview
-still renders the export, and the modeler still names its kinds, its commands and its example.
+[#503](https://github.com/Miragon/modeler-suite/pull/503) they call these helpers, and so do the
+three that came after them: C4 and Business Model Canvas for their exports and "New …" commands,
+the board, which exports nothing, for "New …" alone. The webview still renders the export, and
+the modeler still names its kinds, its commands and its example.
 
 - **`exportToFile`** opens the save dialog with the kind's `title` and `filters` and the button
   "Export". It suggests the document's name with the kind's `suffix` beside the document when that
@@ -3062,20 +3070,22 @@ const GEIST_UNICODE_RANGES: Record<
 >; // of @fontsource-variable/geist 5.3.0, in its order
 ```
 
-"Export as PNG" and "Export as PNG (4×, transparent)" (§10.7) for every modeler and every host: a
-renderer's standalone SVG (`saveSVG()`) becomes a PNG `Blob`, its labels in Geist. DOM at call time
-(`Image`, `<canvas>`, `DOMParser`, `CSS.supports`, `fetch` for faces given by URL); importing the
-entry has no side effects. The SVG download stays as it is, without fonts: it shows Geist where the
-font is installed and the system sans elsewhere, which §4 accepts.
+"Export as PNG" and "Export as PNG (4×, transparent)" (§10.7) on every host: a renderer's
+standalone SVG (`saveSVG()`) becomes a PNG `Blob`, its labels in Geist. Every modeler but the
+board, which exports no picture, makes its PNG with it, and Wardley Maps and Event Storming also
+offer the transparent variant. DOM at call time (`Image`, `<canvas>`, `DOMParser`, `CSS.supports`,
+`fetch` for faces given by URL); importing the entry has no side effects. The SVG download stays as
+it is, without fonts: it shows Geist where the font is installed and the system sans elsewhere,
+which §4 accepts.
 
 **Background.** The caller names it, from its vendored `cd-tokens.generated.json` (`hell`); the shell
 names no colour of its own:
 
-| Export                                                                    | `background`                | Light value |
-| ------------------------------------------------------------------------- | --------------------------- | ----------- |
-| Export as PNG, Wardley Maps (a notation with a plot)                      | `hell['--cd-ui-plot']`      | `#FFFFFF`   |
-| Export as PNG, Event Storming, Team Topologies, Context Maps, Value Chain | `hell['--cd-ui-grund']`     | `#F9F7F7`   |
-| Export as PNG (4×, transparent), every modeler                            | `"transparent"`, `scale: 4` | none        |
+| Export                                                                                               | `background`                | Light value |
+| ---------------------------------------------------------------------------------------------------- | --------------------------- | ----------- |
+| Export as PNG, Wardley Maps (a notation with a plot)                                                 | `hell['--cd-ui-plot']`      | `#FFFFFF`   |
+| Export as PNG, Event Storming, Team Topologies, Context Maps, Value Chain, C4, Business Model Canvas | `hell['--cd-ui-grund']`     | `#F9F7F7`   |
+| Export as PNG (4×, transparent), Wardley Maps and Event Storming                                     | `"transparent"`, `scale: 4` | none        |
 
 Pass the value itself, never `var(--cd-ui-grund)`: a canvas resolves no custom property. A
 `background` a canvas cannot fill is a `RangeError`, since the canvas would keep its black fill
@@ -4496,7 +4506,7 @@ The shell bundles no font: the modeler loads Geist and Geist Mono (`@fontsource-
 ## Usage: Event Storming in VS Code
 
 The Event Storming extension, the pilot of 0.1, on the [document plumbing](#the-document-plumbing-08)
-of 0.8 like the extensions of the other four modelers. The extension hands `registerModelerEditor`
+of 0.8 like the extensions of the other seven modelers. The extension hands `registerModelerEditor`
 what belongs to the notation: its options, its diagnostics and the export with its kinds. The
 webview HTML with its CSP, the theme bridge, the sync with its echo suppression and minimal line
 edits, the undo through the document, "Insert example" and the problems pill are the shell's, and
@@ -5081,15 +5091,15 @@ element order (the importer stacks overlapping stickies by it). The web app's ow
 Later candidates unless noted:
 
 - **More of the VS Code document plumbing** (0.8 has the sync, the minimal edits, the undo through
-  the document, "Insert example" and the pill, and all five modelers' extensions use it,
-  [#46](https://github.com/Miragon/modeler-suite/issues/46)): binary custom editors, Team
-  Topologies' `.tt.png` / `.ttm.png` and Context Maps' `.cm.png` editors, the only editors of the
-  five that stay outside the plumbing. The modelers keep their own code for these.
+  the document, "Insert example" and the pill, and the extensions of all eight modelers use it, the
+  five of that time since 0.8, [#46](https://github.com/Miragon/modeler-suite/issues/46)): binary
+  custom editors, Team Topologies' `.tt.png` / `.ttm.png` and Context Maps' `.cm.png` editors, the
+  suite's only editors that stay outside the plumbing. The modelers keep their own code for these.
 - An ES-module webview bundle (`renderWebviewHtml` writes a classic script; a `scriptType` option).
 - **More of the web column**: further top-right actions left of the primary action (§5.7), the
   loading state (§9 "Laden": spinner or skeleton during asynchronous work), share-link helpers
-  (each modeler keeps its own hash encoding), the legend's state across sessions (a modeler persists
-  it from `legend.onToggle` in `localStorage`, §5.10).
+  (each modeler with a share link keeps its own hash encoding; the board has none), the legend's
+  state across sessions (a modeler persists it from `legend.onToggle` in `localStorage`, §5.10).
 - **More on the dialog of 0.7** (see [Dialogs](#dialogs-07)): a footer with the buttons of §8
   (36px, the secondary action left of the primary), the confirmation of §9 "Destruktiv" where an
   undo toast does not fit (`min(440px, 100% - 32px)` wide, the focus first on "Cancel"), a
