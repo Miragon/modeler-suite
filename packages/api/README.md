@@ -491,7 +491,8 @@ The helpers are pure and have no dependencies, so a renderer imports them at run
   included) conflict. For a notation whose text is its own source, kept losslessly (C4's
   Structurizr DSL); the modeler parses the result to know it is valid.
 
-The kit's merge cases check M1 to M5. None is optional and none needs a DOM:
+The kit's merge cases check M1 to M5, and each one's name starts with its law
+(`M3: two changes of one element conflict`). None is optional and none needs a DOM:
 
 ```ts
 import { registerMergeConformance } from "@miragon/modeler-api/conformance";

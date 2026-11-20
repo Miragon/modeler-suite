@@ -110,19 +110,19 @@ function failingMergeCases(
 describe("each broken merge fails the case of the law it breaks", () => {
   test("a merge that keeps the draft", () => {
     expect(failingMergeCases((_base, _external, draft) => draft)).toEqual([
-      "merge: an unchanged draft takes the outside",
-      "merge: changes to different elements are both kept",
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
+      "M1: an unchanged draft takes the outside",
+      "M2: changes to different elements are both kept",
+      "M3: two changes of one element conflict",
+      "M4: a text that does not parse conflicts",
     ]);
   });
 
   test("a merge that takes the outside", () => {
     expect(failingMergeCases((_base, external) => external)).toEqual([
-      "merge: an unchanged outside keeps the draft",
-      "merge: changes to different elements are both kept",
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
+      "M1: an unchanged outside keeps the draft",
+      "M2: changes to different elements are both kept",
+      "M3: two changes of one element conflict",
+      "M4: a text that does not parse conflicts",
     ]);
   });
 
@@ -135,8 +135,8 @@ describe("each broken merge fails the case of the law it breaks", () => {
       }
     };
     expect(failingMergeCases(plainErrors)).toEqual([
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
+      "M3: two changes of one element conflict",
+      "M4: a text that does not parse conflicts",
     ]);
   });
 
@@ -146,9 +146,7 @@ describe("each broken merge fails the case of the law it breaks", () => {
       parseLines(draft);
       return referenceMerge(base, external, draft);
     };
-    expect(failingMergeCases(parserErrors)).toEqual([
-      "merge: a text that does not parse conflicts",
-    ]);
+    expect(failingMergeCases(parserErrors)).toEqual(["M4: a text that does not parse conflicts"]);
   });
 
   test("a merge whose result does not parse", () => {
@@ -162,7 +160,7 @@ describe("each broken merge fails the case of the law it breaks", () => {
       failingMergeCases(broken, {
         disjoint: fixtures.disjoint.map((fixture) => ({ ...fixture, merged: merged(fixture) })),
       }),
-    ).toEqual(["merge: changes to different elements are both kept"]);
+    ).toEqual(["M2: changes to different elements are both kept"]);
   });
 
   test("a merge that is not deterministic", () => {
@@ -174,7 +172,7 @@ describe("each broken merge fails the case of the law it breaks", () => {
         ? merged
         : `z=${calls}\n${merged}`;
     };
-    expect(failingMergeCases(flaky)).toContain("merge: the result is deterministic");
+    expect(failingMergeCases(flaky)).toContain("M5: the result is deterministic");
   });
 
   test("fixtures without an invalid text leave the parse case nothing to check", () => {
