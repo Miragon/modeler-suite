@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.18.4](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.18.3...wardley-vscode-v0.18.4) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+    * @miragon/wardley-renderer bumped from 0.18.0 to 0.19.0
+    * wardley-maps-ide-editor bumped from 0.2.3 to 0.2.4
+
 ## [0.18.3](https://github.com/Miragon/modeler-suite/compare/wardley-vscode-v0.18.2...wardley-vscode-v0.18.3) (2026-11-14)
 
 
