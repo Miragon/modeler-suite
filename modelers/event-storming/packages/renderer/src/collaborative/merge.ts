@@ -8,25 +8,10 @@ import type {
 import {
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeValue,
   type ModelTextMerge,
 } from "@miragon/modeler-api";
-
-interface Keyed<T> {
-  readonly key: string;
-  readonly value: T;
-}
-
-/** Keys repeated values by their occurrence, so two equal arrows or lines stay two. */
-function keyedByOccurrence<T>(values: readonly T[], keyOf: (value: T) => string): Keyed<T>[] {
-  const seen = new Map<string, number>();
-  return values.map((value) => {
-    const base = keyOf(value);
-    const occurrence = (seen.get(base) ?? 0) + 1;
-    seen.set(base, occurrence);
-    return { key: `${base}#${occurrence}`, value };
-  });
-}
 
 type ArrowEnds = Pick<BoardEdge, "from" | "to" | "label">;
 
@@ -52,24 +37,6 @@ function mergeConfig(
     else if (result.merged !== undefined) merged[field] = result.merged;
   }
   return merged as unknown as BoardConfig;
-}
-
-function mergeKeyed<T>(
-  lists: readonly [readonly T[], readonly T[], readonly T[]],
-  keyOf: (value: T) => string,
-  conflicts: string[],
-): T[] {
-  const [base, external, draft] = lists.map((list) => keyedByOccurrence(list, keyOf)) as [
-    Keyed<T>[],
-    Keyed<T>[],
-    Keyed<T>[],
-  ];
-  const result = mergeItemsById(base, external, draft, { idOf: (item) => item.key });
-  if (result.conflictingIds) {
-    conflicts.push(...result.conflictingIds);
-    return [];
-  }
-  return result.merged.map((item) => item.value);
 }
 
 function danglingReferences(
@@ -103,20 +70,26 @@ export const mergeStormText: ModelTextMerge = (lastSyncedText, externalText, dra
   const config = mergeConfig(base.config, external.config, draft.config, conflicts);
   const elements = mergeItemsById(base.elements, external.elements, draft.elements);
   conflicts.push(...(elements.conflictingIds ?? []));
-  const edges = mergeKeyed(
-    [base.edges, external.edges, draft.edges].map((list) => list.map(withoutPositionalId)) as [
-      ArrowEnds[],
-      ArrowEnds[],
-      ArrowEnds[],
-    ],
+  const arrows = mergeItemsByOccurrence(
+    base.edges.map(withoutPositionalId),
+    external.edges.map(withoutPositionalId),
+    draft.edges.map(withoutPositionalId),
     arrowEnds,
-    conflicts,
-  ).map((edge, index): BoardEdge => ({ id: `arrow_${index + 1}`, edgeType: "arrow", ...edge }));
-  const rawPassthrough = mergeKeyed(
-    [base.rawPassthrough ?? [], external.rawPassthrough ?? [], draft.rawPassthrough ?? []],
-    (line) => line,
-    conflicts,
   );
+  conflicts.push(...(arrows.conflictingIds ?? []));
+  const edges = (arrows.merged ?? []).map((edge, index): BoardEdge => ({
+    id: `arrow_${index + 1}`,
+    edgeType: "arrow",
+    ...edge,
+  }));
+  const rawPassthrough = mergeItemsByOccurrence(
+    base.rawPassthrough ?? [],
+    external.rawPassthrough ?? [],
+    draft.rawPassthrough ?? [],
+    (line) => line,
+  );
+  conflicts.push(...(rawPassthrough.conflictingIds ?? []));
+  const mergedRawPassthrough = rawPassthrough.merged ?? [];
   const mergedElements = elements.merged ?? [];
   if (conflicts.length === 0) conflicts.push(...danglingReferences(mergedElements, edges));
   if (conflicts.length > 0) throw new MergeConflictError(conflicts);
@@ -125,6 +98,6 @@ export const mergeStormText: ModelTextMerge = (lastSyncedText, externalText, dra
     config,
     elements: mergedElements,
     edges,
-    ...(rawPassthrough.length > 0 ? { rawPassthrough } : {}),
+    ...(mergedRawPassthrough.length > 0 ? { rawPassthrough: mergedRawPassthrough } : {}),
   });
 };
