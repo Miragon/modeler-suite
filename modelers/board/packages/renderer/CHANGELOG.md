@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1](https://github.com/Miragon/modeler-suite/compare/board-renderer-v0.2.0...board-renderer-v0.2.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.7.0 to 2.0.0
+
 ## [0.2.0](https://github.com/Miragon/modeler-suite/compare/board-renderer-v0.1.0...board-renderer-v0.2.0) (2026-11-17)
 
 

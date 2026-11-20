@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.11.1](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.11.0...value-chain-renderer-v0.11.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.7.0 to 2.0.0
+
 ## [0.11.0](https://github.com/Miragon/modeler-suite/compare/value-chain-renderer-v0.10.0...value-chain-renderer-v0.11.0) (2026-11-09)
 
 

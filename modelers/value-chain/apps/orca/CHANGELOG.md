@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.4.5](https://github.com/Miragon/modeler-suite/compare/value-chain-orca-v0.4.4...value-chain-orca-v0.4.5) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+    * @miragon/value-chain-renderer bumped from 0.11.0 to 0.11.1
+    * value-chain-ide-editor bumped from 0.1.5 to 0.1.6
+
 ## [0.4.4](https://github.com/Miragon/modeler-suite/compare/value-chain-orca-v0.4.3...value-chain-orca-v0.4.4) (2026-11-14)
 
 

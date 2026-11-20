@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.1](https://github.com/Miragon/modeler-suite/compare/board-host-v0.3.0...board-host-v0.3.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/board-renderer bumped from 0.2.0 to 0.2.1
+    * @miragon/modeler-api bumped from 1.7.0 to 2.0.0
+
 ## [0.3.0](https://github.com/Miragon/modeler-suite/compare/board-host-v0.2.0...board-host-v0.3.0) (2026-11-17)
 
 

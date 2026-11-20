@@ -1,6 +1,6 @@
 {
   "name": "@miragon/board-host",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "What every host of a board shares: a modeler of @miragon/modeler-api as an editor in a model node, and a board host built from the files of a repository and a registry of editors.",
   "license": "MIT",
@@ -22,8 +22,8 @@
   },
   "dependencies": {
     "@miragon/board-files": "0.1.0",
-    "@miragon/board-renderer": "0.2.0",
-    "@miragon/modeler-api": "1.7.0"
+    "@miragon/board-renderer": "0.2.1",
+    "@miragon/modeler-api": "2.0.0"
   },
   "devDependencies": {
     "@xyflow/react": "12.12.1",

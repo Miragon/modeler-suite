@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.6](https://github.com/Miragon/modeler-suite/compare/context-maps-ide-editor-v0.1.5...context-maps-ide-editor-v0.1.6) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/context-maps-renderer bumped from 0.10.0 to 0.10.1
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+
 ## [0.1.5](https://github.com/Miragon/modeler-suite/compare/context-maps-ide-editor-v0.1.4...context-maps-ide-editor-v0.1.5) (2026-11-14)
 
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.1](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-vscode-v0.2.0...business-model-canvas-vscode-v0.2.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/business-model-canvas-dsl bumped from 0.2.0 to 0.3.0
+    * @miragon/business-model-canvas-renderer bumped from 0.2.0 to 0.3.0
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+    * business-model-canvas-ide-editor bumped from 0.1.3 to 0.1.4
+
 ## [0.2.0](https://github.com/Miragon/modeler-suite/compare/business-model-canvas-vscode-v0.1.2...business-model-canvas-vscode-v0.2.0) (2026-11-14)
 
 

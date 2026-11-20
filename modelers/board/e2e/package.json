@@ -12,7 +12,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
-    "@miragon/modeler-shell": "0.14.2",
+    "@miragon/modeler-shell": "0.15.0",
     "@playwright/test": "1.65.0",
     "@xyflow/react": "12.12.1",
     "react": "19.3.1",
