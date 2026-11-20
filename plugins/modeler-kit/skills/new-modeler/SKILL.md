@@ -11,17 +11,19 @@ diagram-js renderer shows and edits it, and three apps put the renderer in front
 app, a VS Code custom editor and an [Orca](https://www.onorca.dev) custom editor. Two shared
 packages keep the family uniform: [`@miragon/modeler-api`][api] (the collaborative-modeler contract every host binds, with its
 conformance kit) and [`@miragon/modeler-shell`][shell] (the chrome around the canvas, with its
-conformance kit). Five modelers follow this recipe, all in
-[Miragon/modeler-suite](https://github.com/Miragon/modeler-suite) next to the two packages; read
-the one closest to your notation:
+conformance kit). Seven modelers follow this recipe, all in
+[Miragon/modeler-suite](https://github.com/Miragon/modeler-suite) next to the two packages, C4
+without an Orca editor; read the one closest to your notation:
 
-| Modeler                            | Closest when your notation …                                              |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| [`modelers/event-storming`][es]    | has a line DSL and stickies; the pilot, nearest to the template           |
-| [`modelers/value-chain`][vc]       | is small and stored as JSON; uses diagram-js-direct-editing               |
-| [`modelers/team-topologies`][tt]   | has a legend, an inspector and a JSON format; one release component       |
-| [`modelers/context-maps`][cm]      | imports and exports a foreign format (Context Mapper CML) next to its own |
-| [`modelers/wardley-maps`][wardley] | has a fixed plot (axes, stages), notes and a large DSL; the most complete |
+| Modeler                                 | Closest when your notation …                                                           |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| [`modelers/event-storming`][es]         | has a line DSL and stickies; the pilot, nearest to the template                        |
+| [`modelers/value-chain`][vc]            | is small and stored as JSON; uses diagram-js-direct-editing                            |
+| [`modelers/team-topologies`][tt]        | has a legend, an inspector and a JSON format; one release component                    |
+| [`modelers/context-maps`][cm]           | imports and exports a foreign format (Context Mapper CML) next to its own              |
+| [`modelers/wardley-maps`][wardley]      | has a fixed plot (axes, stages), notes and a large DSL; the most complete              |
+| [`modelers/business-model-canvas`][bmc] | is a fixed grid of blocks with stickies, stored as YAML                                |
+| [`modelers/c4`][c4]                     | keeps a foreign text format (Structurizr DSL) losslessly; lays views out automatically |
 
 ## Start from the template
 
@@ -169,3 +171,5 @@ where it bites, and links there for every signature.
 [tt]: https://github.com/Miragon/modeler-suite/tree/main/modelers/team-topologies
 [cm]: https://github.com/Miragon/modeler-suite/tree/main/modelers/context-maps
 [wardley]: https://github.com/Miragon/modeler-suite/tree/main/modelers/wardley-maps
+[bmc]: https://github.com/Miragon/modeler-suite/tree/main/modelers/business-model-canvas
+[c4]: https://github.com/Miragon/modeler-suite/tree/main/modelers/c4

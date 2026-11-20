@@ -1,12 +1,13 @@
 import type { ConformanceCase, ConformanceHarness } from "./harness.js";
 import {
   changeEvents,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
   importOrFail,
   same,
   secondText,
+  settleOf,
   skip,
   sortedIds,
 } from "./support.js";
@@ -28,9 +29,9 @@ const describeProbe = (probe: Probe): string => {
  * Cuts fall on code points, never inside a surrogate pair; duplicates are
  * dropped so each input runs once
  */
-function probesOf(h: ConformanceHarness): Probe[] {
+function probesOf(harness: ConformanceHarness): Probe[] {
   const probes: Probe[] = [];
-  h.canonicalTexts.forEach((text, index) => {
+  harness.canonicalTexts.forEach((text, index) => {
     const source = `canonicalTexts[${index}]`;
     const codePoints = Array.from(text);
     const cut = (length: number): string => codePoints.slice(0, length).join("");
@@ -41,7 +42,7 @@ function probesOf(h: ConformanceHarness): Probe[] {
       { label: `${source} followed by a NUL character`, text: `${text}\u0000` },
     );
   });
-  (h.probeTexts ?? []).forEach((text, index) =>
+  (harness.probeTexts ?? []).forEach((text, index) =>
     probes.push({ label: `probeTexts[${index}]`, text }),
   );
   const seen = new Set<string>();
@@ -55,30 +56,30 @@ function probesOf(h: ConformanceHarness): Probe[] {
 export const rejectedImportCases: ConformanceCase[] = [
   {
     name: "L7: a rejected import leaves no trace",
-    async run(h) {
-      if (h.invalidTexts === undefined) {
+    async run(harness) {
+      if (harness.invalidTexts === undefined) {
         return skip(
           "invalidTexts is undefined — pass [] if the notation has no non-importable text",
         );
       }
-      if (h.invalidTexts.length === 0) return;
-      const m = await h.create();
+      if (harness.invalidTexts.length === 0) return;
+      const modeler = await harness.create();
       try {
-        const text = h.canonicalTexts[0] ?? "";
-        await m.importText(text);
-        const beforeEdit = m.exportText();
+        const text = firstText(harness);
+        await modeler.importText(text);
+        const beforeEdit = modeler.exportText();
         // with undo history on the stack: a rejected import must leave it
         // intact too (an engine that erases history BEFORE parsing does not)
-        if (h.undo) {
-          await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
+        if (harness.undo) {
+          await harness.mutate(modeler);
+          await settleOf(harness)();
         }
-        const doc = m.exportText();
-        const ids = sortedIds(m);
-        for (const bad of h.invalidTexts) {
+        const doc = modeler.exportText();
+        const ids = sortedIds(modeler);
+        for (const bad of harness.invalidTexts) {
           let rejected = false;
-          const { calls } = await changeEvents(h, m, () =>
-            m.importText(bad).then(
+          const { calls } = await changeEvents(harness, modeler, () =>
+            modeler.importText(bad).then(
               () => undefined,
               () => {
                 rejected = true;
@@ -87,91 +88,87 @@ export const rejectedImportCases: ConformanceCase[] = [
           );
           if (!rejected) fail("importText resolved for a non-importable input — it must REJECT");
           if (calls > 0) fail("a rejected import fired onContentChanged");
-          if (m.exportText() !== doc)
+          if (modeler.exportText() !== doc)
             fail("a rejected import changed the document — the previous state must stay intact");
-          if (ids && !same(ids, sortedIds(m))) {
+          if (ids && !same(ids, sortedIds(modeler))) {
             fail(
               "a rejected import changed the rendered elements — the canvas must keep the previous document",
             );
           }
         }
-        if (h.undo) {
-          await h.undo(m);
-          if (m.exportText() !== beforeEdit) {
+        if (harness.undo) {
+          await harness.undo(modeler);
+          if (modeler.exportText() !== beforeEdit) {
             fail(
               "a rejected import erased the undo history — the previous document's history must stay intact",
             );
           }
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
       }
     },
   },
   {
     name: "L7: the modeler stays usable after a rejected import",
-    async run(h) {
-      if (h.invalidTexts === undefined) {
+    async run(harness) {
+      if (harness.invalidTexts === undefined) {
         return skip(
           "invalidTexts is undefined — pass [] if the notation has no non-importable text",
         );
       }
-      const bad = h.invalidTexts[0];
+      const bad = harness.invalidTexts[0];
       if (bad === undefined) return;
-      const m = await h.create();
+      const modeler = await harness.create();
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
-        await m.importText(bad).then(
+        await modeler.importText(firstText(harness));
+        await modeler.importText(bad).then(
           () => fail("importText resolved for a non-importable input — it must REJECT"),
           () => undefined,
         );
-        const next = secondText(h);
-        await m
-          .importText(next)
-          .catch((e) =>
-            fail(`the next VALID import after a rejection did not render: ${String(e)}`),
-          );
-        if (m.exportText() !== next)
+        const next = secondText(harness);
+        await importOrFail(modeler, next, "the next VALID import after a rejection did not render");
+        if (modeler.exportText() !== next)
           fail("the next valid import after a rejection did not replace the document");
-        const before = m.exportText();
-        const { calls } = await changeEvents(h, m, () => h.mutate(m));
+        const before = modeler.exportText();
+        const { calls } = await changeEvents(harness, modeler, () => harness.mutate(modeler));
         if (calls === 0)
           fail("a user mutation after a rejected import fired no onContentChanged (wedged)");
-        if (exportOrFail(m, "after a mutation that followed a rejected import") === before) {
+        if (exportOrFail(modeler, "after a mutation that followed a rejected import") === before) {
           fail("a user mutation after a rejected import did not apply (wedged)");
         }
-        if (h.undo) {
-          await h.undo(m);
-          exportOrFail(m, "after an undo that followed a rejected import");
+        if (harness.undo) {
+          await harness.undo(modeler);
+          exportOrFail(modeler, "after an undo that followed a rejected import");
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
       }
     },
   },
   {
     name: "L7: every rejection of a derived probe leaves no trace",
-    async run(h) {
-      const base = h.canonicalTexts[0] ?? "";
-      const m = await h.create();
+    async run(harness) {
+      const base = firstText(harness);
+      const modeler = await harness.create();
       try {
-        await m.importText(base);
-        const baseline = exportOrFail(m, "after importing canonicalTexts[0]");
-        const baseIds = sortedIds(m);
+        await modeler.importText(base);
+        const baseline = exportOrFail(modeler, "after importing canonicalTexts[0]");
+        const baseIds = sortedIds(modeler);
         let previous: Probe | undefined;
         const reimportBase = async (): Promise<void> => {
           if (previous === undefined) return;
           const after = `after importing ${describeProbe(previous)}`;
-          await importOrFail(m, base, `the next valid import ${after} did not render`);
-          const doc = exportOrFail(m, `on the next valid import ${after}`);
-          if (doc !== baseline || (baseIds && !same(baseIds, sortedIds(m)))) {
+          await importOrFail(modeler, base, `the next valid import ${after} did not render`);
+          const doc = exportOrFail(modeler, `on the next valid import ${after}`);
+          if (doc !== baseline || (baseIds && !same(baseIds, sortedIds(modeler)))) {
             fail(`the next valid import ${after} did not replace the document (wedged)`);
           }
         };
         const mutateAndExpectApplied = async (): Promise<string> => {
-          await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
-          const doc = exportOrFail(m, "after a user mutation");
+          await harness.mutate(modeler);
+          await settleOf(harness)();
+          const doc = exportOrFail(modeler, "after a user mutation");
           if (doc === baseline) {
             fail(
               previous === undefined
@@ -181,15 +178,15 @@ export const rejectedImportCases: ConformanceCase[] = [
           }
           return doc;
         };
-        for (const probe of probesOf(h)) {
+        for (const probe of probesOf(harness)) {
           await reimportBase();
           // a document WITH undo history: a rejection must keep both
           const doc = await mutateAndExpectApplied();
-          const ids = sortedIds(m);
+          const ids = sortedIds(modeler);
           const what = `importText(${describeProbe(probe)})`;
           let rejected = false;
-          const { calls } = await changeEvents(h, m, () =>
-            m.importText(probe.text).then(
+          const { calls } = await changeEvents(harness, modeler, () =>
+            modeler.importText(probe.text).then(
               () => undefined,
               () => {
                 rejected = true;
@@ -198,19 +195,21 @@ export const rejectedImportCases: ConformanceCase[] = [
           );
           if (rejected) {
             if (calls > 0) fail(`a rejected ${what} fired onContentChanged ${calls}x (L7)`);
-            if (exportOrFail(m, `after a rejected ${what}`) !== doc) {
+            if (exportOrFail(modeler, `after a rejected ${what}`) !== doc) {
               fail(
                 `a rejected ${what} changed the document — the previous state must stay intact (L7)`,
               );
             }
-            if (ids && !same(ids, sortedIds(m))) {
+            if (ids && !same(ids, sortedIds(modeler))) {
               fail(
                 `a rejected ${what} changed the rendered elements — the canvas must keep the previous document (L7)`,
               );
             }
-            if (h.undo) {
-              await h.undo(m);
-              if (exportOrFail(m, `after an undo that followed a rejected ${what}`) !== baseline) {
+            if (harness.undo) {
+              await harness.undo(modeler);
+              if (
+                exportOrFail(modeler, `after an undo that followed a rejected ${what}`) !== baseline
+              ) {
                 fail(
                   `a rejected ${what} erased the undo history — the previous document's history must stay intact (L7)`,
                 );
@@ -221,14 +220,14 @@ export const rejectedImportCases: ConformanceCase[] = [
               fail(
                 `${what} resolved and fired onContentChanged ${calls}x — an import is silent (L1)`,
               );
-            exportOrFail(m, `after ${what} resolved (L6)`);
+            exportOrFail(modeler, `after ${what} resolved (L6)`);
           }
           previous = probe;
         }
         await reimportBase();
         await mutateAndExpectApplied();
       } finally {
-        m.destroy();
+        modeler.destroy();
       }
     },
   },

@@ -39,6 +39,63 @@ const sticky = (id: string, extra: Partial<Sticky> = {}): Sticky => ({
   ...extra,
 });
 
+/**
+ * How many times as long as the same rows cut into parts a whole text may take. Read in linear
+ * time the whole takes 0.8 to 1.3 times as long, measured idle, beside busy loops and on half a
+ * CPU. A cost that grows with the square of the rows fails once it adds more than about the
+ * reading itself at the tested size, as a scan of the earlier keys for each of 40,000 keys does
+ * (3.4 to 5.6); a smaller one passes, as a scan of the earlier ids for each of 5,000 items does
+ * (1.0 to 1.7).
+ */
+const MAX_SLOWDOWN = 2;
+
+/** `rows` in `count` runs of about the same length, in their order. */
+function runsOf<Row>(rows: readonly Row[], count: number): Row[][] {
+  const length = Math.ceil(rows.length / count);
+  return Array.from({ length: count }, (_, index) =>
+    rows.slice(index * length, (index + 1) * length),
+  );
+}
+
+/**
+ * The CPU time this process has used, in milliseconds; Vitest's default pool runs each test file
+ * in a process of its own. The wall clock runs on while a shared or throttled runner gives the CPU
+ * to others, in slices as long as a read of 5,000 items: on half a CPU it made those items, read
+ * in linear time, look up to 1.84 times as slow as their parts.
+ */
+function cpuMilliseconds(): number {
+  const { user, system } = process.cpuUsage();
+  return (user + system) / 1000;
+}
+
+/**
+ * Times `read` on a whole text against the same rows in parts, not against a budget in
+ * milliseconds, which a shared CI runner takes several times longer to meet. Both run in turns,
+ * and the fastest of three runs of each decides, so a garbage collection or a cold JIT doesn't.
+ */
+function expectAboutAsLongAsItsParts(
+  whole: string,
+  parts: readonly string[],
+  read: (text: string) => unknown,
+): void {
+  const millisecondsToRead = (texts: readonly string[]) => {
+    const started = cpuMilliseconds();
+    for (const text of texts) read(text);
+    return cpuMilliseconds() - started;
+  };
+  let fastest = { whole: Number.POSITIVE_INFINITY, parts: Number.POSITIVE_INFINITY };
+  for (let run = 0; run < 3; run += 1) {
+    fastest = {
+      parts: Math.min(fastest.parts, millisecondsToRead(parts)),
+      whole: Math.min(fastest.whole, millisecondsToRead([whole])),
+    };
+  }
+  expect(
+    fastest.whole / fastest.parts,
+    `${fastest.whole.toFixed(1)} ms of CPU time for the whole text against ${fastest.parts.toFixed(1)} ms for its parts`,
+  ).toBeLessThan(MAX_SLOWDOWN);
+}
+
 describe("the example", () => {
   test("is canonical and parses without findings", () => {
     const { document, diagnostics } = parseText(example);
@@ -551,14 +608,13 @@ describe("texts that would cost too much", () => {
     expect(errorsOf(`k: ${"[".repeat(33)}${"]".repeat(33)}\n`)[0]?.message).toMatch(/Nests deeper/);
   });
 
-  test("many keys and many findings stay quick, and the findings stop at a hundred", () => {
-    const keys = Array.from({ length: 20_000 }, (_, index) => `k${index}: ${index}`);
-    const text = lines("version: 1", ...keys);
-    const started = performance.now();
-    const { diagnostics } = parseText(text);
-    expect(performance.now() - started).toBeLessThan(1000);
-    expect(diagnostics).toHaveLength(100);
-  });
+  test("many keys and many findings take less than twice as long as their parts, and the findings stop at a hundred", () => {
+    const keys = Array.from({ length: 40_000 }, (_, index) => `k${index}: ${index}`);
+    const whole = lines("version: 1", ...keys);
+    expect(parseText(whole).diagnostics).toHaveLength(100);
+    const parts = runsOf(keys, 32).map((run) => lines("version: 1", ...run));
+    expectAboutAsLongAsItsParts(whole, parts, parseText);
+  }, 60_000);
 
   test("an error after a hundred warnings still makes the text no canvas", () => {
     const comments = Array.from({ length: 150 }, () => "# note");
@@ -624,13 +680,17 @@ describe("large texts", () => {
     expect(performance.now() - started).toBeLessThan(1000);
   };
 
-  test("many items, with a finding at the last", () => {
-    const items = Array.from({ length: 5_000 }, (_, index) => ({ id: `s${index}`, text: "Same" }));
-    const text = channels(...items, { id: "last", text: "Last", color: "teal" });
-    withinASecond(() => serializeText(parseText(text).document));
-    expect(roundTrip(roundTrip(text))).toBe(roundTrip(text));
-    expect(parseText(text).diagnostics[0]?.path).toEqual(["channels", "items", 5_000, "color"]);
-  });
+  test("many items, with a finding at the last, take less than twice as long as their parts", () => {
+    const items = [
+      ...Array.from({ length: 5_000 }, (_, index) => ({ id: `s${index}`, text: "Same" })),
+      { id: "last", text: "Last", color: "teal" },
+    ];
+    const whole = channels(...items);
+    expect(roundTrip(roundTrip(whole))).toBe(roundTrip(whole));
+    expect(parseText(whole).diagnostics[0]?.path).toEqual(["channels", "items", 5_000, "color"]);
+    const parts = runsOf(items, 16).map((run) => channels(...run));
+    expectAboutAsLongAsItsParts(whole, parts, roundTrip);
+  }, 60_000);
 
   test("a long text of spaces and braces", () => {
     withinASecond(() => parseText(channels({ id: "a", text: `${" {".repeat(50_000)}x` })));

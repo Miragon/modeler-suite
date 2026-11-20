@@ -8,11 +8,12 @@ import type {
 } from "./harness.js";
 import {
   adviseOn,
-  defaultSettle,
   errorOf,
   exportOrFail,
+  importFirstText,
   importOrFail,
   outcomeOf,
+  settleOf,
   skip,
 } from "./support.js";
 import {
@@ -34,19 +35,18 @@ import {
 } from "./user-input.js";
 
 async function importAtTheStart(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
   startGesture: GestureStarter,
   kind: GestureKind,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
-  const [leg] = importedLegs(h);
+  const settle = settleOf(harness);
+  const [leg] = importedLegs(harness);
   if (leg === undefined) return { findings: [] };
-  await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
-  const expected = exportOrFail(m, `after importing ${leg.what}`);
-  await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+  await importOrFail(modeler, leg.text, `importText(${leg.what}) rejected`);
+  const expected = exportOrFail(modeler, `after importing ${leg.what}`);
+  await importFirstText(harness, modeler);
   await settle();
   // a selection the drag's start clears: diagram-js's Dragging.move empties it while it activates
   // the drag, and reads the drag again once the selection listeners have run (#336)
@@ -64,11 +64,11 @@ async function importAtTheStart(
   let changes = 0;
   const offSelection = once(
     elements.onSelection(() => {
-      if (result === undefined) result = importFromAListener(m, leg.text);
+      if (result === undefined) result = importFromAListener(modeler, leg.text);
     }),
   );
   const offChanges = once(
-    m.onContentChanged(() => {
+    modeler.onContentChanged(() => {
       changes += 1;
     }),
   );
@@ -76,7 +76,7 @@ async function importAtTheStart(
   try {
     let held: HeldGesture | undefined;
     const thrown = await errorOf(async () => {
-      held = await startGesture(m, kind);
+      held = await startGesture(modeler, kind);
     });
     if (result === undefined) {
       if (held) await errorOf(() => held?.cancel());
@@ -101,9 +101,7 @@ async function importAtTheStart(
           `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s after the drop either`,
         );
       }
-      for (const error of errors.errors) {
-        findings.push(`an error reached the window around ${during}: ${error}`);
-      }
+      findings.push(...errors.findings(`around ${during}`));
       return { findings, stop: true };
     }
     if (outcome.rejected !== undefined) {
@@ -113,7 +111,7 @@ async function importAtTheStart(
         `when the Promise of ${during} settled, exportText() did not return the imported document`,
       );
     }
-    if (m.interaction?.active()) {
+    if (modeler.interaction?.active()) {
       findings.push(
         `interaction.active() was still true once ${during} had settled — the import did not end the drag`,
       );
@@ -130,10 +128,8 @@ async function importAtTheStart(
     }
     await settle();
     const dropped = changes - beforeTheDrop;
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
-    const out = exportedNow(m);
+    findings.push(...errors.findings(`around ${during}`));
+    const out = exportedNow(modeler);
     if (out === undefined) {
       findings.push(`exportText() threw after the drop that followed ${during}`);
       return { findings };
@@ -145,14 +141,14 @@ async function importAtTheStart(
     }
     offChanges();
     if (out === expected) {
-      findings.push(...(await undoAfterTheImport(h, m, out, during, "the drag")));
+      findings.push(...(await undoAfterTheImport(harness, modeler, out, during, "the drag")));
     }
   } finally {
     offSelection();
     offChanges();
     errors.stop();
   }
-  findings.push(...(await nextMutateApplies(h, m, during)));
+  findings.push(...(await nextMutateApplies(harness, modeler, during)));
   return { findings };
 }
 
@@ -160,32 +156,32 @@ async function importAtTheStart(
  * the drag's start empties the selection while diagram-js activates the drag (#336). Per kind
  * the case first proves that a drop applies; 1.6 only RECOMMENDS the rest
  */
-async function importAtADragsStart(h: ConformanceHarness): Promise<CaseOutcome> {
-  if (!h.startGesture) {
+async function importAtADragsStart(harness: ConformanceHarness): Promise<CaseOutcome> {
+  if (!harness.startGesture) {
     return skip(
       "startGesture is undefined — that an import from the selection listener at a drag's start runs once the drag has started and then ends it (RECOMMENDED since 1.6) was not checked",
     );
   }
-  const startGesture = h.startGesture;
+  const startGesture = harness.startGesture;
   const findings: string[] = [];
-  const unverified = oneTextOnly(h, "an import at a drag's start");
+  const unverified = oneTextOnly(harness, "an import at a drag's start");
   for (const kind of DRAG_START_KINDS) {
-    const m = await h.create();
+    const modeler = await harness.create();
     try {
-      const elements = m.elements;
+      const elements = modeler.elements;
       if (!elements) {
         unverified.push(
           "the modeler exposes no elements surface (optional) — an import from the selection listener at a drag's start was not checked",
         );
         break;
       }
-      await expectDropApplies(h, m, startGesture, kind);
-      const outcome = await importAtTheStart(h, m, elements, startGesture, kind);
+      await expectDropApplies(harness, modeler, startGesture, kind);
+      const outcome = await importAtTheStart(harness, modeler, elements, startGesture, kind);
       findings.push(...outcome.findings);
       if (outcome.unverified !== undefined) unverified.push(outcome.unverified);
       if (outcome.stop) break;
     } finally {
-      m.destroy();
+      modeler.destroy();
     }
   }
   return outcomeOf(

@@ -1,24 +1,21 @@
 import type { CollaborativeModeler } from "../index.js";
-import {
-  type CaseOutcome,
-  type ConformanceCase,
-  type ConformanceHarness,
-  nextHostSerial,
-} from "./harness.js";
+import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
+import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
-  defaultSettle,
   exportOrFail,
   fail,
   type Focusable,
   focusOn,
-  importOrFail,
+  importFirstText,
   type KeyedInstance,
   mountedCanvas,
   outcomeOf,
   selectionOf,
+  settleOf,
   skip,
 } from "./support.js";
+import { listenForWindowErrors } from "./user-input.js";
 
 interface KeyStroke {
   key: string;
@@ -264,18 +261,13 @@ function keyboardOn(view: Window & typeof globalThis, cleanups: Array<() => void
   // only while the kit dispatches: an error the modeler throws from a key listener reaches no
   // caller, so the window's error event is the one place to see it
   const thrownBy = (dispatch: () => void): string[] => {
-    const thrown: string[] = [];
-    const onError = (event: ErrorEvent): void => {
-      thrown.push(String(event.error ?? event.message));
-      event.preventDefault();
-    };
-    view.addEventListener("error", onError);
+    const errors = listenForWindowErrors(view);
     try {
       dispatch();
     } finally {
-      view.removeEventListener("error", onError);
+      errors.stop();
     }
-    return thrown;
+    return errors.errors;
   };
   const press = (
     target: Element,
@@ -302,7 +294,7 @@ function keyboardOn(view: Window & typeof globalThis, cleanups: Array<() => void
  * the case cannot tell a key the modeler leaves alone from one it never sees
  */
 async function deleteOnTheFocusedCanvas(
-  m: CollaborativeModeler,
+  modeler: CollaborativeModeler,
   canvas: Element,
   revealed: string | undefined,
   keyboard: Keyboard,
@@ -315,38 +307,37 @@ async function deleteOnTheFocusedCanvas(
   if (canvas.ownerDocument.activeElement !== canvas) {
     return "the canvas did not take the focus — that a key on the focused canvas acts was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
   }
-  const before = exportOrFail(m, `with '${revealed}' revealed`);
+  const before = exportOrFail(modeler, `with '${revealed}' revealed`);
   for (const key of ["Delete", "Backspace"]) {
     keyboard.press(canvas, { key, code: key });
     await settle();
-    if (exportOrFail(m, `after ${key} on the focused canvas`) !== before) return undefined;
+    if (exportOrFail(modeler, `after ${key} on the focused canvas`) !== before) return undefined;
   }
   return `Delete and Backspace on the focused canvas, with '${revealed}' revealed (selected), left the document as it was — the case cannot tell a key the modeler leaves alone from one it never sees`;
 }
 
 /** returns why the keys were not (fully) verified, if they were not */
 async function aimKeysAt(
-  h: ConformanceHarness,
+  harness: ConformanceHarness,
   instance: KeyedInstance,
   create: () => Promise<CollaborativeModeler>,
   findings: string[],
 ): Promise<string | undefined> {
-  const settle = h.settle ?? defaultSettle;
-  const text = h.canonicalTexts[0] ?? "";
+  const settle = settleOf(harness);
   const editable = instance === "modeler";
   const found = (finding: string): void => {
     findings.push(editable ? finding : `the viewer: ${finding}`);
   };
-  const firstSerial = nextHostSerial;
-  const m = await create();
+  const firstSerial = nextHostSerial();
+  const modeler = await create();
   const cleanups: Array<() => void> = [];
   try {
-    await importOrFail(
-      m,
-      text,
+    await importFirstText(
+      harness,
+      modeler,
       editable ? "importText(canonicalTexts[0]) rejected" : "the viewer rejected canonicalTexts[0]",
     );
-    const mount = mountedCanvas(h, m, instance, firstSerial);
+    const mount = mountedCanvas(harness, modeler, instance, firstSerial);
     if (typeof mount === "string") return mount;
     const { canvas, host, wrapper } = mount;
     const doc = host.ownerDocument;
@@ -356,19 +347,19 @@ async function aimKeysAt(
     const { press, thrownBy } = keyboard;
     let changes = 0;
     cleanups.push(
-      m.onContentChanged(() => {
+      modeler.onContentChanged(() => {
         changes += 1;
       }),
     );
 
     let revealed: string | undefined;
     const setUp = async (): Promise<void> => {
-      await importOrFail(m, text, "re-importing canonicalTexts[0] rejected");
+      await importFirstText(harness, modeler, "re-importing canonicalTexts[0] rejected");
       // undo history and a selection: what Cmd/Ctrl+Z, Delete and the arrows act on
-      if (editable) await h.mutate(m);
+      if (editable) await harness.mutate(modeler);
       await settle();
-      revealed = m.elements?.list()[0]?.id;
-      if (revealed !== undefined) m.elements?.reveal(revealed);
+      revealed = modeler.elements?.list()[0]?.id;
+      if (revealed !== undefined) modeler.elements?.reveal(revealed);
       await settle();
     };
     await setUp();
@@ -395,15 +386,15 @@ async function aimKeysAt(
       const leave = target.enter();
       let dirty = false;
       try {
-        const last = { doc: exportOrFail(m, `with the focus on ${target.what}`), changes };
+        const last = { doc: exportOrFail(modeler, `with the focus on ${target.what}`), changes };
         for (const stroke of KEY_STROKES) {
           const key = `${describeStroke(stroke)} on ${target.what}`;
-          const selection = selectionOf(m);
+          const selection = selectionOf(modeler);
           const { prevented, stopped, thrown } = press(target.element, stroke);
           const changed = [
             ...(changes !== last.changes ? ["fired onContentChanged"] : []),
-            ...(exportOrFail(m, `after ${key}`) !== last.doc ? ["changed the document"] : []),
-            ...(selectionOf(m) !== selection ? ["changed the selection"] : []),
+            ...(exportOrFail(modeler, `after ${key}`) !== last.doc ? ["changed the document"] : []),
+            ...(selectionOf(modeler) !== selection ? ["changed the selection"] : []),
           ];
           const effects = [
             ...changed,
@@ -419,7 +410,7 @@ async function aimKeysAt(
         }
         if (!dirty) {
           await settle();
-          if (exportOrFail(m, `once the keys on ${target.what} settled`) !== last.doc) {
+          if (exportOrFail(modeler, `once the keys on ${target.what} settled`) !== last.doc) {
             found(`a key on ${target.what} changed the document once it settled`);
             dirty = true;
           } else if (changes !== last.changes) {
@@ -455,14 +446,14 @@ async function aimKeysAt(
     }
 
     if (!editable) return undefined;
-    if (!m.elements) {
+    if (!modeler.elements) {
       return "the modeler exposes no elements surface (optional) — that Delete on the focused canvas removes a revealed element was not verified, so the case cannot tell a key the modeler leaves alone from one it never sees";
     }
     await setUp();
-    return await deleteOnTheFocusedCanvas(m, canvas, revealed, keyboard, settle);
+    return await deleteOnTheFocusedCanvas(modeler, canvas, revealed, keyboard, settle);
   } finally {
     for (const cleanup of cleanups) cleanup();
-    m.destroy();
+    modeler.destroy();
   }
 }
 
@@ -470,7 +461,7 @@ async function aimKeysAt(
  * what the modeler does with the keys is one advisory, since 1.4 only RECOMMENDS leaving them
  * alone; what the case could not verify is one skip
  */
-async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> {
+async function keysStayOnTheCanvas(harness: ConformanceHarness): Promise<CaseOutcome> {
   if (typeof document === "undefined") {
     return skip(
       "no DOM — keys need a document to be aimed at (run the kit in a browser, the modeler mounted into attachedHost())",
@@ -478,12 +469,12 @@ async function keysStayOnTheCanvas(h: ConformanceHarness): Promise<CaseOutcome> 
   }
   const findings: string[] = [];
   const unverified: string[] = [];
-  const modelerGap = await aimKeysAt(h, "modeler", () => h.create(), findings);
+  const modelerGap = await aimKeysAt(harness, "modeler", () => harness.create(), findings);
   if (modelerGap !== undefined) unverified.push(modelerGap);
-  if (h.createReadonly) {
+  if (harness.createReadonly) {
     const createViewer = (): Promise<CollaborativeModeler> =>
-      h.createReadonly?.() ?? fail("createReadonly went away during the keys case");
-    const viewerGap = await aimKeysAt(h, "viewer", createViewer, findings);
+      harness.createReadonly?.() ?? fail("createReadonly went away during the keys case");
+    const viewerGap = await aimKeysAt(harness, "viewer", createViewer, findings);
     if (viewerGap !== undefined) unverified.push(viewerGap);
   }
   return outcomeOf(

@@ -1,6 +1,6 @@
-import type { CollaborativeModeler } from "../index.js";
+import type { CollaborativeModeler, InteractionSurface } from "../index.js";
 import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
-import { defaultSettle, errorOf, fail, importOrFail, skip } from "./support.js";
+import { errorOf, fail, importFirstText, settleOf, skip } from "./support.js";
 import {
   GESTURE_KINDS,
   type GestureStarter,
@@ -10,35 +10,36 @@ import {
 } from "./user-input.js";
 
 /** every rule is stated by the contract, so each one fails */
-async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOutcome | void> {
-  const settle = h.settle ?? defaultSettle;
-  const first = h.canonicalTexts[0] ?? "";
+async function interactionFollowsGestures(
+  harness: ConformanceHarness,
+): Promise<CaseOutcome | void> {
+  const settle = settleOf(harness);
   const others: CollaborativeModeler[] = [];
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    const interaction = m.interaction;
+    const interaction = modeler.interaction;
     if (!interaction) {
       return skip("the modeler exposes no interaction surface (optional, 1.5) — nothing to verify");
     }
-    if (!h.startGesture) {
+    if (!harness.startGesture) {
       return skip(
         "startGesture is undefined — that interaction.active() follows every gesture was not verified",
       );
     }
-    const startGesture = h.startGesture;
+    const startGesture = harness.startGesture;
     if (interaction.active()) fail("interaction.active() is true before the first import");
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     await settle();
     if (interaction.active()) fail("interaction.active() is true at rest after an import");
-    const watch = watchInteraction(m);
+    const watch = watchInteraction(modeler);
     if (!watch) fail("the interaction surface went away");
     for (const kind of GESTURE_KINDS) {
       for (const end of ["drop", "cancel"] as const) {
-        await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
+        await importFirstText(harness, modeler);
         await settle();
         const mark = watch.delivered.length;
         const since = (): string => JSON.stringify(watch.delivered.slice(mark));
-        const held = await startGesture(m, kind);
+        const held = await startGesture(modeler, kind);
         if (!interaction.active()) {
           fail(`interaction.active() is false while a ${kind} gesture is held`);
         }
@@ -67,75 +68,108 @@ async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOu
     const late: boolean[] = [];
     const unsubscribe = interaction.onChange((active) => late.push(active));
     unsubscribe();
-    await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-    const held = await startGesture(m, "move");
+    await importFirstText(harness, modeler);
+    const held = await startGesture(modeler, "move");
     await held.cancel();
     await settle();
     if (late.length > 0) fail("interaction.onChange delivered after its unsubscribe");
-    const unverified: string[] = [];
-    if (h.armTool) {
-      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected");
-      await settle();
-      const mark = watch.delivered.length;
-      await h.armTool(m);
-      await settle();
-      if (interaction.active() || watch.delivered.length > mark) {
-        fail(
-          `a palette tool that is only armed counted as a gesture (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))}) — no gesture runs until its press`,
-        );
-      }
-      await importOrFail(m, first, "importText(canonicalTexts[0]) rejected with a tool armed");
-      await settle();
-      if (interaction.active() || watch.delivered.length > mark) {
-        fail(
-          `an import with a palette tool armed changed interaction (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))})`,
-        );
-      }
-    } else {
-      unverified.push(
-        "armTool is undefined — that a palette tool that is only armed is no gesture was not verified",
-      );
-    }
-    const destroyed = await h.create();
-    let afterDestroy: InteractionWatch | undefined;
-    let mark = 0;
-    try {
-      await importOrFail(destroyed, first, "importText(canonicalTexts[0]) rejected");
-      afterDestroy = watchInteraction(destroyed);
-      await startGesture(destroyed, "move");
-      mark = afterDestroy?.delivered.length ?? 0;
-    } finally {
-      destroyed.destroy();
-    }
-    await settle();
-    if (afterDestroy && afterDestroy.delivered.length > mark) {
-      fail(
-        `interaction.onChange delivered ${JSON.stringify(afterDestroy.delivered.slice(mark))} after destroy() — nothing is called after destroy()`,
-      );
-    }
-    const later = await laterListenerAfterADestroy(h, startGesture);
+    const armedToolUnverified = await armedToolIsNoGesture(harness, modeler, interaction, watch);
+    await nothingDeliveredAfterADestroy(harness, startGesture);
+    const later = await laterListenerAfterADestroy(harness, startGesture);
     if (later.length > 0) {
       fail(
         `interaction.onChange delivered ${JSON.stringify(later)} to a later listener once an earlier listener of the same delivery had called destroy() at the start of a move — nothing is called after destroy()`,
       );
     }
-    if (h.createReadonly) {
-      const viewer = await h.createReadonly();
-      others.push(viewer);
-      if (viewer.interaction?.active()) {
-        fail("the viewer's interaction.active() is true before the first import");
-      }
-      await importOrFail(viewer, first, "the viewer rejected canonicalTexts[0]");
-      if (viewer.interaction?.active()) {
-        fail(
-          "the viewer's interaction.active() is true after an import — a viewer has no editing gesture",
-        );
-      }
-    }
-    if (unverified.length > 0) return skip(unverified.join("; "));
+    await viewerHoldsNoGesture(harness, others);
+    if (armedToolUnverified !== undefined) return skip(armedToolUnverified);
   } finally {
-    m.destroy();
+    modeler.destroy();
     for (const other of others) other.destroy();
+  }
+}
+
+/**
+ * a palette tool that is only armed is no gesture, also across an import; returns why that was not
+ * verified
+ */
+async function armedToolIsNoGesture(
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  interaction: InteractionSurface,
+  watch: InteractionWatch,
+): Promise<string | undefined> {
+  if (!harness.armTool) {
+    return "armTool is undefined — that a palette tool that is only armed is no gesture was not verified";
+  }
+  const settle = settleOf(harness);
+  await importFirstText(harness, modeler);
+  await settle();
+  const mark = watch.delivered.length;
+  await harness.armTool(modeler);
+  await settle();
+  if (interaction.active() || watch.delivered.length > mark) {
+    fail(
+      `a palette tool that is only armed counted as a gesture (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))}) — no gesture runs until its press`,
+    );
+  }
+  await importFirstText(
+    harness,
+    modeler,
+    "importText(canonicalTexts[0]) rejected with a tool armed",
+  );
+  await settle();
+  if (interaction.active() || watch.delivered.length > mark) {
+    fail(
+      `an import with a palette tool armed changed interaction (active() ${String(interaction.active())}, onChange delivered ${JSON.stringify(watch.delivered.slice(mark))})`,
+    );
+  }
+  return undefined;
+}
+
+/** a fresh instance destroyed while a move is held delivers nothing after destroy() */
+async function nothingDeliveredAfterADestroy(
+  harness: ConformanceHarness,
+  startGesture: GestureStarter,
+): Promise<void> {
+  const destroyed = await harness.create();
+  let afterDestroy: InteractionWatch | undefined;
+  let mark: number;
+  try {
+    await importFirstText(harness, destroyed);
+    afterDestroy = watchInteraction(destroyed);
+    await startGesture(destroyed, "move");
+    mark = afterDestroy?.delivered.length ?? 0;
+  } finally {
+    destroyed.destroy();
+  }
+  await settleOf(harness)();
+  if (afterDestroy && afterDestroy.delivered.length > mark) {
+    fail(
+      `interaction.onChange delivered ${JSON.stringify(afterDestroy.delivered.slice(mark))} after destroy() — nothing is called after destroy()`,
+    );
+  }
+}
+
+/**
+ * the viewer's interaction is never active, before or after an import; the viewer joins `others`,
+ * which the case destroys after the modeler
+ */
+async function viewerHoldsNoGesture(
+  harness: ConformanceHarness,
+  others: CollaborativeModeler[],
+): Promise<void> {
+  if (!harness.createReadonly) return;
+  const viewer = await harness.createReadonly();
+  others.push(viewer);
+  if (viewer.interaction?.active()) {
+    fail("the viewer's interaction.active() is true before the first import");
+  }
+  await importFirstText(harness, viewer, "the viewer rejected canonicalTexts[0]");
+  if (viewer.interaction?.active()) {
+    fail(
+      "the viewer's interaction.active() is true after an import — a viewer has no editing gesture",
+    );
   }
 }
 
@@ -147,22 +181,22 @@ async function interactionFollowsGestures(h: ConformanceHarness): Promise<CaseOu
  * what the second heard before the destroy counts for nothing
  */
 async function laterListenerAfterADestroy(
-  h: ConformanceHarness,
+  harness: ConformanceHarness,
   startGesture: GestureStarter,
 ): Promise<boolean[]> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(harness);
   const later: boolean[] = [];
   let destroyed = false;
-  const m = await h.create();
+  const modeler = await harness.create();
   try {
-    await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+    await importFirstText(harness, modeler);
     await settle();
-    const interaction = m.interaction;
+    const interaction = modeler.interaction;
     if (!interaction) return later;
     interaction.onChange((active) => {
       if (!active || destroyed) return;
       destroyed = true;
-      m.destroy();
+      modeler.destroy();
     });
     interaction.onChange((active) => {
       if (destroyed) later.push(active);
@@ -172,14 +206,14 @@ async function laterListenerAfterADestroy(
     const errors = listenForWindowErrors();
     try {
       await errorOf(async () => {
-        await startGesture(m, "move");
+        await startGesture(modeler, "move");
       });
       await settle();
     } finally {
       errors.stop();
     }
   } finally {
-    if (!destroyed) m.destroy();
+    if (!destroyed) modeler.destroy();
   }
   return later;
 }

@@ -13,22 +13,22 @@
  */
 
 /**
- * the semver of THIS contract — a modeler declares the version it implements
- * in `meta.apiVersion`; hosts check compatibility with `apiVersionsCompatible`
- * (same major; while 0.x, the same minor too). The constant IS the
- * package version: release-please rewrites the literal below on every
- * release (release-please-config.json `extra-files`), and the kit's own
+ * the semver of THIS contract: a modeler declares the version it implements
+ * in `meta.apiVersion`, and hosts check compatibility with
+ * `apiVersionsCompatible`. The constant IS the package version:
+ * release-please rewrites the literal below on every release
+ * (release-please-config.json `extra-files`), and the kit's own
  * test pins it to package.json exactly. Modelers pin the npm package; the
  * constant is what travels in `meta`.
  */
 export const MODELER_API_VERSION = "1.7.0"; // x-release-please-version
 
 /**
- * apiVersion compatibility: same major — and, while the contract is 0.x,
- * the same minor too (pre-1.0 minors may break; bump-minor-pre-major).
+ * apiVersion compatibility: the same major and, while the contract is 0.x,
+ * the same minor too, since a minor before 1.0 may break.
  * Hosts call it at bind time with `meta.apiVersion` and their own
  * MODELER_API_VERSION; it lives in the package root so that check never
- * pulls the conformance kit into a host bundle (`/conformance` re-exports it)
+ * pulls the conformance kit into a host bundle
  */
 export function apiVersionsCompatible(a: string, b: string): boolean {
   const [aMajor = "", aMinor = ""] = a.split(".");
@@ -41,9 +41,8 @@ export interface ModelerMeta {
   /** stable notation id, e.g. "wardley", "team-topology", "event-storming" */
   readonly notation: string;
   /**
-   * the MODELER_API_VERSION this modeler implements — compatible when the
-   * major matches and, while the contract is 0.x, the minor too (pre-1.0
-   * minors may break: bump-minor-pre-major)
+   * the MODELER_API_VERSION this modeler implements; `apiVersionsCompatible`
+   * tells a host whether it binds this version
    */
   readonly apiVersion: string;
   /**
@@ -303,14 +302,11 @@ export interface CollaborativeModeler {
    * the modeler from a listener it called (`destroy`).
    * RECOMMENDED (1.5): an accepted import first cancels a gesture the user
    * holds; a rejected one leaves it running (L1). RECOMMENDED (1.6): one
-   * called during a running user action (a drop, the start of a drag, a
-   * click append, a keyboard create, a label commit, a press that commits a
-   * label, a command with an undo or a redo, each with the steps it
-   * schedules) waits until the action has finished, and its Promise settles
-   * after that import; after the start of a drag that import ends the drag,
-   * and the drag a press starts after it committed a label ends with it.
-   * Imports keep their call order, and one called during a pan leaves the
-   * pan running (L1)
+   * called during a running user action (as L1 defines it) waits until the
+   * action has finished, and its Promise settles after that import; after
+   * the start of a drag that import ends the drag, and the drag a press
+   * starts after it committed a label ends with it. Imports keep their call
+   * order, and one called during a pan leaves the pan running (L1)
    */
   importText(text: string): Promise<ImportResult>;
 
@@ -586,32 +582,27 @@ export interface DiagramPoint {
  * area: given `insets` a renderer may fit into the free rectangle or keep
  * its own fit, and given only `center`, which names no rectangle, it MAY fit
  * as it does without the option, keeping the padding it uses then (Context
- * Maps keeps the room its palette needs) — the reading all five published
- * renderers conform to, which no kit case checks; a host whose first view
- * must leave its chrome free passes `fitOnImport: false` and fits itself.
+ * Maps keeps the room its palette needs). Every Miragon renderer conforms to
+ * this reading, which no kit case checks; a host whose first view must leave
+ * its chrome free passes `fitOnImport: false` and fits itself.
  */
 export type FreeArea =
   | { insets: () => FreeAreaInsets; center?: never }
   | { center: () => DiagramPoint | undefined; insets?: never };
 
 /**
- * The options a renderer's contract factory takes under THESE names once it
- * implements contract 1.2, so a host feeds every notation the same object
- * instead of one spelling per renderer. A renderer extends the type with its
- * own options (diagram-js `additionalModules`); the contract fixes names,
- * meaning and defaults. A viewer factory takes the same type and ignores
- * what has no meaning without editing (`undoRedoKeys`).
+ * The options a renderer's contract factory takes under THESE names (1.2),
+ * so a host feeds every notation the same object instead of one spelling
+ * per renderer. A renderer extends the type with its own options
+ * (diagram-js `additionalModules`); the contract fixes names, meaning and
+ * defaults. A viewer factory takes the same type and ignores what has no
+ * meaning without editing (`undoRedoKeys`).
  *
- * Each renderer adopts them in its own release, as part of its move to 1.2:
- * `meta.apiVersion` follows the pinned package and no kit case checks the
- * options, so the version alone does not tell a host they are honoured.
- * Every Miragon renderer takes these names and no others: the renderers'
- * own earlier names (`freeRectInsets`, `freeRectCenter` and Wardley's
- * `keyboard: { undoRedo }`) are gone since wardley-renderer 0.12.0,
- * event-storming-renderer 0.6.0, team-topologies-renderer 0.15.0,
- * context-maps-renderer 0.7.0 and value-chain-renderer 0.8.0. A host that
- * still passes one gets the option's default (TypeScript rejects the name
- * in an object literal).
+ * No kit case checks the options (the harness's `create()` builds the
+ * instance), so `meta.apiVersion` alone does not tell a host that a
+ * renderer honours them. Every Miragon renderer takes these names and no
+ * others; a host that passes another name gets the option's default, and
+ * TypeScript rejects it in an object literal.
  */
 export interface CollaborativeModelerOptions {
   /** where the host's chrome leaves the canvas free; default: the whole container */
@@ -622,9 +613,7 @@ export interface CollaborativeModelerOptions {
    * (the modeler shell's viewport fits into the free area) passes false:
    * the post-import view is then the host's to set, and L5's fit is the
    * host's fit. The conformance kit runs with the default. Whether the
-   * renderer's own fit uses `freeArea` is its choice (see `FreeArea`): with
-   * `insets` it may fit into the free rectangle, with only `center` it may
-   * keep the padding it uses without the option
+   * renderer's own fit uses `freeArea`: see `FreeArea`.
    */
   fitOnImport?: boolean | undefined;
   /**
@@ -640,6 +629,7 @@ export {
   isMergeConflict,
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeRecord,
   mergeValue,
   sameJsonValue,

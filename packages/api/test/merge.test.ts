@@ -1,191 +1,16 @@
 import { describe, expect, test } from "vitest";
 
-import {
-  type MergeFixtures,
-  mergeConformanceCases,
-  registerMergeConformance,
-} from "../src/conformance.js";
+import { registerMergeConformance } from "../src/conformance.js";
 import {
   isMergeConflict,
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeRecord,
   mergeTextLines,
   mergeValue,
-  type ModelTextMerge,
   sameJsonValue,
 } from "../src/index.js";
-
-interface Line {
-  id: string;
-  label: string;
-}
-
-function parseLines(text: string): Line[] {
-  return text
-    .split("\n")
-    .filter((line) => line !== "")
-    .map((line) => {
-      const match = /^(\w+)=(.*)$/.exec(line);
-      if (!match) throw new Error(`not a line: ${line}`);
-      return { id: match[1] as string, label: match[2] as string };
-    });
-}
-
-function serializeLines(lines: readonly Line[]): string {
-  return lines.map((line) => `${line.id}=${line.label}\n`).join("");
-}
-
-function parsedOrConflict(text: string): Line[] {
-  try {
-    return parseLines(text);
-  } catch (error) {
-    throw new MergeConflictError([], String(error));
-  }
-}
-
-const referenceMerge: ModelTextMerge = (lastSyncedText, externalText, draftText) => {
-  const result = mergeItemsById(
-    parsedOrConflict(lastSyncedText),
-    parsedOrConflict(externalText),
-    parsedOrConflict(draftText),
-  );
-  if (result.conflictingIds) throw new MergeConflictError(result.conflictingIds);
-  return serializeLines(result.merged);
-};
-
-const fixtures: MergeFixtures = {
-  base: "a=Alpha\nb=Beta\nc=Gamma\n",
-  disjoint: [
-    {
-      name: "a rename outside, a new line in the draft",
-      external: "a=Alpha\nb=Bravo\nc=Gamma\n",
-      draft: "a=Alpha\nb=Beta\nc=Gamma\nd=Delta\n",
-      merged: "a=Alpha\nb=Bravo\nc=Gamma\nd=Delta\n",
-    },
-    {
-      name: "a removal outside, an insert in the middle of the draft",
-      external: "a=Alpha\nc=Gamma\n",
-      draft: "a=Alpha\nx=Inserted\nb=Beta\nc=Gamma\n",
-      merged: "a=Alpha\nx=Inserted\nc=Gamma\n",
-    },
-  ],
-  conflicting: [
-    {
-      name: "one line renamed on both sides",
-      external: "a=Alpha\nb=Bravo\nc=Gamma\n",
-      draft: "a=Alpha\nb=Bee\nc=Gamma\n",
-    },
-    {
-      name: "a rename against a removal",
-      external: "a=Alpha\nc=Gamma\n",
-      draft: "a=Alpha\nb=Bee\nc=Gamma\n",
-    },
-  ],
-  invalidTexts: ["a=Alpha\n!broken\n"],
-  parse: parseLines,
-};
-
-describe("the reference merge", () => {
-  registerMergeConformance(referenceMerge, fixtures, test);
-});
-
-function failingMergeCases(
-  merge: ModelTextMerge,
-  overrides: Partial<MergeFixtures> = {},
-): string[] {
-  return mergeConformanceCases()
-    .filter((mergeCase) => {
-      try {
-        mergeCase.run(merge, { ...fixtures, ...overrides });
-        return false;
-      } catch {
-        return true;
-      }
-    })
-    .map((mergeCase) => mergeCase.name);
-}
-
-describe("each broken merge fails the case of the law it breaks", () => {
-  test("a merge that keeps the draft", () => {
-    expect(failingMergeCases((_base, _external, draft) => draft)).toEqual([
-      "merge: an unchanged draft takes the outside",
-      "merge: changes to different elements are both kept",
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
-    ]);
-  });
-
-  test("a merge that takes the outside", () => {
-    expect(failingMergeCases((_base, external) => external)).toEqual([
-      "merge: an unchanged outside keeps the draft",
-      "merge: changes to different elements are both kept",
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
-    ]);
-  });
-
-  test("a merge that throws a plain Error on a conflict", () => {
-    const plainErrors: ModelTextMerge = (base, external, draft) => {
-      try {
-        return referenceMerge(base, external, draft);
-      } catch {
-        throw new Error("cannot merge");
-      }
-    };
-    expect(failingMergeCases(plainErrors)).toEqual([
-      "merge: two changes of one element conflict",
-      "merge: a text that does not parse conflicts",
-    ]);
-  });
-
-  test("a merge that lets the parser's error through", () => {
-    const parserErrors: ModelTextMerge = (base, external, draft) => {
-      parseLines(external);
-      parseLines(draft);
-      return referenceMerge(base, external, draft);
-    };
-    expect(failingMergeCases(parserErrors)).toEqual([
-      "merge: a text that does not parse conflicts",
-    ]);
-  });
-
-  test("a merge whose result does not parse", () => {
-    const broken: ModelTextMerge = (base, external, draft) => {
-      const merged = referenceMerge(base, external, draft);
-      return merged === external || merged === draft ? merged : `${merged}!trailer\n`;
-    };
-    const merged = (fixture: { external: string; draft: string }) =>
-      broken(fixtures.base, fixture.external, fixture.draft);
-    expect(
-      failingMergeCases(broken, {
-        disjoint: fixtures.disjoint.map((fixture) => ({ ...fixture, merged: merged(fixture) })),
-      }),
-    ).toEqual(["merge: changes to different elements are both kept"]);
-  });
-
-  test("a merge that is not deterministic", () => {
-    let calls = 0;
-    const flaky: ModelTextMerge = (base, external, draft) => {
-      const merged = referenceMerge(base, external, draft);
-      calls += 1;
-      return merged === external || merged === draft || calls % 2 === 1
-        ? merged
-        : `z=${calls}\n${merged}`;
-    };
-    expect(failingMergeCases(flaky)).toContain("merge: the result is deterministic");
-  });
-
-  test("fixtures without an invalid text leave the parse case nothing to check", () => {
-    expect(failingMergeCases(referenceMerge, { invalidTexts: [] })).toEqual([]);
-  });
-
-  test("fixtures without a conflicting change fail every case", () => {
-    expect(failingMergeCases(referenceMerge, { conflicting: [] })).toHaveLength(
-      mergeConformanceCases().length,
-    );
-  });
-});
 
 describe("mergeItemsById", () => {
   const base = [
@@ -260,6 +85,71 @@ describe("mergeItemsById", () => {
       { from: "a", to: "b", style: "dashed" },
       { from: "b", to: "a", style: "solid" },
     ]);
+  });
+});
+
+describe("mergeItemsByOccurrence", () => {
+  interface Arrow {
+    from: string;
+    to: string;
+    label?: string;
+  }
+  const ends = (arrow: Arrow): string => `${arrow.from}->${arrow.to}`;
+  const ab: Arrow = { from: "a", to: "b" };
+  const bc: Arrow = { from: "b", to: "c" };
+  const cd: Arrow = { from: "c", to: "d" };
+
+  test("keeps two equal items two: a second one added outside stays next to the draft's new item", () => {
+    expect(mergeItemsByOccurrence([ab], [ab, ab], [ab, bc], ends).merged).toEqual([ab, bc, ab]);
+  });
+
+  test("numbers the items of one key from 1 in list order and names a conflict by that number", () => {
+    expect(
+      mergeItemsByOccurrence(
+        [ab, bc, ab],
+        [ab, bc, { ...ab, label: "outside" }],
+        [ab, bc, { ...ab, label: "draft" }],
+        ends,
+      ).conflictingIds,
+    ).toEqual(["a->b#2"]);
+    expect(
+      mergeItemsByOccurrence(
+        [ab],
+        [ab, { ...cd, label: "1" }],
+        [ab, { ...cd, label: "2" }, { ...cd, label: "2" }],
+        ends,
+      ).conflictingIds,
+    ).toEqual(["c->d#1"]);
+  });
+
+  test("a duplicate one side removes is gone once, and its twin stays", () => {
+    expect(mergeItemsByOccurrence([ab, bc, ab], [ab, bc], [ab, bc, ab, cd], ends).merged).toEqual([
+      ab,
+      bc,
+      cd,
+    ]);
+  });
+
+  test("keeps an item's key across a reorder, so a change on the other side lands on it", () => {
+    expect(
+      mergeItemsByOccurrence([ab, bc], [ab, { ...bc, label: "outside" }], [bc, ab], ends).merged,
+    ).toEqual([{ ...bc, label: "outside" }, ab]);
+  });
+
+  test("compares two items under one key by isSameItem", () => {
+    const sameLabelIgnoringCase = (arrow: Arrow, other: Arrow): boolean =>
+      arrow.label?.toLowerCase() === other.label?.toLowerCase();
+    const lastSynced = [{ ...ab, label: "Paid" }];
+    const external = [{ ...ab, label: "paid" }];
+    const draft = [{ ...ab, label: "Shipped" }];
+    expect(mergeItemsByOccurrence(lastSynced, external, draft, ends).conflictingIds).toEqual([
+      "a->b#1",
+    ]);
+    expect(
+      mergeItemsByOccurrence(lastSynced, external, draft, ends, {
+        isSameItem: sameLabelIgnoringCase,
+      }).merged,
+    ).toEqual(draft);
   });
 });
 
@@ -376,6 +266,80 @@ describe("mergeTextLines", () => {
   test("names a conflict by the lines of the text both sides started from", () => {
     expect(mergeTextLines(base, "a\nB\nc\nd\ne\n", "a\nb2\nc\nd\ne\n")).toEqual({
       conflictingIds: ["lines 2-2"],
+    });
+  });
+
+  describe("a large text", () => {
+    const numberedLines = (prefix: string, count: number): string =>
+      Array.from({ length: count }, (_, index) => `${prefix} ${index}\n`).join("");
+    const largeBase = numberedLines("line", 2100);
+    const largeRewrite = numberedLines("rewritten", 2100);
+    const withLines = (text: string, replacementsByLineNumber: Record<number, string>): string =>
+      text
+        .split(/(?<=\n)/)
+        .map((line, index) => replacementsByLineNumber[index + 1] ?? line)
+        .join("");
+
+    test("keeps the one side that rewrote it, or the rewrite both sides made", () => {
+      expect(mergeTextLines(largeBase, largeBase, largeRewrite)).toEqual({ merged: largeRewrite });
+      expect(mergeTextLines(largeBase, largeRewrite, largeBase)).toEqual({ merged: largeRewrite });
+      expect(mergeTextLines(largeBase, largeRewrite, largeRewrite)).toEqual({
+        merged: largeRewrite,
+      });
+    });
+
+    describe.each([2100, 20_000])("of %i lines, changed near both ends outside", (count) => {
+      const base = numberedLines("line", count);
+      const nearBothEnds = { 6: "outside 6\n", [count - 4]: `outside ${count - 4}\n` };
+
+      test("keeps the draft's change in the middle too (M2)", () => {
+        expect(
+          mergeTextLines(base, withLines(base, nearBothEnds), withLines(base, { 1001: "draft\n" })),
+        ).toEqual({ merged: withLines(base, { ...nearBothEnds, 1001: "draft\n" }) });
+      });
+
+      test("conflicts on the one line both sides changed differently (M3)", () => {
+        expect(
+          mergeTextLines(
+            base,
+            withLines(base, { ...nearBothEnds, 1001: "outside 1001\n" }),
+            withLines(base, { 1001: "draft\n" }),
+          ),
+        ).toEqual({ conflictingIds: ["lines 1001-1001"] });
+      });
+    });
+
+    test("keeps the changes of both sides spread over the whole text", () => {
+      const outside: Record<number, string> = {};
+      const draft: Record<number, string> = {};
+      for (let line = 5; line <= 2100; line += 10) {
+        draft[line] = `draft ${line}\n`;
+        outside[line + 5] = `outside ${line + 5}\n${line % 100 === 95 ? "inserted\n" : ""}`;
+      }
+      expect(
+        mergeTextLines(largeBase, withLines(largeBase, outside), withLines(largeBase, draft)),
+      ).toEqual({ merged: withLines(largeBase, { ...outside, ...draft }) });
+    });
+
+    test("merges 20,000 lines with a few changes on both sides in well under a second", () => {
+      const base = numberedLines("line", 20_000);
+      const external = withLines(base, { 6: "outside\n", 19_996: "outside\n" });
+      const draft = withLines(base, { 10_001: "draft\n" });
+      const started = performance.now();
+      const result = mergeTextLines(base, external, draft);
+      expect(performance.now() - started).toBeLessThan(1000);
+      expect(result.merged).toBeDefined();
+    });
+
+    test("conflicts on the whole text when both sides rewrote it, too far apart to match", () => {
+      const withMiddle = (middle: string) => `head\n${middle}tail\n`;
+      expect(
+        mergeTextLines(
+          withMiddle(largeBase),
+          withMiddle(largeRewrite),
+          withMiddle(numberedLines("drafted", 2100)),
+        ),
+      ).toEqual({ conflictingIds: ["the whole text"] });
     });
   });
 });

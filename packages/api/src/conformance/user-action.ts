@@ -1,20 +1,18 @@
 import type { CollaborativeModeler, ElementsSurface } from "../index.js";
-import {
-  type CaseOutcome,
-  type ConformanceCase,
-  type ConformanceHarness,
-  nextHostSerial,
-} from "./harness.js";
+import type { CaseOutcome, ConformanceCase, ConformanceHarness } from "./harness.js";
+import { nextHostSerial } from "./hosts.js";
 import {
   adviseOn,
-  defaultSettle,
   errorOf,
   exportOrFail,
+  firstText,
   focusOn,
+  importFirstText,
   importOrFail,
   mountedCanvas,
   outcomeOf,
   same,
+  settleOf,
 } from "./support.js";
 import {
   type ActionLegFindings,
@@ -61,12 +59,12 @@ interface ImportedDocument extends ImportedLeg {
  * created in the session elsewhere than the export after importing that text does
  */
 async function theDocumentToImport(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
 ): Promise<ImportedDocument> {
-  const [leg = { text: h.canonicalTexts[0] ?? "", what: "canonicalTexts[0]" }] = importedLegs(h);
-  await importOrFail(m, leg.text, `importText(${leg.what}) rejected`);
-  return { ...leg, expected: exportOrFail(m, `after importing ${leg.what}`) };
+  const [leg = { text: firstText(harness), what: "canonicalTexts[0]" }] = importedLegs(harness);
+  await importOrFail(modeler, leg.text, `importText(${leg.what}) rejected`);
+  return { ...leg, expected: exportOrFail(modeler, `after importing ${leg.what}`) };
 }
 
 interface ActionLeg {
@@ -82,12 +80,12 @@ interface ActionLeg {
 }
 
 async function importFromTheSelectionListener(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
   leg: ActionLeg,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(harness);
   const { text, expected } = leg.imported;
   const during = `importing ${leg.imported.what} from the selection listener during ${leg.what}`;
   const findings: string[] = [];
@@ -98,15 +96,15 @@ async function importFromTheSelectionListener(
   const offSelection = once(
     elements.onSelection(() => {
       if (result !== undefined) return;
-      const atTheCall = exportedNow(m);
-      result = importFromAListener(m, text, () => {
+      const atTheCall = exportedNow(modeler);
+      result = importFromAListener(modeler, text, () => {
         settled = true;
       });
-      replacedInTheListener = exportedNow(m) !== atTheCall;
+      replacedInTheListener = exportedNow(modeler) !== atTheCall;
     }),
   );
   const offChanges = once(
-    m.onContentChanged(() => {
+    modeler.onContentChanged(() => {
       if (settled) changesAfterTheImport += 1;
     }),
   );
@@ -117,7 +115,7 @@ async function importFromTheSelectionListener(
     const thrown = await errorOf(async () => {
       const acting = leg.act();
       heardRightAfter = result !== undefined;
-      exportRightAfter = exportedNow(m);
+      exportRightAfter = exportedNow(modeler);
       await acting;
     });
     if (result === undefined) {
@@ -133,9 +131,7 @@ async function importFromTheSelectionListener(
         `${leg.what} threw ${thrown} once its selection listener had called importText(${leg.imported.what})`,
       );
     }
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during}`));
     if (outcome.unsettled) {
       findings.push(
         `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — it waits for something the action never ends`,
@@ -160,7 +156,7 @@ async function importFromTheSelectionListener(
         `when the Promise of ${during} settled, exportText() did not return the imported document — the Promise settled before the import had run, or the action went on and changed the imported document`,
       );
     }
-    const out = exportedNow(m);
+    const out = exportedNow(modeler);
     if (out === undefined) {
       findings.push(`exportText() threw once ${during} had settled`);
       return { findings };
@@ -173,24 +169,24 @@ async function importFromTheSelectionListener(
     }
     offChanges();
     if (outcome.rejected === undefined) {
-      findings.push(...(await undoAfterTheImport(h, m, out, during, "the action")));
+      findings.push(...(await undoAfterTheImport(harness, modeler, out, during, "the action")));
     }
   } finally {
     offSelection();
     offChanges();
     errors.stop();
   }
-  findings.push(...(await nextMutateApplies(h, m, during)));
+  findings.push(...(await nextMutateApplies(harness, modeler, during)));
   return { findings };
 }
 
 async function revealTheFirstElement(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
 ): Promise<string | ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  const settle = settleOf(harness);
+  await importFirstText(harness, modeler);
   await settle();
   const target = elements.list()[0]?.id;
   if (target === undefined) {
@@ -209,19 +205,19 @@ async function revealTheFirstElement(
  * the key that deleted it and the document the delete left, or why the case cannot delete it
  */
 async function deleteWithAKey(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   canvas: Element,
   target: string,
 ): Promise<{ key: string; left: string } | ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
+  const settle = settleOf(harness);
   const unfocused = focusTheCanvas(canvas);
   if (unfocused !== undefined) return { findings: [], unverified: unfocused };
-  const before = exportOrFail(m, `with '${target}' revealed`);
+  const before = exportOrFail(modeler, `with '${target}' revealed`);
   for (const key of ["Delete", "Backspace"]) {
     pressOn(canvas, key);
     await settle();
-    const left = exportOrFail(m, `after ${key} on the focused canvas`);
+    const left = exportOrFail(modeler, `after ${key} on the focused canvas`);
     if (left !== before) return { key, left };
   }
   return {
@@ -236,21 +232,21 @@ async function deleteWithAKey(
  * delete from the delete itself, also where the imported document is what the delete leaves
  */
 async function deleteOfASelectedElement(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
   canvas: Element,
 ): Promise<ActionLegFindings> {
-  const imported = await theDocumentToImport(h, m);
-  const first = await revealTheFirstElement(h, m, elements);
+  const imported = await theDocumentToImport(harness, modeler);
+  const first = await revealTheFirstElement(harness, modeler, elements);
   if (typeof first !== "string") return first;
-  const alone = await deleteWithAKey(h, m, canvas, first);
+  const alone = await deleteWithAKey(harness, modeler, canvas, first);
   if (!("key" in alone)) return alone;
-  const target = await revealTheFirstElement(h, m, elements);
+  const target = await revealTheFirstElement(harness, modeler, elements);
   if (typeof target !== "string") return target;
   const unfocused = focusTheCanvas(canvas);
   if (unfocused !== undefined) return { findings: [], unverified: unfocused };
-  return importFromTheSelectionListener(h, m, elements, {
+  return importFromTheSelectionListener(harness, modeler, elements, {
     what: `a delete of the selected element '${target}' (${alone.key} on the focused canvas)`,
     imported,
     left: alone.left,
@@ -261,18 +257,18 @@ async function deleteOfASelectedElement(
 }
 
 async function undoOfASelectedCreate(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
   undo: NonNullable<ConformanceHarness["undo"]>,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  const imported = await theDocumentToImport(h, m);
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  const settle = settleOf(harness);
+  const imported = await theDocumentToImport(harness, modeler);
+  await importFirstText(harness, modeler);
   await settle();
-  const left = exportOrFail(m, "before mutate");
+  const left = exportOrFail(modeler, "before mutate");
   const listed = new Set(elements.list().map((element) => element.id));
-  await h.mutate(m);
+  await harness.mutate(modeler);
   await settle();
   const created = elements.list().find((element) => !listed.has(element.id))?.id;
   if (created === undefined || !elements.reveal(created)) {
@@ -283,29 +279,29 @@ async function undoOfASelectedCreate(
     };
   }
   await settle();
-  return importFromTheSelectionListener(h, m, elements, {
+  return importFromTheSelectionListener(harness, modeler, elements, {
     what: `an undo of the create of the selected element '${created}'`,
     imported,
     left,
-    act: () => undo(m),
+    act: () => undo(modeler),
   });
 }
 
 async function redoOfADelete(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   elements: ElementsSurface,
   canvas: Element,
   undo: NonNullable<ConformanceHarness["undo"]>,
   redo: NonNullable<ConformanceHarness["redo"]>,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  const imported = await theDocumentToImport(h, m);
-  const target = await revealTheFirstElement(h, m, elements);
+  const settle = settleOf(harness);
+  const imported = await theDocumentToImport(harness, modeler);
+  const target = await revealTheFirstElement(harness, modeler, elements);
   if (typeof target !== "string") return target;
-  const deleted = await deleteWithAKey(h, m, canvas, target);
+  const deleted = await deleteWithAKey(harness, modeler, canvas, target);
   if (!("key" in deleted)) return deleted;
-  await undo(m);
+  await undo(modeler);
   await settle();
   // the element back under its id is all the redo needs: the contract leaves the undone document's
   // bytes to the modeler (an element may come back elsewhere in the text)
@@ -316,11 +312,11 @@ async function redoOfADelete(
     };
   }
   await settle();
-  return importFromTheSelectionListener(h, m, elements, {
+  return importFromTheSelectionListener(harness, modeler, elements, {
     what: `a redo of the delete of the selected element '${target}'`,
     imported,
     left: deleted.left,
-    act: () => redo(m),
+    act: () => redo(modeler),
   });
 }
 
@@ -332,13 +328,13 @@ async function redoOfADelete(
  * in which order they ran
  */
 async function importsKeepTheirCallOrder(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
 ): Promise<ActionLegFindings> {
-  const settle = h.settle ?? defaultSettle;
-  await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
+  const settle = settleOf(harness);
+  await importFirstText(harness, modeler);
   await settle();
-  const text = exportOrFail(m, "before mutate");
+  const text = exportOrFail(modeler, "before mutate");
   const during =
     "two imports, the document from before mutate from the change listener of its command and an echo of the command's document called once the command had returned";
   const findings: string[] = [];
@@ -352,24 +348,26 @@ async function importsKeepTheirCallOrder(
   let changesAfterTheImports = 0;
   const callTheSecond = (): void => {
     if (echo === undefined || first === undefined || second !== undefined) return;
-    firstHadRun = exportedNow(m) === text;
-    second = importFromAListener(m, echo, () => settledInOrder.push("the echo"));
+    firstHadRun = exportedNow(modeler) === text;
+    second = importFromAListener(modeler, echo, () => settledInOrder.push("the echo"));
   };
   const offChanges = once(
-    m.onContentChanged(() => {
+    modeler.onContentChanged(() => {
       if (settled) changesAfterTheImports += 1;
       if (first !== undefined) return;
-      const now = exportedNow(m);
+      const now = exportedNow(modeler);
       if (now === undefined || now === text) return;
       echo = now;
-      first = importFromAListener(m, text, () => settledInOrder.push("the document from before"));
-      replacedInTheListener = exportedNow(m) !== now;
+      first = importFromAListener(modeler, text, () =>
+        settledInOrder.push("the document from before"),
+      );
+      replacedInTheListener = exportedNow(modeler) !== now;
       void Promise.resolve().then(callTheSecond);
     }),
   );
   const errors = listenForWindowErrors();
   try {
-    const mutating = errorOf(() => h.mutate(m));
+    const mutating = errorOf(() => harness.mutate(modeler));
     callTheSecond();
     const thrown = await mutating;
     await settle();
@@ -381,14 +379,14 @@ async function importsKeepTheirCallOrder(
       };
     }
     const both = await withinTheBound(
-      Promise.all([first, second]).then(([a, b]) => ({ rejected: a.rejected ?? b.rejected })),
+      Promise.all([first, second]).then(([firstImport, secondImport]) => ({
+        rejected: firstImport.rejected ?? secondImport.rejected,
+      })),
     );
     settled = true;
     await settle();
     if (thrown !== undefined) findings.push(`mutate threw ${thrown} during ${during}`);
-    for (const error of errors.errors) {
-      findings.push(`an error reached the window around ${during}: ${error}`);
-    }
+    findings.push(...errors.findings(`around ${during}`));
     if (both.unsettled) {
       findings.push(
         `${during} had not settled ${HELD_IMPORT_BOUND_MS / 1000} s later — they wait for something the command never ends`,
@@ -406,7 +404,7 @@ async function importsKeepTheirCallOrder(
         `${during} settled in the order ${JSON.stringify(settledInOrder)}, not in the order they were called`,
       );
     }
-    const out = exportedNow(m);
+    const out = exportedNow(modeler);
     if (out === undefined) {
       findings.push(`exportText() threw once ${during} had settled`);
       return { findings };
@@ -421,13 +419,13 @@ async function importsKeepTheirCallOrder(
     }
     offChanges();
     if (both.rejected === undefined) {
-      findings.push(...(await undoAfterTheImport(h, m, out, during, "the command")));
+      findings.push(...(await undoAfterTheImport(harness, modeler, out, during, "the command")));
     }
   } finally {
     offChanges();
     errors.stop();
   }
-  findings.push(...(await nextMutateApplies(h, m, during)));
+  findings.push(...(await nextMutateApplies(harness, modeler, during)));
   return {
     findings,
     ...(firstHadRun && !replacedInTheListener
@@ -439,24 +437,24 @@ async function importsKeepTheirCallOrder(
   };
 }
 
-async function importWaitsForTheUsersCommand(h: ConformanceHarness): Promise<CaseOutcome> {
+async function importWaitsForTheUsersCommand(harness: ConformanceHarness): Promise<CaseOutcome> {
   const findings: string[] = [];
-  const unverified = oneTextOnly(h, "an import from the selection listener during a command");
+  const unverified = oneTextOnly(harness, "an import from the selection listener during a command");
   let stopped = false;
   /** each leg on an instance of its own: one whose import ran inside the action may be left broken */
   const onAFreshInstance = async (
-    leg: (m: CollaborativeModeler, firstSerial: number) => Promise<ActionLegFindings>,
+    leg: (modeler: CollaborativeModeler, firstSerial: number) => Promise<ActionLegFindings>,
   ): Promise<void> => {
     if (stopped) return;
-    const firstSerial = nextHostSerial;
-    const m = await h.create();
+    const firstSerial = nextHostSerial();
+    const modeler = await harness.create();
     try {
-      const outcome = await leg(m, firstSerial);
+      const outcome = await leg(modeler, firstSerial);
       findings.push(...outcome.findings);
       if (outcome.unverified !== undefined) unverified.push(outcome.unverified);
       stopped = outcome.stop === true;
     } finally {
-      m.destroy();
+      modeler.destroy();
     }
   };
   const noElements: ActionLegFindings = {
@@ -467,42 +465,48 @@ async function importWaitsForTheUsersCommand(h: ConformanceHarness): Promise<Cas
   const onTheCanvas =
     (
       leg: (
-        m: CollaborativeModeler,
+        modeler: CollaborativeModeler,
         elements: ElementsSurface,
         canvas: Element,
       ) => Promise<ActionLegFindings>,
     ) =>
-    async (m: CollaborativeModeler, firstSerial: number): Promise<ActionLegFindings> => {
-      const elements = m.elements;
+    async (modeler: CollaborativeModeler, firstSerial: number): Promise<ActionLegFindings> => {
+      const elements = modeler.elements;
       if (!elements) return noElements;
-      await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-      const mount = mountedCanvas(h, m, "modeler", firstSerial, NO_DELETE);
+      await importFirstText(harness, modeler);
+      const mount = mountedCanvas(harness, modeler, "modeler", firstSerial, NO_DELETE);
       if (typeof mount === "string") return { findings: [], unverified: mount };
-      return leg(m, elements, mount.canvas);
+      return leg(modeler, elements, mount.canvas);
     };
-  const { undo, redo } = h;
+  const { undo, redo } = harness;
   const withoutDom = typeof document === "undefined";
   if (withoutDom) unverified.push(USER_ACTION_WITHOUT_DOM);
   else {
     await onAFreshInstance(
-      onTheCanvas((m, elements, canvas) => deleteOfASelectedElement(h, m, elements, canvas)),
+      onTheCanvas((modeler, elements, canvas) =>
+        deleteOfASelectedElement(harness, modeler, elements, canvas),
+      ),
     );
   }
   if (undo) {
-    await onAFreshInstance((m) =>
-      m.elements ? undoOfASelectedCreate(h, m, m.elements, undo) : Promise.resolve(noElements),
+    await onAFreshInstance((modeler) =>
+      modeler.elements
+        ? undoOfASelectedCreate(harness, modeler, modeler.elements, undo)
+        : Promise.resolve(noElements),
     );
   } else {
     unverified.push("undo is undefined — an undo and the redo of a delete were not checked");
   }
   if (undo && redo && !withoutDom) {
     await onAFreshInstance(
-      onTheCanvas((m, elements, canvas) => redoOfADelete(h, m, elements, canvas, undo, redo)),
+      onTheCanvas((modeler, elements, canvas) =>
+        redoOfADelete(harness, modeler, elements, canvas, undo, redo),
+      ),
     );
   } else if (undo && !redo) {
     unverified.push("redo is undefined — the redo of a delete was not checked");
   }
-  await onAFreshInstance((m) => importsKeepTheirCallOrder(h, m));
+  await onAFreshInstance((modeler) => importsKeepTheirCallOrder(harness, modeler));
   return outcomeOf(
     adviseOn(
       findings,

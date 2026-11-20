@@ -3,15 +3,15 @@
  * unsaved edits (an agent writing the file an IDE editor shows) calls it with the text both sides
  * started from, the outside text and the user's draft, and writes the result.
  *
- * Laws (the kit's merge cases check each one):
+ * Laws M1 to M5, as the package README numbers them (the kit's merge cases check each one):
  *
- * - `merge(base, base, draft) === draft` and `merge(base, external, base) === external`;
- * - `merge(base, same, same) === same`;
- * - changes to different elements are all kept, in a text the modeler imports;
- * - two different changes to the same element (or a change on one side and a delete on the
+ * - M1: `merge(base, base, draft) === draft`, `merge(base, external, base) === external` and
+ *   `merge(base, same, same) === same`;
+ * - M2: changes to different elements are all kept, in a text the modeler imports;
+ * - M3: two different changes to the same element (or a change on one side and a delete on the
  *   other) throw a {@link MergeConflictError}, so the host lets the person decide;
- * - a text that does not parse throws a {@link MergeConflictError} too;
- * - the result is deterministic: the same three texts give the same text.
+ * - M4: a text that does not parse throws a {@link MergeConflictError} too;
+ * - M5: the result is deterministic: the same three texts give the same text.
  *
  * Every text it gets and returns is canonical (`exportText` output); the result is canonical too.
  */
@@ -23,7 +23,11 @@ export type ModelTextMerge = (
 
 const MERGE_CONFLICT = "MergeConflictError";
 
-/** A merge that cannot keep both sides. `conflictingIds` names the elements both sides changed. */
+/**
+ * A merge that cannot keep both sides. `conflictingIds` names what could not be merged (element
+ * ids, field names or line regions, as the merge chooses); it may be empty, as for a text that
+ * does not parse.
+ */
 export class MergeConflictError extends Error {
   override readonly name = MERGE_CONFLICT;
   readonly conflictingIds: readonly string[];
@@ -122,8 +126,8 @@ function indexById<T>(
   return { byId, order, duplicates };
 }
 
-function sameSequence(a: readonly string[], b: readonly string[]): boolean {
-  return a.length === b.length && a.every((id, index) => id === b[index]);
+export function sameStrings(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
 }
 
 /**
@@ -136,7 +140,7 @@ function mergedOrder(
   draft: readonly string[],
   kept: ReadonlySet<string>,
 ): string[] {
-  const externalKeptTheOrder = sameSequence(lastSynced, external);
+  const externalKeptTheOrder = sameStrings(lastSynced, external);
   const leading = externalKeptTheOrder ? draft : external;
   const following = externalKeptTheOrder ? external : draft;
   const order = leading.filter((id) => kept.has(id));
@@ -180,12 +184,10 @@ export function mergeItemsById<T>(
 ): MergeResult<T[]> {
   const idOf = options.idOf ?? ((item: T) => (item as { readonly id: string }).id);
   const isSameItem = options.isSameItem ?? sameJsonValue;
-  const sides = [lastSynced, external, draft].map((items) => indexById(items, idOf));
-  const [base, outside, mine] = sides as [
-    ReturnType<typeof indexById<T>>,
-    ReturnType<typeof indexById<T>>,
-    ReturnType<typeof indexById<T>>,
-  ];
+  const base = indexById(lastSynced, idOf);
+  const outside = indexById(external, idOf);
+  const mine = indexById(draft, idOf);
+  const sides = [base, outside, mine];
   const allIds = [...new Set([...base.order, ...outside.order, ...mine.order])];
   const conflictingIds: string[] = [];
   const mergedById = new Map<string, T>();
@@ -208,6 +210,51 @@ export function mergeItemsById<T>(
   return { merged: order.map((id) => mergedById.get(id) as T) };
 }
 
+interface ItemAtOccurrence<T> {
+  readonly key: string;
+  readonly item: T;
+}
+
+function keyedByOccurrence<T>(
+  items: readonly T[],
+  keyOf: (item: T) => string,
+): ItemAtOccurrence<T>[] {
+  const occurrences = new Map<string, number>();
+  return items.map((item) => {
+    const key = keyOf(item);
+    const occurrence = (occurrences.get(key) ?? 0) + 1;
+    occurrences.set(key, occurrence);
+    return { key: `${key}#${occurrence}`, item };
+  });
+}
+
+/**
+ * The three-way merge of a list of items without an id that may repeat (arrows known by their
+ * ends, lines kept as they are): an item is keyed as `${keyOf(item)}#${occurrence}`, its place
+ * among the items of its list with that key, counted from 1, so two equal items stay two. Under
+ * these keys the list merges as {@link mergeItemsById} merges it, and `conflictingIds` names them.
+ */
+export function mergeItemsByOccurrence<T>(
+  lastSynced: readonly T[],
+  external: readonly T[],
+  draft: readonly T[],
+  keyOf: (item: T) => string,
+  options: Omit<ItemsMergeOptions<T>, "idOf"> = {},
+): MergeResult<T[]> {
+  const isSameItem = options.isSameItem ?? sameJsonValue;
+  const result = mergeItemsById(
+    keyedByOccurrence(lastSynced, keyOf),
+    keyedByOccurrence(external, keyOf),
+    keyedByOccurrence(draft, keyOf),
+    {
+      idOf: (entry) => entry.key,
+      isSameItem: (entry, otherEntry) => isSameItem(entry.item, otherEntry.item),
+    },
+  );
+  if (result.conflictingIds) return { conflictingIds: result.conflictingIds };
+  return { merged: result.merged.map((entry) => entry.item) };
+}
+
 export interface RecordMergeOptions<T> {
   /** Fields that hold lists of elements with an `id`, merged by `mergeItemsById`. */
   keyedLists?: ReadonlyArray<keyof T & string> | undefined;
@@ -224,23 +271,23 @@ export function mergeRecord<T extends object>(
   draft: T,
   options: RecordMergeOptions<T> = {},
 ): MergeResult<T> {
-  const [base, outside, mine] = [lastSynced, external, draft] as unknown as Array<
-    Record<string, unknown>
-  >;
+  const base = lastSynced as Record<string, unknown>;
+  const outside = external as Record<string, unknown>;
+  const mine = draft as Record<string, unknown>;
   const lists = new Set<string>(options.keyedLists ?? []);
-  const keys = new Set([...Object.keys(base!), ...Object.keys(outside!), ...Object.keys(mine!)]);
+  const keys = new Set([...Object.keys(base), ...Object.keys(outside), ...Object.keys(mine)]);
   const merged: Record<string, unknown> = {};
   const conflictingIds: string[] = [];
   for (const key of keys) {
     if (lists.has(key)) {
       const asList = (value: unknown) =>
         (Array.isArray(value) ? value : []) as Array<{ id: string }>;
-      const result = mergeItemsById(asList(base![key]), asList(outside![key]), asList(mine![key]));
+      const result = mergeItemsById(asList(base[key]), asList(outside[key]), asList(mine[key]));
       if (result.conflictingIds) conflictingIds.push(...result.conflictingIds);
       else merged[key] = result.merged;
       continue;
     }
-    const result = mergeValue(base![key], outside![key], mine![key]);
+    const result = mergeValue(base[key], outside[key], mine[key]);
     if ("conflict" in result) conflictingIds.push(key);
     else if (result.merged !== undefined) merged[key] = result.merged;
   }

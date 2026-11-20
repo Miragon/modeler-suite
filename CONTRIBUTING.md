@@ -265,21 +265,27 @@ A modeler can be on `main` before it is public: while `HELD_BACK` in
 of it ([a modeler that is held back](docs/ci-and-releases.md#a-modeler-that-is-held-back)). None
 is held today; the board was, until the pull request that made it public.
 
-`@miragon/modeler-api` is on 1.x: a new optional surface of the contract or kit is a `feat`; a new
+`@miragon/modeler-api` is on 2.x: a new optional surface of the contract or kit is a `feat`; a new
 required member, a stricter law or a breaking change to the kit's harness is breaking (`feat!:`).
 A requirement the contract text does not state yet ships as a RECOMMENDATION whose kit case only
-advises, and becomes a law in the next major.
+advises, and becomes a law in the next major. A change to the contract text edits its JSDoc in
+`packages/api/src/` and its section of the [package README](packages/api/README.md) together: an
+editor shows the one, npm and GitHub the other.
 
 A kit case lives in the module of its law or surface under `packages/api/src/conformance/`
 (`l1-silent-import.ts` to `l7-no-trace.ts`, `elements.ts`, `keys.ts`, `destroy.ts`, …), the helpers
-several modules share in `support.ts` and `user-input.ts`; `conformanceCases()` in
+several modules share in `support.ts`, `user-input.ts` and `hosts.ts` (the hosts `attachedHost()`
+makes), the merge kit in `merge-cases.ts`; `conformanceCases()` in
 `packages/api/src/conformance.ts` lists every case in the order a runner shows it.
 
 A new kit case needs a saboteur flaw in `packages/api/test/reference-modeler.ts` and its exact
-failure set in `packages/api/test/conformance.test.ts`, so CI proves the case bites. An accepted
-implementation choice gets a variant that fails nothing; a RECOMMENDATION a variant that advises
-exactly once. Cases that need a DOM get their saboteurs in the jsdom suites
-`packages/api/test/{keys,appearance,user-action}.conformance.test.ts`.
+failure set in `packages/api/test/saboteurs.conformance.test.ts`, so CI proves the case bites. An
+accepted implementation choice gets a variant that fails nothing, in
+`packages/api/test/conformance.test.ts`; a RECOMMENDATION a variant that advises exactly once, in
+`packages/api/test/recommendations.conformance.test.ts`. Cases that need a DOM get their saboteurs
+in the jsdom suites `packages/api/test/{keys,appearance,user-action}.conformance.test.ts`. A new
+merge case needs a broken merge that fails it in `packages/api/test/merge-cases.test.ts`; the merge
+helpers' tests are in `packages/api/test/merge.test.ts`.
 
 ## Claude Code plugins
 

@@ -2,12 +2,15 @@ import type { CollaborativeModeler, ElementBounds, ElementsSurface } from "../in
 import type { ConformanceCase } from "./harness.js";
 import {
   changeEvents,
-  defaultSettle,
   exportOrFail,
   fail,
+  firstText,
+  importFirstText,
   importOrFail,
   same,
+  settleOf,
   skip,
+  UNKNOWN_ELEMENT_ID,
 } from "./support.js";
 
 type BoundedElements = ElementsSurface & { bounds(id: string): ElementBounds | undefined };
@@ -17,7 +20,9 @@ const hasBounds = (elements: ElementsSurface): elements is BoundedElements =>
 
 const isFiniteBox = (box: ElementBounds | undefined): box is ElementBounds =>
   box !== undefined &&
-  [box.x, box.y, box.width, box.height].every((n) => typeof n === "number" && Number.isFinite(n)) &&
+  [box.x, box.y, box.width, box.height].every(
+    (value) => typeof value === "number" && Number.isFinite(value),
+  ) &&
   box.width >= 0 &&
   box.height >= 0;
 
@@ -28,8 +33,8 @@ const describeBox = (box: ElementBounds | undefined): string =>
 
 type ContentBounded = CollaborativeModeler & { contentBounds(): ElementBounds | undefined };
 
-const hasContentBounds = (m: CollaborativeModeler): m is ContentBounded =>
-  typeof m.contentBounds === "function";
+const hasContentBounds = (modeler: CollaborativeModeler): modeler is ContentBounded =>
+  typeof modeler.contentBounds === "function";
 
 /**
  * how far a content edge may fall short of an element's edge: a box measured on the live SVG
@@ -50,12 +55,12 @@ const covers = (outer: ElementBounds, inner: ElementBounds): boolean => {
   );
 };
 
-function contentBoxOf(m: ContentBounded, when: string): ElementBounds | undefined {
+function contentBoxOf(modeler: ContentBounded, when: string): ElementBounds | undefined {
   let box: ElementBounds | undefined;
   try {
-    box = m.contentBounds();
-  } catch (e) {
-    fail(`contentBounds() threw ${when}: ${String(e)}`);
+    box = modeler.contentBounds();
+  } catch (error) {
+    fail(`contentBounds() threw ${when}: ${String(error)}`);
   }
   if (box === undefined) return undefined;
   if (!isFiniteBox(box)) {
@@ -71,9 +76,12 @@ function contentBoxOf(m: ContentBounded, when: string): ElementBounds | undefine
  * soon as one element is listed, and around each element's own box. An
  * element box that is itself broken is the bounds case's failure, not this one's
  */
-function expectContentAroundElements(m: ContentBounded, when: string): ElementBounds | undefined {
-  const box = contentBoxOf(m, when);
-  const listed = m.elements?.list() ?? [];
+function expectContentAroundElements(
+  modeler: ContentBounded,
+  when: string,
+): ElementBounds | undefined {
+  const box = contentBoxOf(modeler, when);
+  const listed = modeler.elements?.list() ?? [];
   if (box === undefined) {
     if (listed.length > 0) {
       fail(
@@ -82,9 +90,9 @@ function expectContentAroundElements(m: ContentBounded, when: string): ElementBo
     }
     return undefined;
   }
-  if (m.elements && hasBounds(m.elements)) {
+  if (modeler.elements && hasBounds(modeler.elements)) {
     for (const { id } of listed) {
-      const element = m.elements.bounds(id);
+      const element = modeler.elements.bounds(id);
       if (!isFiniteBox(element)) continue;
       if (!covers(box, element)) {
         fail(
@@ -113,44 +121,46 @@ function boxesOf(elements: BoundedElements, when: string): Map<string, ElementBo
 const lettersAndDigits = (value: string): string =>
   value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 
-const namesById = (m: CollaborativeModeler): Map<string, string | undefined> | undefined =>
-  m.elements ? new Map(m.elements.list().map((e) => [e.id, e.name])) : undefined;
+const namesById = (modeler: CollaborativeModeler): Map<string, string | undefined> | undefined =>
+  modeler.elements
+    ? new Map(modeler.elements.list().map((element) => [element.id, element.name]))
+    : undefined;
 
 export const elementsCases: ConformanceCase[] = [
   {
     name: "elements (when present): stable ids across re-imports and unrelated edits, reveal and selection semantics",
-    async run(h) {
-      const m = await h.create();
+    async run(harness) {
+      const modeler = await harness.create();
       try {
-        const text = h.canonicalTexts[0] ?? "";
-        await m.importText(text);
-        const elements = m.elements;
+        const text = firstText(harness);
+        await modeler.importText(text);
+        const elements = modeler.elements;
         if (!elements)
           return skip("the modeler exposes no elements surface (optional) — nothing to verify");
-        const ids = elements.list().map((e) => e.id);
+        const ids = elements.list().map((element) => element.id);
         if (new Set(ids).size !== ids.length) fail("element ids are not unique");
-        await m.importText(text);
-        const again = elements.list().map((e) => e.id);
+        await modeler.importText(text);
+        const again = elements.list().map((element) => element.id);
         if (!same([...ids].sort(), [...again].sort()))
           fail("element ids are not stable across re-imports of the same text");
-        if (elements.reveal("__modeler_api_no_such_id__") !== false)
+        if (elements.reveal(UNKNOWN_ELEMENT_ID) !== false)
           fail("reveal(unknown id) must return false");
         const firstId = ids[0];
         if (firstId !== undefined) {
           const deliveries: string[][] = [];
           const off = elements.onSelection((selected) => deliveries.push([...selected]));
-          const { calls } = await changeEvents(h, m, () => {
+          const { calls } = await changeEvents(harness, modeler, () => {
             if (elements.reveal(firstId) !== true) fail("reveal(known id) must return true");
           });
           if (calls > 0)
             fail("reveal fired onContentChanged — revealing is view behavior, not an edit");
-          if (!deliveries.some((d) => d.includes(firstId))) {
+          if (!deliveries.some((delivery) => delivery.includes(firstId))) {
             fail(
               `reveal('${firstId}') delivered no selection containing the id — is it a selectable element (not a root or a label)?`,
             );
           }
-          for (const d of deliveries) {
-            for (const id of d) {
+          for (const delivery of deliveries) {
+            for (const id of delivery) {
               if (!again.includes(id)) {
                 fail(
                   `onSelection reported an id that is not an element: '${id}' (label ids must resolve to their target)`,
@@ -166,18 +176,18 @@ export const elementsCases: ConformanceCase[] = [
           // same id would be deduplicated by many engines and prove nothing
           const otherId = ids[1];
           if (otherId !== undefined) elements.reveal(otherId);
-          else await h.mutate(m);
-          await (h.settle ?? defaultSettle)();
+          else await harness.mutate(modeler);
+          await settleOf(harness)();
           if (deliveries.length !== seen) fail("onSelection delivered after unsubscribe");
         }
         // an edit to ANOTHER element must not renumber existing ids: every id
         // still exists AND (where the notation has names) still names the
         // same element — a positional scheme keeps the id strings while
         // shifting what they point at
-        const namesBefore = new Map(elements.list().map((e) => [e.id, e.name]));
-        await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
-        const afterEdit = new Map(elements.list().map((e) => [e.id, e.name]));
+        const namesBefore = new Map(elements.list().map((element) => [element.id, element.name]));
+        await harness.mutate(modeler);
+        await settleOf(harness)();
+        const afterEdit = new Map(elements.list().map((element) => [element.id, element.name]));
         if (afterEdit.size <= namesBefore.size) {
           fail(
             "the harness mutate must ADD an element (the elements case verifies ids under an unrelated edit)",
@@ -196,26 +206,26 @@ export const elementsCases: ConformanceCase[] = [
           }
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
       }
     },
   },
   {
     name: "elements (when present): ids and names survive export → import, in this and in a fresh instance",
-    async run(h) {
-      const m = await h.create();
+    async run(harness) {
+      const modeler = await harness.create();
       const others: CollaborativeModeler[] = [];
       try {
-        await m.importText(h.canonicalTexts[0] ?? "");
-        const elements = m.elements;
+        await modeler.importText(firstText(harness));
+        const elements = modeler.elements;
         if (!elements)
           return skip("the modeler exposes no elements surface (optional) — nothing to verify");
         // the element the session just created is the one an in-memory id
         // scheme gives away: its id was never read back from a text
-        await h.mutate(m);
-        await (h.settle ?? defaultSettle)();
-        const session = new Map(elements.list().map((e) => [e.id, e.name]));
-        const exported = exportOrFail(m, "after a user mutation");
+        await harness.mutate(modeler);
+        await settleOf(harness)();
+        const session = new Map(elements.list().map((element) => [element.id, element.name]));
+        const exported = exportOrFail(modeler, "after a user mutation");
         const expectSessionIds = (target: CollaborativeModeler, where: string): void => {
           const after = namesById(target);
           if (!after) fail(`${where} exposes no elements surface — the editor does`);
@@ -235,45 +245,45 @@ export const elementsCases: ConformanceCase[] = [
             }
           }
         };
-        await importOrFail(m, exported, "importText rejected the modeler's own export");
-        expectSessionIds(m, "into the same instance");
-        const fresh = await h.create();
+        await importOrFail(modeler, exported, "importText rejected the modeler's own export");
+        expectSessionIds(modeler, "into the same instance");
+        const fresh = await harness.create();
         others.push(fresh);
         await importOrFail(fresh, exported, "a fresh instance rejected the modeler's own export");
         expectSessionIds(fresh, "into a fresh instance");
-        if (h.createReadonly) {
-          const viewer = await h.createReadonly();
+        if (harness.createReadonly) {
+          const viewer = await harness.createReadonly();
           others.push(viewer);
           await importOrFail(viewer, exported, "the viewer rejected the editor's export");
           if (viewer.elements) expectSessionIds(viewer, "into the viewer");
         }
       } finally {
-        m.destroy();
+        modeler.destroy();
         for (const other of others) other.destroy();
       }
     },
   },
   {
     name: "elements (when present, recommended): ids created on two peers at the same time do not collide",
-    async run(h) {
-      const text = h.canonicalTexts[0] ?? "";
+    async run(harness) {
+      const text = firstText(harness);
       const peers: CollaborativeModeler[] = [];
       try {
         const created: Array<Map<string, string | undefined>> = [];
         for (let count = 0; count < 2; count += 1) {
-          const peer = await h.create();
+          const peer = await harness.create();
           peers.push(peer);
           await peer.importText(text);
           if (!peer.elements)
             return skip("the modeler exposes no elements surface (optional) — nothing to verify");
-          const before = new Set(peer.elements.list().map((e) => e.id));
-          await h.mutate(peer);
-          await (h.settle ?? defaultSettle)();
+          const before = new Set(peer.elements.list().map((element) => element.id));
+          await harness.mutate(peer);
+          await settleOf(harness)();
           const added = new Map(
             peer.elements
               .list()
-              .filter((e) => !before.has(e.id))
-              .map((e) => [e.id, e.name]),
+              .filter((element) => !before.has(element.id))
+              .map((element) => [element.id, element.name]),
           );
           if (added.size === 0) {
             fail(
@@ -319,27 +329,27 @@ export const elementsCases: ConformanceCase[] = [
   },
   {
     name: "elements.bounds (when present): a finite box in diagram coordinates for every listed id, undefined for an unknown one, live after a new element and a move",
-    async run(h) {
-      const text = h.canonicalTexts[0] ?? "";
-      const settle = h.settle ?? defaultSettle;
-      const m = await h.create();
+    async run(harness) {
+      const text = firstText(harness);
+      const settle = settleOf(harness);
+      const modeler = await harness.create();
       let viewer: CollaborativeModeler | undefined;
       try {
-        await m.importText(text);
-        const elements = m.elements;
+        await modeler.importText(text);
+        const elements = modeler.elements;
         if (!elements)
           return skip("the modeler exposes no elements surface (optional) — nothing to verify");
         if (!hasBounds(elements))
           return skip("the modeler exposes no elements.bounds (optional) — nothing to verify");
         boxesOf(elements, "after an import");
-        if (elements.bounds("__modeler_api_no_such_id__") !== undefined)
+        if (elements.bounds(UNKNOWN_ELEMENT_ID) !== undefined)
           fail("elements.bounds(unknown id) must return undefined");
         // what a box cached at the last import gives away: an element the
         // session created has none, a moved one keeps its old position
-        const imported = new Set(elements.list().map((e) => e.id));
-        await h.mutate(m);
+        const imported = new Set(elements.list().map((element) => element.id));
+        await harness.mutate(modeler);
         await settle();
-        for (const { id } of elements.list().filter((e) => !imported.has(e.id))) {
+        for (const { id } of elements.list().filter((element) => !imported.has(element.id))) {
           const box = elements.bounds(id);
           if (!isFiniteBox(box)) {
             fail(
@@ -348,9 +358,9 @@ export const elementsCases: ConformanceCase[] = [
           }
         }
         const unverified: string[] = [];
-        if (h.moveElement) {
+        if (harness.moveElement) {
           const before = boxesOf(elements, "before a move");
-          const movedId = await h.moveElement(m);
+          const movedId = await harness.moveElement(modeler);
           await settle();
           const was = before.get(movedId);
           if (was === undefined)
@@ -368,9 +378,9 @@ export const elementsCases: ConformanceCase[] = [
         } else {
           unverified.push("moveElement is undefined — that a box follows a move was not verified");
         }
-        if (h.viewState !== undefined) {
+        if (harness.viewState !== undefined) {
           const atRest = boxesOf(elements, "before a view change");
-          m.setViewState(h.viewState);
+          modeler.setViewState(harness.viewState);
           for (const [id, box] of boxesOf(elements, "after setViewState")) {
             if (!same(box, atRest.get(id))) {
               fail(
@@ -383,46 +393,49 @@ export const elementsCases: ConformanceCase[] = [
             "viewState is undefined — that boxes are independent of the view was not verified",
           );
         }
-        if (h.createReadonly) {
-          viewer = await h.createReadonly();
+        if (harness.createReadonly) {
+          viewer = await harness.createReadonly();
           await importOrFail(viewer, text, "the viewer rejected canonicalTexts[0]");
           if (viewer.elements && hasBounds(viewer.elements)) {
             boxesOf(viewer.elements, "on the viewer after an import");
-            if (viewer.elements.bounds("__modeler_api_no_such_id__") !== undefined)
+            if (viewer.elements.bounds(UNKNOWN_ELEMENT_ID) !== undefined)
               fail("the viewer's elements.bounds(unknown id) must return undefined");
           }
         }
         if (unverified.length > 0) return skip(unverified.join("; "));
       } finally {
-        m.destroy();
+        modeler.destroy();
         viewer?.destroy();
       }
     },
   },
   {
     name: "contentBounds (when present): a finite box in diagram coordinates around every listed element, live after a new element, unchanged by zoom and scroll",
-    async run(h) {
-      const settle = h.settle ?? defaultSettle;
-      const m = await h.create();
+    async run(harness) {
+      const settle = settleOf(harness);
+      const modeler = await harness.create();
       let viewer: CollaborativeModeler | undefined;
       try {
-        if (!hasContentBounds(m))
+        if (!hasContentBounds(modeler))
           return skip("the modeler exposes no contentBounds (optional, 1.3) — nothing to verify");
-        contentBoxOf(m, "before the first import");
-        for (const [index, text] of h.canonicalTexts.entries()) {
-          await importOrFail(m, text, `importText(canonicalTexts[${index}]) rejected`);
-          expectContentAroundElements(m, `after importing canonicalTexts[${index}]`);
+        contentBoxOf(modeler, "before the first import");
+        for (const [index, text] of harness.canonicalTexts.entries()) {
+          await importOrFail(modeler, text, `importText(canonicalTexts[${index}]) rejected`);
+          expectContentAroundElements(modeler, `after importing canonicalTexts[${index}]`);
         }
         // a box cached at the last import gives itself away here: the
         // element the session created lies outside it, or it has none
-        await importOrFail(m, h.canonicalTexts[0] ?? "", "importText(canonicalTexts[0]) rejected");
-        await h.mutate(m);
+        await importFirstText(harness, modeler);
+        await harness.mutate(modeler);
         await settle();
-        const atRest = expectContentAroundElements(m, "after a user mutation added an element");
+        const atRest = expectContentAroundElements(
+          modeler,
+          "after a user mutation added an element",
+        );
         const unverified: string[] = [];
-        if (h.viewState !== undefined) {
-          m.setViewState(h.viewState);
-          const viewed = contentBoxOf(m, "after setViewState");
+        if (harness.viewState !== undefined) {
+          modeler.setViewState(harness.viewState);
+          const viewed = contentBoxOf(modeler, "after setViewState");
           if (!same(viewed, atRest)) {
             fail(
               `contentBounds() changed with the view (${describeBox(atRest)} → ${describeBox(viewed)}) — the content box is in diagram coordinates, which zoom and scroll leave alone`,
@@ -433,26 +446,22 @@ export const elementsCases: ConformanceCase[] = [
             "viewState is undefined — that the content box is independent of the view was not verified",
           );
         }
-        if (!m.elements || !hasBounds(m.elements)) {
+        if (!modeler.elements || !hasBounds(modeler.elements)) {
           unverified.push(
             "the modeler exposes no elements.bounds — that the content box covers every element was not verified",
           );
         }
-        if (h.createReadonly) {
-          viewer = await h.createReadonly();
+        if (harness.createReadonly) {
+          viewer = await harness.createReadonly();
           if (hasContentBounds(viewer)) {
             contentBoxOf(viewer, "on the viewer before the first import");
-            await importOrFail(
-              viewer,
-              h.canonicalTexts[0] ?? "",
-              "the viewer rejected canonicalTexts[0]",
-            );
+            await importFirstText(harness, viewer, "the viewer rejected canonicalTexts[0]");
             expectContentAroundElements(viewer, "on the viewer after an import");
           }
         }
         if (unverified.length > 0) return skip(unverified.join("; "));
       } finally {
-        m.destroy();
+        modeler.destroy();
         viewer?.destroy();
       }
     },

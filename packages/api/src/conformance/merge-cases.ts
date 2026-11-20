@@ -1,4 +1,4 @@
-import { isMergeConflict, type ModelTextMerge } from "./merge.js";
+import { isMergeConflict, type ModelTextMerge } from "../merge.js";
 
 export interface DisjointMergeFixture {
   /** names the fixture in the kit's error messages */
@@ -70,7 +70,7 @@ function everyChangedText(fixtures: MergeFixtures): Array<{ name: string; text: 
 export function mergeConformanceCases(): MergeConformanceCase[] {
   return [
     {
-      name: "merge: an unchanged outside keeps the draft",
+      name: "M1: an unchanged outside keeps the draft",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const { name, text } of everyChangedText(fixtures)) {
@@ -79,7 +79,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: an unchanged draft takes the outside",
+      name: "M1: an unchanged draft takes the outside",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const { name, text } of everyChangedText(fixtures)) {
@@ -88,7 +88,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: the same change on both sides is kept once",
+      name: "M1: the same change on both sides is kept once",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const { name, text } of everyChangedText(fixtures)) {
@@ -97,7 +97,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: changes to different elements are both kept",
+      name: "M2: changes to different elements are both kept",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const fixture of fixtures.disjoint) {
@@ -112,7 +112,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: two changes of one element conflict",
+      name: "M3: two changes of one element conflict",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const fixture of fixtures.conflicting) {
@@ -130,7 +130,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: a text that does not parse conflicts",
+      name: "M4: a text that does not parse conflicts",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         const [disjoint] = fixtures.disjoint as [DisjointMergeFixture];
@@ -149,7 +149,7 @@ export function mergeConformanceCases(): MergeConformanceCase[] {
       },
     },
     {
-      name: "merge: the result is deterministic",
+      name: "M5: the result is deterministic",
       run(merge, fixtures) {
         requireFixtures(this.name, fixtures);
         for (const fixture of fixtures.disjoint) {

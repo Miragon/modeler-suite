@@ -9,14 +9,9 @@
  */
 import { expect, test } from "vitest";
 
-import {
-  type CaseOutcome,
-  type ConformanceHarness,
-  conformanceCases,
-  type HeldGesture,
-} from "../src/conformance.js";
+import { type CaseOutcome, type ConformanceHarness, type HeldGesture } from "../src/conformance.js";
 import type { ReferenceModeler } from "./reference-modeler.js";
-import { CASE, mounted } from "./support.js";
+import { CASE, mounted, runCase } from "./support.js";
 
 /** holds the gesture inside a pointer handler, as a browser harness does */
 const startInAPointerHandler: NonNullable<ConformanceHarness["startGesture"]> = (m, kind) => {
@@ -33,12 +28,6 @@ const startInAPointerHandler: NonNullable<ConformanceHarness["startGesture"]> = 
     cancel: () => held?.cancel(),
   };
 };
-
-async function runCase(name: string, h: ConformanceHarness): Promise<CaseOutcome | undefined> {
-  const found = conformanceCases().find((c) => c.name === name);
-  if (!found) throw new Error(`the kit has no case "${name}"`);
-  return (await found.run(h)) ?? undefined;
-}
 
 test("a teardown inside the listener of a drag's start throws from the pointer handler: the interaction case keeps the error from the page and passes, and the destroy case advises it", async () => {
   const h = mounted(

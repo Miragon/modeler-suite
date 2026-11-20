@@ -9,7 +9,7 @@ export interface UserMutation {
 export interface ConformanceHarness {
   /**
    * a fresh EDITABLE modeler, attached to a host element that is IN the
-   * document with a non-zero size (`attachedHost()` below) — diagram-js
+   * document with a non-zero size (the kit's `attachedHost()`) — diagram-js
    * engines compute viewboxes from the host's client size, so a detached
    * or 0×0 host yields NaN view state; they also need a real browser
    * (vitest browser mode / Playwright), jsdom has no getBBox. Keep
@@ -278,37 +278,4 @@ export interface CaseOutcome {
 export interface ConformanceCase {
   name: string;
   run(harness: ConformanceHarness): Promise<CaseOutcome | void>;
-}
-
-interface AttachedHost {
-  /** counts every host attachedHost() made, so a case can tell the ones made during one `create()` */
-  serial: number;
-  host: HTMLElement;
-  wrapper: HTMLElement;
-}
-
-export let nextHostSerial = 0;
-
-/**
- * the hosts attachedHost() made that are still in the document: the keys case finds the canvas of
- * the modeler `create()` mounted there, and hides or disables the host the way a host page does
- */
-export let attachedHosts: AttachedHost[] = [];
-
-/**
- * a host element of the given size, attached to the document — what
- * `create()` should mount into (browser only). The returned element sits
- * INSIDE a sized wrapper: the Miragon renderers restyle the container they
- * are given to 100% × 100%, which then resolves against the wrapper
- */
-export function attachedHost(width = 800, height = 600): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = `width:${width}px;height:${height}px;position:absolute;left:0;top:0;overflow:hidden`;
-  const host = document.createElement("div");
-  host.style.cssText = "width:100%;height:100%";
-  wrapper.append(host);
-  document.body.append(wrapper);
-  attachedHosts = attachedHosts.filter((entry) => entry.wrapper.isConnected);
-  attachedHosts.push({ serial: nextHostSerial++, host, wrapper });
-  return host;
 }

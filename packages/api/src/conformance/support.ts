@@ -1,5 +1,6 @@
 import type { CollaborativeModeler } from "../index.js";
-import { attachedHosts, type CaseOutcome, type ConformanceHarness } from "./harness.js";
+import type { CaseOutcome, ConformanceHarness, InteractionState } from "./harness.js";
+import { hostMadeSince } from "./hosts.js";
 
 export function fail(message: string): never {
   throw new Error(`modeler-api conformance: ${message}`);
@@ -10,17 +11,18 @@ export const skip = (reason: string): CaseOutcome => ({ skipped: reason });
 export function exportOrFail(modeler: CollaborativeModeler, when: string): string {
   try {
     return modeler.exportText();
-  } catch (e) {
-    fail(`exportText threw ${when}: ${String(e)}`);
+  } catch (error) {
+    fail(`exportText threw ${when}: ${String(error)}`);
   }
 }
 
-export const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
+export const same = (left: unknown, right: unknown): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
 
 /** a view state with NaN/Infinity is what a detached or 0×0 host produces */
 export function assertFinite(state: unknown, when: string): void {
-  const json = JSON.stringify(state, (_k, v: unknown) =>
-    typeof v === "number" && !Number.isFinite(v) ? "__non_finite__" : v,
+  const json = JSON.stringify(state, (_key, value: unknown) =>
+    typeof value === "number" && !Number.isFinite(value) ? "__non_finite__" : value,
   );
   if (json?.includes("__non_finite__")) {
     fail(
@@ -29,7 +31,26 @@ export function assertFinite(state: unknown, when: string): void {
   }
 }
 
-export const defaultSettle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+/** L5 on a fresh instance: getViewState neither throws nor reports a non-finite number */
+export function viewStateBeforeImport(instance: CollaborativeModeler, kind: KeyedInstance): void {
+  const onTheViewer = kind === "viewer";
+  let state: unknown;
+  try {
+    state = instance.getViewState();
+  } catch (error) {
+    fail(
+      `${onTheViewer ? "the viewer's " : ""}getViewState threw before the first import: ${String(error)}`,
+    );
+  }
+  if (state !== undefined) {
+    assertFinite(state, `${onTheViewer ? "on the viewer " : ""}before the first import`);
+  }
+}
+
+const defaultSettle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+export const settleOf = (harness: ConformanceHarness): (() => Promise<void>) =>
+  harness.settle ?? defaultSettle;
 
 /**
  * count invocations of onContentChanged around an action — settle-aware, so
@@ -41,7 +62,7 @@ export async function changeEvents(
   modeler: CollaborativeModeler,
   action: () => Promise<void> | void,
 ): Promise<{ calls: number; exportAtEmit: string | undefined }> {
-  const settle = harness.settle ?? defaultSettle;
+  const settle = settleOf(harness);
   let calls = 0;
   let exportAtEmit: string | undefined;
   const off = modeler.onContentChanged(() => {
@@ -57,19 +78,29 @@ export async function changeEvents(
   return { calls, exportAtEmit };
 }
 
-export const secondText = (h: ConformanceHarness): string =>
-  h.canonicalTexts[1] ?? h.canonicalTexts[0] ?? "";
+export const firstText = (harness: ConformanceHarness): string => harness.canonicalTexts[0] ?? "";
 
-export const sortedIds = (m: CollaborativeModeler): string[] | undefined =>
-  m.elements ? [...m.elements.list().map((e) => e.id)].sort() : undefined;
+export const secondText = (harness: ConformanceHarness): string =>
+  harness.canonicalTexts[1] ?? harness.canonicalTexts[0] ?? "";
+
+export const UNKNOWN_ELEMENT_ID = "__modeler_api_no_such_id__";
+
+export const sortedIds = (modeler: CollaborativeModeler): string[] | undefined =>
+  modeler.elements ? [...modeler.elements.list().map((element) => element.id)].sort() : undefined;
 
 export async function importOrFail(
-  m: CollaborativeModeler,
+  modeler: CollaborativeModeler,
   text: string,
   failure: string,
 ): Promise<void> {
-  await m.importText(text).catch((e: unknown) => fail(`${failure}: ${String(e)}`));
+  await modeler.importText(text).catch((error: unknown) => fail(`${failure}: ${String(error)}`));
 }
+
+export const importFirstText = (
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  failure = "importText(canonicalTexts[0]) rejected",
+): Promise<void> => importOrFail(modeler, firstText(harness), failure);
 
 /**
  * import the first canonical text that renders at least one element (an
@@ -77,12 +108,12 @@ export async function importOrFail(
  * and return it; without an elements surface the first text is used
  */
 export async function importContentText(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
 ): Promise<string> {
-  for (const text of h.canonicalTexts) {
-    await m.importText(text);
-    if (!m.elements || m.elements.list().length > 0) return text;
+  for (const text of harness.canonicalTexts) {
+    await modeler.importText(text);
+    if (!modeler.elements || modeler.elements.list().length > 0) return text;
   }
   fail(
     "L5 needs a canonical text that renders at least one element — an empty document has no fitted view",
@@ -90,21 +121,24 @@ export async function importContentText(
 }
 
 export async function foreignRoundTrips(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   who: string,
 ): Promise<void> {
-  for (const { text, mustSurvive } of h.foreignTexts ?? []) {
+  for (const { text, mustSurvive } of harness.foreignTexts ?? []) {
     if (mustSurvive.length === 0)
       fail("a foreignTexts entry must name at least one fragment in mustSurvive");
-    await m.importText(text); // warnings allowed — a throw is the violation
-    const first = exportOrFail(m, `${who}after importing a document with foreign content`);
+    await modeler.importText(text); // warnings allowed — a throw is the violation
+    const first = exportOrFail(modeler, `${who}after importing a document with foreign content`);
     for (const fragment of mustSurvive) {
       if (!first.includes(fragment))
         fail(`${who}foreign content was dropped on import → export: '${fragment}' is missing`);
     }
-    await m.importText(first);
-    const second = exportOrFail(m, `${who}after re-importing its own export of foreign content`);
+    await modeler.importText(first);
+    const second = exportOrFail(
+      modeler,
+      `${who}after re-importing its own export of foreign content`,
+    );
     if (second !== first)
       fail(`${who}foreign content did not survive a second import → export round-trip`);
   }
@@ -120,8 +154,8 @@ export const focusOn = (element: Element): void => {
 
 const SHOWN_FINDINGS = 12;
 
-export const selectionOf = (m: CollaborativeModeler): string =>
-  m.elements ? JSON.stringify([...m.elements.selection()].sort()) : "";
+export const selectionOf = (modeler: CollaborativeModeler): string =>
+  modeler.elements ? JSON.stringify([...modeler.elements.selection()].sort()) : "";
 
 export type KeyedInstance = "modeler" | "viewer";
 
@@ -137,34 +171,55 @@ interface MountedCanvas {
  * ending in what `unverified` names
  */
 export function mountedCanvas(
-  h: ConformanceHarness,
-  m: CollaborativeModeler,
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
   instance: KeyedInstance,
   firstSerial: number,
   unverified = "keys were not verified",
 ): MountedCanvas | string {
-  const live = attachedHosts.filter((entry) => entry.wrapper.isConnected);
-  if (h.canvasElement) {
-    const named = h.canvasElement(m);
-    if (!named) return `canvasElement() names no canvas for the ${instance}; ${unverified}`;
-    const mount = live.find((entry) => entry.host.contains(named));
-    return mount === undefined
-      ? `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; ${unverified}`
-      : { canvas: named, host: mount.host, wrapper: mount.wrapper };
+  const search = hostMadeSince(harness, modeler, firstSerial, (host) =>
+    host.querySelector(CANVAS_SELECTOR),
+  );
+  switch (search.kind) {
+    case "found":
+      return { canvas: search.element, host: search.mount.host, wrapper: search.mount.wrapper };
+    case "unnamed":
+      return `canvasElement() names no canvas for the ${instance}; ${unverified}`;
+    case "outside":
+      return `the canvas canvasElement() names for the ${instance} lies in no attachedHost() — the kit puts host controls into that host and hides it; ${unverified}`;
   }
   const made = instance === "modeler" ? "create()" : "createReadonly()";
-  const mounts = live.filter(
-    (entry) => entry.serial >= firstSerial && entry.host.querySelector(CANVAS_SELECTOR) !== null,
-  );
-  const [mount] = mounts;
-  const canvas = mount?.host.querySelector(CANVAS_SELECTOR);
-  if (mount && canvas && mounts.length === 1) {
-    return { canvas, host: mount.host, wrapper: mount.wrapper };
-  }
-  return mount === undefined
+  return search.count === 0
     ? `${made} mounted the ${instance} into no attachedHost() that holds a focusable <svg> (one with a tabindex, diagram-js's canvas) — mount into one, or name the canvas with canvasElement; ${unverified}`
-    : `${made} made ${mounts.length} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
+    : `${made} made ${search.count} attachedHost() elements that hold a focusable <svg> — the kit cannot tell which one is the ${instance}'s canvas (run the cases one after another, or name the canvas with canvasElement); ${unverified}`;
 }
+
+/**
+ * opens the harness's interaction and reads it back; an `interactionState` that reports none fails,
+ * since the case would prove nothing
+ */
+export async function openAndRead(
+  harness: ConformanceHarness,
+  modeler: CollaborativeModeler,
+  openInteraction: NonNullable<ConformanceHarness["openInteraction"]>,
+): Promise<InteractionState | undefined> {
+  await openInteraction(modeler);
+  await settleOf(harness)();
+  const opened = harness.interactionState?.(modeler);
+  if (harness.interactionState && opened === undefined) {
+    fail("interactionState reports no interaction after openInteraction — the case proves nothing");
+  }
+  return opened;
+}
+
+export const interactionKept = (
+  opened: InteractionState,
+  after: InteractionState | undefined,
+): boolean => after?.elementId === opened.elementId && after?.text === opened.text;
+
+/** what a step did to an interaction it did not keep, as an advice names it */
+export const leftOpen = (after: InteractionState | undefined): string =>
+  after === undefined ? "closed it" : `left ${JSON.stringify(after)} open`;
 
 export function adviseOn(findings: string[], lead: string, recommendation: string): CaseOutcome {
   if (findings.length === 0) return {};
@@ -182,11 +237,24 @@ export const outcomeOf = (advised: CaseOutcome, unverified: string[]): CaseOutco
   ...advised,
 });
 
+/** what `promise` settles with, or `onTimeout` once `ms` have passed without it settling */
+export async function raceTheBound<T>(promise: Promise<T>, onTimeout: T, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const bound = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(onTimeout), ms);
+  });
+  try {
+    return await Promise.race([promise, bound]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function errorOf(step: () => Promise<void> | void): Promise<string | undefined> {
   try {
     await step();
     return undefined;
-  } catch (e) {
-    return String(e);
+  } catch (error) {
+    return String(error);
   }
 }

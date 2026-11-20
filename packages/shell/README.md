@@ -1,13 +1,14 @@
 # @miragon/modeler-shell
 
-The shared, framework-free chrome around Miragon diagram-js modelers: the menu button with its
+The shared, framework-free chrome around the Miragon modelers: the menu button with its
 dropdown, the horizontal palette skin, the chrome tooltip, the zoom panel with its keys and fit, the
 problems pill, the status box, the empty-file hint, legend and inspector slots, the plumbing to a
 VS Code webview, the web-app chrome (primary action, legal line, File and Appearance groups,
 problems list, toasts, empty-state card, drop zone, the web app's mode), the modal dialog with the
 "Keyboard shortcuts…" dialog on it, which also opens without a mounted shell, and the PNG export. One
 implementation for every modeler and every host (VS Code webview, web app, embedded in a foreign
-page), so the chrome looks and behaves the same everywhere.
+page), so the chrome looks and behaves the same everywhere. The board, on React Flow, keeps a
+toolbar of its own beside it, a deviation with an end ([its guide][board-deviations]).
 
 - **Look and behaviour** follow the Miragon design system, guide
   [`modeler-design-system.md`][guide] §5, §6, §8, §9, §11, §12 and §13.3 to §13.5 (skill
@@ -93,12 +94,14 @@ every optional input field accepts `undefined`, so a modeler compiling with
 
 ## Usage in a VS Code webview
 
-Extension host (0.8). The extensions of all five modelers register their text editors this way:
+Extension host (0.8). The extensions of all eight modelers register their text editors this way:
 Wardley Maps (`apps/vscode/src/mapEditor.ts` and `extension.ts`, shown here in one piece, its export
 and "New …" on the file commands of 0.9), Event Storming (`boardEditor.ts`), Team Topologies
-(`diagramEditor.ts`), Context Maps (`mapEditor.ts`) and Value Chain (`diagramEditor.ts`). Only the
-PNG editors, Context Maps' `.cm.png` and Team Topologies' `.tt.png` / `.ttm.png`, stay outside the
-plumbing: binary custom editors with a document of their own.
+(`diagramEditor.ts`), Context Maps (`mapEditor.ts`), Value Chain (`diagramEditor.ts`), C4
+(`diagramEditor.ts`, one editor for `.c4` and one for `.dsl`), Business Model Canvas
+(`diagramEditor.ts`) and the board (`boardEditor.ts`). Only the PNG editors, Context Maps'
+`.cm.png` and Team Topologies' `.tt.png` / `.ttm.png`, stay outside the plumbing: binary custom
+editors with a document of their own.
 
 ```ts
 import * as vscode from "vscode";
@@ -310,11 +313,12 @@ to `shell.root` itself (a dialog of its own) is the modeler's: it removes it in 
 for example on `diagram.destroy`, since `shell.destroy()` removes only what the shell added. The complete Event
 Storming extension on the document plumbing, with its export through `exportToFile`, is in
 [API.md][api]. Since 0.8 the document sync, the undo through the document and the problems pill
-are the shell's (`registerModelerEditor` and `connectDocumentSync`) in the extensions of all five
-modelers, for every editor but the two PNG editors (`.cm.png`, `.tt.png` / `.ttm.png`); the
-modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands are the
-shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`), in all five extensions since
-[#503](https://github.com/Miragon/modeler-suite/pull/503).
+are the shell's (`registerModelerEditor` and `connectDocumentSync`); the extensions of all eight
+modelers use them for every editor but the two PNG editors (`.cm.png`, `.tt.png` / `.ttm.png`),
+and the modeler keeps its diagnostics. The save dialogs of its exports and "New …" commands are
+the shell's since 0.9 (`exportToFile`, `registerNewDocumentCommand`): the five extensions of that
+time moved to them in [#503](https://github.com/Miragon/modeler-suite/pull/503), and all eight
+use them today, the board, which exports nothing, for "New …" alone.
 
 ## Usage in a web app
 
@@ -438,8 +442,11 @@ host's to `close()` in its teardown.
 
 ## The conformance kit
 
-Every modeler runs the kit in its own Playwright suite against its real webview or page. It checks
-the geometry of every island (±1px), that without a stored state the legend starts closed at 390 ×
+Every modeler but the board runs the kit in its own Playwright suite against its real webview or
+page. The board's e2e projects run specs of its own instead, a deviation with an end
+([its guide][board-deviations]):
+the kit's cases address a diagram-js canvas, and the board's is React Flow. The kit checks the
+geometry of every island (±1px), that without a stored state the legend starts closed at 390 ×
 844, 441 × 900 and 1280 × 900, ARIA and the keyboard models, that every chrome key acts exactly once
 and never reaches VS Code, that the canvas's own keys (Cmd/Ctrl+A) stay on the canvas, that a
 pointer click on the zoom panel, a palette tool, a File or Model menu action without a dialog or,
@@ -920,11 +927,11 @@ npm run test:vscode-smoke
 ```
 
 **Linux, in CI.** VS Code needs an X server: run the script under `xvfb-run -a` (without one,
-Playwright reports "Unable to open X display"). GitHub's `ubuntu-latest` has the libraries VS Code
-needs, as `@vscode/test-electron`'s own CI recipe relies on; the suite's CI runs the driver there
-for every modeler whose extension a pull request can change (a change to the shell reaches all
-five), on the newest stable VS Code and on the oldest that `engines.vscode` accepts. A job of your
-own, for example on demand and on pull requests with a label:
+Playwright reports "Unable to open X display"). GitHub's Ubuntu runners have the libraries VS Code
+needs, as `@vscode/test-electron`'s own CI recipe relies on; the suite's CI runs the driver on a
+pinned `ubuntu-24.04` for every modeler whose extension a pull request can change (a change to the
+shell reaches all eight), on the newest stable VS Code and on the oldest that `engines.vscode`
+accepts. A job of your own, for example on demand and on pull requests with a label:
 
 ```yaml
 vscode-smoke:
@@ -1101,3 +1108,4 @@ default; `build.rolldownOptions.output.comments.legal: true` keeps the notice in
 [guide]: https://github.com/Miragon/corporate-identity/blob/main/plugins/miragon-brand/skills/modeler-tool-design/assets/modeler-design-system.md
 [notes]: https://github.com/Miragon/modeler-suite/blob/main/docs/shell/implementation-notes.md
 [api]: https://github.com/Miragon/modeler-suite/blob/main/packages/shell/API.md
+[board-deviations]: https://github.com/Miragon/modeler-suite/blob/main/modelers/board/docs/ide-editor.md#three-deviations-under-the-shell-each-with-an-end

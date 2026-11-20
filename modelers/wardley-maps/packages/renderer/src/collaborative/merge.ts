@@ -3,43 +3,10 @@ import type { MapConfig, MapEdge, WardleyMap } from "@miragon/wardley-schema-mod
 import {
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   mergeRecord,
   type ModelTextMerge,
 } from "@miragon/modeler-api";
-
-interface Keyed<T> {
-  readonly key: string;
-  readonly value: T;
-}
-
-/** Keys repeated values by their occurrence, so two equal dependencies or lines stay two. */
-function keyedByOccurrence<T>(values: readonly T[], keyOf: (value: T) => string): Keyed<T>[] {
-  const seen = new Map<string, number>();
-  return values.map((value) => {
-    const base = keyOf(value);
-    const occurrence = (seen.get(base) ?? 0) + 1;
-    seen.set(base, occurrence);
-    return { key: `${base}#${occurrence}`, value };
-  });
-}
-
-function mergeKeyed<T>(
-  lists: readonly [readonly T[], readonly T[], readonly T[]],
-  keyOf: (value: T) => string,
-  conflicts: string[],
-): T[] {
-  const [base, external, draft] = lists.map((list) => keyedByOccurrence(list, keyOf)) as [
-    Keyed<T>[],
-    Keyed<T>[],
-    Keyed<T>[],
-  ];
-  const result = mergeItemsById(base, external, draft, { idOf: (item) => item.key });
-  if (result.conflictingIds) {
-    conflicts.push(...result.conflictingIds);
-    return [];
-  }
-  return result.merged.map((item) => item.value);
-}
 
 type EdgeWithoutId = Omit<MapEdge, "id">;
 
@@ -82,24 +49,26 @@ export const mergeOwmText: ModelTextMerge = (lastSyncedText, externalText, draft
   conflicts.push(...(config.conflictingIds ?? []).map((field) => `config.${field}`));
   const elements = mergeItemsById(base.elements, external.elements, draft.elements);
   conflicts.push(...(elements.conflictingIds ?? []));
-  const edges = mergeKeyed(
-    [base.edges, external.edges, draft.edges].map((list) => list.map(withoutPositionalId)) as [
-      EdgeWithoutId[],
-      EdgeWithoutId[],
-      EdgeWithoutId[],
-    ],
+  const edges = mergeItemsByOccurrence(
+    base.edges.map(withoutPositionalId),
+    external.edges.map(withoutPositionalId),
+    draft.edges.map(withoutPositionalId),
     edgeEnds,
-    conflicts,
   );
-  const rawPassthrough = mergeKeyed(
-    [base.rawPassthrough ?? [], external.rawPassthrough ?? [], draft.rawPassthrough ?? []],
+  conflicts.push(...(edges.conflictingIds ?? []));
+  const rawPassthrough = mergeItemsByOccurrence(
+    base.rawPassthrough ?? [],
+    external.rawPassthrough ?? [],
+    draft.rawPassthrough ?? [],
     (line) => line,
-    conflicts,
   );
+  conflicts.push(...(rawPassthrough.conflictingIds ?? []));
+  const mergedEdges = edges.merged ?? [];
+  const mergedRawPassthrough = rawPassthrough.merged ?? [];
   if (conflicts.length === 0) {
     const ids = new Set((elements.merged ?? []).map((element) => element.id));
     conflicts.push(
-      ...edges.filter((edge) => !ids.has(edge.from) || !ids.has(edge.to)).map(edgeEnds),
+      ...mergedEdges.filter((edge) => !ids.has(edge.from) || !ids.has(edge.to)).map(edgeEnds),
     );
   }
   if (conflicts.length > 0) throw new MergeConflictError(conflicts);
@@ -107,8 +76,8 @@ export const mergeOwmText: ModelTextMerge = (lastSyncedText, externalText, draft
     schemaVersion: draft.schemaVersion,
     config: config.merged as MapConfig,
     elements: elements.merged ?? [],
-    edges: numbered(edges),
-    ...(rawPassthrough.length > 0 ? { rawPassthrough } : {}),
+    edges: numbered(mergedEdges),
+    ...(mergedRawPassthrough.length > 0 ? { rawPassthrough: mergedRawPassthrough } : {}),
   };
   return patchDSL(draftText, merged, { previous: draft });
 };

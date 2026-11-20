@@ -10,7 +10,9 @@ import {
 import {
   MergeConflictError,
   mergeItemsById,
+  mergeItemsByOccurrence,
   sameJsonValue,
+  type MergeResult,
   type ModelTextMerge,
 } from "@miragon/modeler-api";
 
@@ -22,15 +24,10 @@ function mapVersions<T, U>(versions: Versions<T>, change: (value: T) => U): Vers
 }
 
 /**
- * Merges three lists by `idOf`, which also names an entry in a conflict. A conflict empties the
- * result; the caller throws once every part is merged, so the error names all of them.
+ * Adds the ids of a conflict to `conflicts` and returns the merged list, empty on a conflict. The
+ * caller throws once every part is merged, so the error names all of them.
  */
-function mergeById<T>(
-  lists: Versions<readonly T[]>,
-  idOf: (value: T) => string,
-  conflicts: string[],
-) {
-  const result = mergeItemsById(...lists, { idOf });
+function collectConflicts<T>(result: MergeResult<T[]>, conflicts: string[]): T[] {
   if (result.conflictingIds) {
     conflicts.push(...result.conflictingIds);
     return [];
@@ -38,18 +35,19 @@ function mergeById<T>(
   return result.merged;
 }
 
+/** Merges three lists by `idOf`, which also names an entry in a conflict. */
+function mergeById<T>(
+  lists: Versions<readonly T[]>,
+  idOf: (value: T) => string,
+  conflicts: string[],
+): T[] {
+  return collectConflicts(mergeItemsById(...lists, { idOf }), conflicts);
+}
+
 /** Notes have no ids: a note is all it says, and equal notes are told apart by their occurrence. */
 function mergeNotes(lists: Versions<readonly Note[]>, owner: string, conflicts: string[]): Note[] {
-  const keyed = mapVersions(lists, (notes) => {
-    const seen = new Map<string, number>();
-    return notes.map((note) => {
-      const base = `${owner}.note:${JSON.stringify([note.text, note.attributes])}`;
-      const occurrence = (seen.get(base) ?? 0) + 1;
-      seen.set(base, occurrence);
-      return { id: `${base}#${occurrence}`, note };
-    });
-  });
-  return mergeById(keyed, (entry) => entry.id, conflicts).map((entry) => entry.note);
+  const noteKey = (note: Note) => `${owner}.note:${JSON.stringify([note.text, note.attributes])}`;
+  return collectConflicts(mergeItemsByOccurrence(...lists, noteKey), conflicts);
 }
 
 const idOfField = (owner: string) => (field: Attribute) => `${owner}.${field.key}`;
