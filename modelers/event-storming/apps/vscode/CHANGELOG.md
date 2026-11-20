@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.9.8](https://github.com/Miragon/modeler-suite/compare/event-storming-vscode-v0.9.7...event-storming-vscode-v0.9.8) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/event-storming-renderer bumped from 0.10.0 to 0.11.0
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+    * event-storming-ide-editor bumped from 0.0.6 to 0.0.7
+
 ## [0.9.7](https://github.com/Miragon/modeler-suite/compare/event-storming-vscode-v0.9.6...event-storming-vscode-v0.9.7) (2026-11-14)
 
 

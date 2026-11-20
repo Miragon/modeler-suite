@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.1](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.10.0...context-maps-renderer-v0.10.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/modeler-api bumped from 1.7.0 to 2.0.0
+
 ## [0.10.0](https://github.com/Miragon/modeler-suite/compare/context-maps-renderer-v0.9.1...context-maps-renderer-v0.10.0) (2026-11-09)
 
 

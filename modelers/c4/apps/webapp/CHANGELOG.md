@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.8](https://github.com/Miragon/modeler-suite/compare/c4-webapp-v0.1.7...c4-webapp-v0.1.8) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/c4-renderer bumped from 0.2.0 to 0.2.1
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+
 ## [0.1.7](https://github.com/Miragon/modeler-suite/compare/c4-webapp-v0.1.6...c4-webapp-v0.1.7) (2026-11-14)
 
 

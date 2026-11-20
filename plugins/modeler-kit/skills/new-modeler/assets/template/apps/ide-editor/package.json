@@ -15,7 +15,7 @@
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",
     "@miragon/__NOTATION__-renderer": "0.0.0",
-    "@miragon/modeler-shell": "0.14.2",
+    "@miragon/modeler-shell": "0.15.0",
     "zod": "4.6.7"
   }
 }

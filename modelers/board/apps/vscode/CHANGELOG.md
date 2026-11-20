@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.1](https://github.com/Miragon/modeler-suite/compare/board-vscode-v0.4.0...board-vscode-v0.4.1) (2026-11-20)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @miragon/board-host bumped from 0.3.0 to 0.3.1
+    * @miragon/board-renderer bumped from 0.2.0 to 0.2.1
+    * @miragon/modeler-shell bumped from 0.14.2 to 0.15.0
+    * board-ide-editor bumped from 0.2.1 to 0.2.2
+    * board-suite-editors bumped from 0.3.0 to 0.3.1
+
 ## [0.4.0](https://github.com/Miragon/modeler-suite/compare/board-vscode-v0.3.0...board-vscode-v0.4.0) (2026-11-17)
 
 
