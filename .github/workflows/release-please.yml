@@ -192,7 +192,7 @@ jobs:
       - run: npm run build:shared
       - run: npm run "$MODELER" build:orca
       - id: orca
-        uses: Miragon/orca-plugin-kit/actions/setup-orca@245eb67fd57c4aeb5c163fce5553be0a27b1311c # v2.0.0
+        uses: Miragon/orca-plugin-kit/actions/setup-orca@342bd3cace64773b2502531cd8e12c08baac61a2 # v2.1.0
         with:
           channel: latest
           plugin-manifest: ${{ matrix.plugin.directory }}/orca-plugin.json
@@ -339,7 +339,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
           owner: miragon
           repositories: orca-plugins
-      - uses: Miragon/orca-plugin-kit/actions/publish-plugin@245eb67fd57c4aeb5c163fce5553be0a27b1311c # v2.0.0
+      - uses: Miragon/orca-plugin-kit/actions/publish-plugin@342bd3cace64773b2502531cd8e12c08baac61a2 # v2.1.0
         with:
           token: ${{ steps.app-token.outputs.token }}
           plugins-dir: orca-plugins
