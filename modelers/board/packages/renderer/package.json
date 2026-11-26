@@ -39,8 +39,8 @@
   "dependencies": {
     "@miragon/board-schema-model": "0.2.0",
     "@miragon/modeler-api": "2.0.0",
-    "dompurify": "3.4.17",
-    "lucide-react": "1.70.0",
+    "dompurify": "3.5.0",
+    "lucide-react": "1.78.0",
     "markdown-it": "15.0.3"
   },
   "peerDependencies": {
